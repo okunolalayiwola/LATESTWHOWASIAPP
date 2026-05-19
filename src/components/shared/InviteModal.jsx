@@ -1,0 +1,182 @@
+// src/components/shared/InviteModal.jsx
+// Generates and shares a family tree invite.
+// Stores invite codes in InstantDB `invites` collection.
+// Invited users receive a link that takes them to the shared family tree.
+// QR code generated via free qrserver.com API (no npm needed).
+
+import { useState } from 'react'
+import { motion }   from 'framer-motion'
+import { id }       from '@instantdb/react'
+import { db }       from '../../lib/instant'
+
+function generateCode() {
+  // 8-char alphanumeric code, URL-safe
+  return Math.random().toString(36).slice(2, 10).toUpperCase()
+}
+
+export default function InviteModal({ user, onClose }) {
+  const [code,    setCode]    = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [copied,  setCopied]  = useState(false)
+  const [copyType, setCopyType] = useState(null) // 'link' | 'code'
+  const [error,   setError]   = useState('')
+
+  const inviteLink = code
+    ? `${window.location.origin}/family-tree?invite=${code}`
+    : null
+
+  const qrUrl = code
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=240x240&bgcolor=0e0e0e&color=ffffff&margin=12&data=${encodeURIComponent(inviteLink)}`
+    : null
+
+  async function handleGenerate() {
+    setLoading(true)
+    try {
+      const newCode = generateCode()
+      const inviteId = id()
+
+      await db.transact([
+        db.tx.invites[inviteId].update({
+          code:          newCode,                 // FIX: was `code` (null)
+          familyOwnerId: user.id,
+          createdAt:     Date.now(),
+          expiresAt:     Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
+          used:          false,
+        }),
+      ])
+
+      setCode(newCode)
+    } catch (err) {
+      // If the DB write fails the code can't be redeemed, so surface it
+      // rather than showing a code that will never validate.
+      console.warn('Invite generation failed:', err)
+      setError('Could not create the invite. Check your connection and try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function copy(text, type) {
+    await navigator.clipboard.writeText(text)
+    setCopied(true); setCopyType(type)
+    setTimeout(() => { setCopied(false); setCopyType(null) }, 2500)
+  }
+
+  async function handleDownloadQR() {
+    if (!qrUrl) return
+    const res  = await fetch(qrUrl)
+    const blob = await res.blob()
+    const href = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = href
+    a.download = `family-tree-invite-${code}.png`
+    a.click()
+    URL.revokeObjectURL(href)
+  }
+
+  return (
+    <>
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+        onClick={onClose}
+        className="fixed inset-0 bg-black/75 z-40 backdrop-blur-sm"
+      />
+
+      {/* Sheet */}
+      <motion.div
+        initial={{ y:'100%' }} animate={{ y:0 }} exit={{ y:'100%' }}
+        transition={{ type:'spring', damping:30, stiffness:300 }}
+        className="fixed bottom-0 left-0 right-0 z-50 bg-[#0d0d0d] border-t border-white/10 rounded-t-3xl px-5 pt-4 pb-10 max-w-lg mx-auto"
+      >
+        {/* Handle */}
+        <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-5" />
+
+        <h3 className="font-display text-2xl font-bold text-white mb-1">Invite family</h3>
+        <p className="text-xs text-white/40 mb-6 leading-relaxed">
+          Share a link so family members can view your family tree and add tributes to memorials. Codes expire after 7 days.
+        </p>
+
+        {!code ? (
+          <>
+            {/* Generate button */}
+            <motion.button
+              whileTap={{ scale:0.97 }}
+              onClick={handleGenerate}
+              disabled={loading}
+              className="w-full py-4 rounded-2xl text-sm font-bold tracking-wider bg-gradient-to-r from-gold to-sky text-black hover:opacity-90 disabled:opacity-50 transition-opacity"
+            >
+              {loading
+                ? <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />Generating...</span>
+                : '✦ Generate invite link'}
+            </motion.button>
+            {error && <p className="text-xs text-rose/80 text-center mt-3">{error}</p>}
+          </>
+        ) : (
+          <>
+            {/* QR code */}
+            <div className="flex justify-center mb-5">
+              <div className="w-44 h-44 rounded-2xl overflow-hidden bg-[#111] flex items-center justify-center">
+                <img src={qrUrl} alt="Invite QR code" className="w-full h-full object-contain"
+                  onError={e => { e.target.style.display = 'none' }} />
+              </div>
+            </div>
+
+            {/* Code badge */}
+            <div className="text-center mb-5">
+              <div className="inline-flex items-center gap-3 glass border border-white/10 rounded-2xl px-6 py-3">
+                <span className="font-display text-2xl font-bold text-white tracking-[0.2em]">{code}</span>
+                <button onClick={() => copy(code, 'code')}
+                  className={`text-xs transition-colors ${copied && copyType==='code' ? 'text-gold' : 'text-white/30 hover:text-white/60'}`}>
+                  {copied && copyType==='code' ? '✓' : '⎘'}
+                </button>
+              </div>
+              <p className="text-[0.6rem] text-white/25 mt-2 tracking-widest uppercase">Expires in 7 days · Single use</p>
+            </div>
+
+            {/* Link field */}
+            <div className="glass border border-white/10 rounded-xl px-3 py-2.5 mb-4 flex items-center gap-2">
+              <p className="text-xs text-white/35 flex-1 truncate">{inviteLink}</p>
+              <button onClick={() => copy(inviteLink, 'link')}
+                className={`text-xs flex-shrink-0 transition-colors ${copied && copyType==='link' ? 'text-gold' : 'text-white/30 hover:text-white/60'}`}>
+                {copied && copyType==='link' ? '✓ Copied' : 'Copy'}
+              </button>
+            </div>
+
+            {/* Action buttons */}
+            <div className="space-y-2">
+              <button onClick={() => copy(inviteLink, 'link')}
+                className={`w-full py-3.5 rounded-xl text-xs font-bold tracking-wider transition-all ${
+                  copied && copyType==='link'
+                    ? 'bg-gold/20 border border-gold/40 text-gold'
+                    : 'bg-gradient-to-r from-gold to-sky text-black hover:opacity-90'
+                }`}>
+                {copied && copyType==='link' ? '✓ Link copied!' : 'Copy invite link'}
+              </button>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={handleDownloadQR}
+                  className="py-3 rounded-xl text-xs font-semibold glass border border-white/10 text-white/60 hover:text-white hover:border-white/20 transition-all">
+                  Download QR
+                </button>
+
+                {typeof navigator !== 'undefined' && navigator.share && (
+                  <button
+                    onClick={() => navigator.share({ title:'Join my family tree on WHO WAS I', url: inviteLink }).catch(()=>{})}
+                    className="py-3 rounded-xl text-xs font-semibold glass border border-white/10 text-white/60 hover:text-white hover:border-white/20 transition-all">
+                    Share via...
+                  </button>
+                )}
+              </div>
+
+              <button onClick={() => { setCode(null); setCopied(false) }}
+                className="w-full py-3 rounded-xl text-xs text-white/25 hover:text-white/45 transition-colors">
+                Generate new code
+              </button>
+            </div>
+          </>
+        )}
+      </motion.div>
+    </>
+  )
+}

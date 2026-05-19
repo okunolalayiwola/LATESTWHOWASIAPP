@@ -1,0 +1,14 @@
+{
+  "functions": {
+    "api/memorial-pdf.js": { "maxDuration": 30 }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)",   "destination": "/api/$1" },
+    { "source": "/sitemap.xml", "destination": "/api/sitemap" },
+    { "source": "/memorial/:id/og", "destination": "/api/og?id=:id" },
+    { "source": "/(.*)",       "destination": "/index.html" }
+  ],
+  "crons": [
+    { "path": "/api/send-anniversary", "schedule": "0 9 * * *" }
+  ]
+}
