@@ -18,8 +18,9 @@ function safeLazy(loader) {
       .catch(() => ({ default: () => null }))
   )
 }
-const QRModal  = safeLazy(() => import('../components/ui/QRModal'))
-const LifeReel = safeLazy(() => import('../components/ui/LifeReel'))
+const QRModal     = safeLazy(() => import('../components/ui/QRModal'))
+const LifeReel    = safeLazy(() => import('../components/ui/LifeReel'))
+const TalkScreen  = safeLazy(() => import('../components/ui/TalkScreen'))
 const Empty = () => null
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -537,14 +538,14 @@ function LegacyVaultCard({ memorialId, letterCount, sealedCount, hasWill }) {
 }
 
 // ─── Voice section ────────────────────────────────────────────────────────────
-function VoiceSection({ memorial }) {
-  const hasVoice = !!memorial.voiceUrl
-  const bio      = memorial.bio || memorial.description || memorial.subtitle || ''
-  const { state, toggle } = useVoice(hasVoice ? memorial.voiceUrl : null)
+// Play disc now opens TalkScreen — the cinematic AI conversation overlay.
+function VoiceSection({ memorial, onOpenTalk }) {
+  const hasVoice  = !!(memorial.voiceUrl || memorial.elevenLabsVoiceId)
+  const bio       = memorial.bio || memorial.description || memorial.subtitle || ''
   const firstName = memorial.name?.split(' ')[0] || 'them'
   const alive     = memorial.alive !== false
 
-  if (!hasVoice && !bio) return null
+  if (!hasVoice && !bio && !memorial.name) return null
 
   return (
     <Card variant="ink" style={{ padding: 0, position: 'relative', overflow: 'hidden' }}>
@@ -578,56 +579,44 @@ function VoiceSection({ memorial }) {
           </h3>
           <p style={{ color: 'rgba(241,236,225,.6)', fontSize: 14, lineHeight: 1.55, margin: 0 }}>
             {hasVoice
-              ? 'A reconstructed voice from letters, voicenotes and recordings.'
-              : 'Upload voice samples to generate a talking AI avatar.'}
+              ? `An AI conversation drawing on ${firstName}'s life, voice and memories.`
+              : `An AI conversation drawing on ${firstName}'s life story and tributes.`}
           </p>
-          <WaveformBars playing={state === 'playing'} />
+          <WaveformBars playing={false} />
         </div>
 
-        {/* Right — saffron play disc */}
+        {/* Right — saffron play disc → opens TalkScreen */}
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          {hasVoice ? (
-            <motion.button
-              whileHover={{ translateY: -2, scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={toggle}
-              aria-label={state === 'playing' ? 'Pause voice' : 'Play voice'}
-              style={{
-                position: 'relative', width: 160, height: 160, borderRadius: '50%',
-                background: state === 'playing'
-                  ? 'linear-gradient(155deg, #fff3 0%, rgba(243,178,26,.4) 100%)'
-                  : 'linear-gradient(155deg, #ffd166 0%, #f3b21a 45%, #d99206 100%)',
-                border: 'none',
-                boxShadow: '0 24px 48px -8px rgba(243,178,26,.55), 0 10px 24px -6px rgba(0,0,0,.45)',
-                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-              <div style={{ position: 'absolute', inset: -22, borderRadius: '50%', zIndex: -1,
-                background: 'radial-gradient(circle, rgba(243,178,26,.30) 0%, rgba(243,178,26,.08) 45%, transparent 70%)',
-                pointerEvents: 'none' }} />
-              {state === 'loading' ? (
-                <div style={{ width: 32, height: 32, border: '3px solid rgba(255,255,255,.3)',
-                  borderTopColor: '#fff', borderRadius: '50%', animation: 'spin .7s linear infinite' }} />
-              ) : state === 'playing' ? (
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <div style={{ width: 6, height: 32, background: '#fff', borderRadius: 3 }} />
-                  <div style={{ width: 6, height: 32, background: '#fff', borderRadius: 3 }} />
-                </div>
-              ) : (
-                <div style={{ width: 0, height: 0,
-                  borderLeft: '34px solid #ffffff', borderTop: '21px solid transparent',
-                  borderBottom: '21px solid transparent', marginLeft: 10,
-                  filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.18)) drop-shadow(0 0 18px rgba(255,255,255,.35))' }} />
-              )}
-            </motion.button>
-          ) : (
-            <div style={{ width: 160, height: 160, borderRadius: '50%',
-              background: 'rgba(241,236,225,.06)', border: '1px solid rgba(241,236,225,.10)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexDirection: 'column', gap: 6, textAlign: 'center', padding: 20 }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(241,236,225,.3)" strokeWidth="1.5" strokeLinecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-              <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '.18em', textTransform: 'uppercase', color: 'rgba(241,236,225,.3)' }}>No voice yet</span>
-            </div>
-          )}
+          <motion.button
+            whileHover={{ translateY: -2, scale: 1.03 }}
+            whileTap={{ scale: 0.96 }}
+            onClick={() => onOpenTalk?.()}
+            aria-label={`Talk with ${firstName}`}
+            style={{
+              position: 'relative', width: 160, height: 160, borderRadius: '50%',
+              background: 'linear-gradient(155deg, #ffd166 0%, #f3b21a 45%, #d99206 100%)',
+              border: 'none',
+              boxShadow: '0 24px 48px -8px rgba(243,178,26,.55), 0 10px 24px -6px rgba(0,0,0,.45)',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexDirection: 'column', gap: 8,
+            }}>
+            {/* Ambient glow halo */}
+            <div style={{ position: 'absolute', inset: -22, borderRadius: '50%', zIndex: -1,
+              background: 'radial-gradient(circle, rgba(243,178,26,.30) 0%, rgba(243,178,26,.08) 45%, transparent 70%)',
+              pointerEvents: 'none' }} />
+            {/* Mic icon */}
+            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              style={{ width: 32, height: 32, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,.25))' }}>
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+            <span style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '.18em', textTransform: 'uppercase',
+              color: 'rgba(255,255,255,.85)', fontWeight: 600 }}>
+              Talk with {firstName}
+            </span>
+          </motion.button>
         </div>
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }
@@ -1018,6 +1007,7 @@ function MemorialDetailPageInner() {
   const [submitting,      setSubmitting]      = useState(false)
   const [shareToast,      setShareToast]      = useState(false)
   const [showQR,          setShowQR]          = useState(false)
+  const [showTalkScreen,  setShowTalkScreen]  = useState(false)
 
   const { user } = db.useAuth()
 
@@ -1167,7 +1157,7 @@ function MemorialDetailPageInner() {
               {activeTab === 'Story' && (
                 <motion.div key="story" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                   style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <VoiceSection memorial={memorial} />
+                  <VoiceSection memorial={memorial} onOpenTalk={() => setShowTalkScreen(true)} />
                   <StoryCard memorial={memorial} />
                   {tributes.length > 0 && (
                     <TributesSection tributes={tributes} onLike={handleLikeTribute} onDelete={handleDeleteTribute}
@@ -1264,6 +1254,21 @@ function MemorialDetailPageInner() {
         {showQR && (
           <Suspense fallback={null}>
             <QRModal onClose={() => setShowQR(false)} url={shareUrl} name={memorial.name} />
+          </Suspense>
+        )}
+      </AnimatePresence>
+
+      {/* ── TalkScreen — cinematic AI conversation overlay ─────────────────
+           position:fixed; inset:8px — tiny gap around every edge
+           X button and "End session" both call onClose → setShowTalkScreen(false) */}
+      <AnimatePresence>
+        {showTalkScreen && (
+          <Suspense fallback={null}>
+            <TalkScreen
+              memorial={memorial}
+              memorialId={memorialId}
+              onClose={() => setShowTalkScreen(false)}
+            />
           </Suspense>
         )}
       </AnimatePresence>
