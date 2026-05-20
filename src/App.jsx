@@ -59,28 +59,53 @@ function AuthLoader() {
 }
 
 // ─── Onboarding guard ─────────────────────────────────────────────────────────
+// Rules:
+//  1. Brand-new visitor (no wwi_has_visited in localStorage) → /onboarding
+//  2. Logged-in user with completed profile → set the flag + allow through
+//  3. Logged-in user without completed profile → /onboarding
+//
+// Public routes (explore, memorial pages, landing) are always skipped so
+// guests can browse without being blocked.
 
 function OnboardingGuard({ children }) {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const { user } = db.useAuth()
+  const navigate  = useNavigate()
+  const location  = useLocation()
+  const { user, isLoading } = db.useAuth()
 
   const { data } = db.useQuery(
     user ? { profiles: { $: { where: { userId: user.id } } } } : null
   )
 
-  const SKIP = ['/', '/auth', '/onboarding', '/privacy', '/terms', '/explore', '/premium', '/dashboard', '/profile', '/settings', '/family-tree']
-  const shouldSkip = SKIP.some(p => location.pathname === p)
+  // Routes that are always accessible — no onboarding check
+  const SKIP = ['/', '/auth', '/onboarding', '/privacy', '/terms', '/explore', '/premium']
+  const shouldSkip = SKIP.includes(location.pathname)
     || location.pathname.startsWith('/memorial')
     || location.pathname.startsWith('/connect')
 
   useEffect(() => {
-    if (!user || shouldSkip || !data) return
-    const profile = data.profiles?.[0]
-    if (!profile || profile.onboarded === false) {
+    if (shouldSkip || isLoading) return
+
+    // ── Logged-in user ─────────────────────────────────────────────────────
+    if (user) {
+      if (!data) return  // wait for profile query
+      const profile = data.profiles?.[0]
+      if (profile?.onboarded === true) {
+        // Fully onboarded — stamp the localStorage flag so the guest check
+        // below never fires again on this device
+        localStorage.setItem('wwi_has_visited', '1')
+        return
+      }
+      // Logged in but onboarding not completed
+      navigate('/onboarding', { replace: true })
+      return
+    }
+
+    // ── Guest / unauthenticated user ───────────────────────────────────────
+    const visited = localStorage.getItem('wwi_has_visited')
+    if (!visited) {
       navigate('/onboarding', { replace: true })
     }
-  }, [user, data, shouldSkip, navigate])
+  }, [user, data, shouldSkip, isLoading, navigate])
 
   return children
 }

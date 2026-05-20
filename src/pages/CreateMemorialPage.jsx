@@ -654,11 +654,16 @@ export default function CreateMemorialPage() {
   const { toast }  = useToast()
   const { user }   = db.useAuth()
 
+  // Guest users (signed in with signInAsGuest — no email) must create a real
+  // account before they can publish a memorial.
+  const isGuest = !!(user && !user.email)
+
   const isSelf = searchParams.get('self') === '1'
 
   const [step,   setStep]   = useState(0)
   const [form,   setForm]   = useState(initForm)
   const [saving, setSaving] = useState(false)
+  const [showGuestGate, setShowGuestGate] = useState(false)
 
   function validateStep() {
     if (step === 0 && !form.name.trim()) {
@@ -677,8 +682,9 @@ export default function CreateMemorialPage() {
     if (!validateStep()) return
     if (step < STEPS.length - 1) { setStep(s => s + 1); return }
 
-    // Publish
+    // Publish — guests must upgrade to a real account first
     if (!user) { toast.error('Please sign in to create a memorial'); navigate('/auth'); return }
+    if (isGuest) { setShowGuestGate(true); return }
     setSaving(true)
     try {
       const memId     = id()
@@ -740,6 +746,32 @@ export default function CreateMemorialPage() {
 
   return (
     <div className="relative z-10 min-h-screen pb-32">
+
+      {/* ── Guest gate modal ──────────────────────────────────────────────── */}
+      {showGuestGate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-6"
+          style={{ background: 'rgba(0,0,0,0.80)', backdropFilter: 'blur(8px)' }}>
+          <div className="w-full max-w-sm glass-strong rounded-3xl p-8 text-center border border-gold/20">
+            <div className="text-4xl mb-4">✦</div>
+            <h2 className="font-display text-2xl font-bold text-white mb-2">Create an account</h2>
+            <p className="text-sm text-white/55 leading-relaxed mb-6">
+              You're browsing as a guest. Create a free account to save this memorial, manage your vault, and access everything you build.
+            </p>
+            <button
+              onClick={() => navigate('/auth')}
+              className="w-full py-4 rounded-2xl text-sm font-bold text-black metal-btn mb-3"
+            >
+              Create account / Sign in →
+            </button>
+            <button
+              onClick={() => setShowGuestGate(false)}
+              className="w-full py-3 text-xs text-white/40 hover:text-white/60 transition-colors"
+            >
+              Continue browsing as guest
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Top bar ───────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-5 pt-16 pb-4">
