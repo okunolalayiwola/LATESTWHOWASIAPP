@@ -10,6 +10,7 @@ import { db } from '../lib/instant'
 import { useToast } from '../contexts/ToastContext'
 import { uploadImage } from '../lib/storage'
 import { SkeletonProfile, SkeletonListItem } from '../components/ui/Skeleton'
+import SettingsRow from '../components/ui/SettingsRow'
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -18,27 +19,6 @@ function SectionHeader({ label }) {
     <p className="text-[0.65rem] font-bold tracking-[0.22em] uppercase text-cream-dim mb-3 mt-8 first:mt-0">
       {label}
     </p>
-  )
-}
-
-function SettingRow({ label, value, onClick, danger, icon }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`w-full flex items-center justify-between px-5 py-4 hover:bg-white/[0.04] transition-colors group ${danger ? 'text-red-400' : 'text-white'}`}
-    >
-      <div className="flex items-center gap-3">
-        {icon && <span className="text-base w-5 text-center opacity-60">{icon}</span>}
-        <span className="text-sm">{label}</span>
-      </div>
-      <div className="flex items-center gap-2">
-        {value && <span className="text-xs text-white/30 truncate max-w-[120px]">{value}</span>}
-        <svg className="w-3.5 h-3.5 text-white/20 group-hover:text-white/40 transition-colors flex-shrink-0"
-          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-        </svg>
-      </div>
-    </button>
   )
 }
 
@@ -265,9 +245,9 @@ export default function SettingsPage() {
       <motion.div initial={{ opacity:0,y:12 }} animate={{ opacity:1,y:0 }} transition={{ delay:0.1 }} className="mx-5">
         <SectionHeader label="Account" />
         <div className="glass rounded-2xl overflow-hidden divide-y divide-white/5">
-          <SettingRow icon="✦" label="Display name" value={displayName} onClick={() => setModal('name')} />
-          <SettingRow icon="◎" label="Email address" value={user.email} onClick={() => {}} />
-          <SettingRow icon="✿" label="Family Tree" onClick={() => navigate('/family-tree')} />
+          <SettingsRow icon="✦" label="Display name" value={displayName} onClick={() => setModal('name')} />
+          <SettingsRow info icon="◎" label="Email address" value={user.email} />
+          <SettingsRow icon="✿" label="Family Tree" onClick={() => navigate('/family-tree')} />
         </div>
       </motion.div>
 
@@ -275,9 +255,9 @@ export default function SettingsPage() {
       <motion.div initial={{ opacity:0,y:12 }} animate={{ opacity:1,y:0 }} transition={{ delay:0.15 }} className="mx-5">
         <SectionHeader label="Memorials" />
         <div className="glass rounded-2xl overflow-hidden divide-y divide-white/5">
-          <SettingRow icon="♡" label="My memorials"      onClick={() => navigate('/dashboard')} />
-          <SettingRow icon="◎" label="Create a memorial"  onClick={() => navigate('/create')}    />
-          <SettingRow icon="✦" label="Explore memorials"  onClick={() => navigate('/explore')}   />
+          <SettingsRow icon="♡" label="My memorials"      onClick={() => navigate('/dashboard')} />
+          <SettingsRow icon="◎" label="Create a memorial"  onClick={() => navigate('/create')}    />
+          <SettingsRow icon="✦" label="Explore memorials"  onClick={() => navigate('/explore')}   />
         </div>
       </motion.div>
 
@@ -285,9 +265,9 @@ export default function SettingsPage() {
       <motion.div initial={{ opacity:0,y:12 }} animate={{ opacity:1,y:0 }} transition={{ delay:0.2 }} className="mx-5">
         <SectionHeader label="About" />
         <div className="glass rounded-2xl overflow-hidden divide-y divide-white/5">
-          <SettingRow icon="☽" label="Who Was I" value="v2.0" onClick={() => {}} />
-          <SettingRow icon="◎" label="Privacy policy"  onClick={() => navigate('/privacy')} />
-          <SettingRow icon="✦" label="Terms of service" onClick={() => navigate('/terms')}   />
+          <SettingsRow info icon="☽" label="Who Was I" value="v2.0" />
+          <SettingsRow icon="◎" label="Privacy policy"  onClick={() => navigate('/privacy')} />
+          <SettingsRow icon="✦" label="Terms of service" onClick={() => navigate('/terms')}   />
         </div>
       </motion.div>
 
@@ -295,8 +275,8 @@ export default function SettingsPage() {
       <motion.div initial={{ opacity:0,y:12 }} animate={{ opacity:1,y:0 }} transition={{ delay:0.25 }} className="mx-5">
         <SectionHeader label="Account actions" />
         <div className="glass rounded-2xl overflow-hidden divide-y divide-white/5">
-          <SettingRow icon="→" label="Sign out"        onClick={() => setModal('signout')} />
-          <SettingRow icon="✕" label="Delete account"  onClick={() => setModal('delete')} danger />
+          <SettingsRow icon="→" label="Sign out"        onClick={() => setModal('signout')} />
+          <SettingsRow icon="✕" label="Delete account"  onClick={() => setModal('delete')} danger />
         </div>
       </motion.div>
 

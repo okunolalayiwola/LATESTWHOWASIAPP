@@ -2,6 +2,8 @@
 // Autosave at every step — persists to localStorage + InstantDB.
 // If user closes the tab or connection drops, progress is fully restored.
 // Gate: route guard in App.jsx already blocks access until onboarded=true.
+//
+// Steps: 0=name, 1=who for (self/other), 2=action, 3=invite
 
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -12,7 +14,7 @@ import { redeemInvite } from '../lib/invites'
 import authBg from '../assets/auth-bg.webp'
 
 const LS_KEY = 'wwi_onboarding_draft'
-const STEPS  = ['Your name', 'Create first memorial', 'Invite family']
+const STEPS  = ['Your name', 'Who for', 'Create first memorial', 'Invite family']
 
 // ─── Autosave helpers ─────────────────────────────────────────────────────────
 
@@ -34,7 +36,8 @@ export default function OnboardingPage() {
 
   const [step,     setStep]     = useState(0)
   const [name,     setName]     = useState('')
-  const [action,   setAction]   = useState('create')   // 'create' | 'explore' | 'import'
+  const [intent,   setIntent]   = useState('')      // 'self' | 'other'
+  const [action,   setAction]   = useState('create') // 'create' | 'explore' | 'import'
   const [inviteCode, setInviteCode] = useState('')
   const [saving,   setSaving]   = useState(false)
   const [error,    setError]    = useState('')
@@ -46,24 +49,23 @@ export default function OnboardingPage() {
     if (draft?.name) {
       setName(draft.name)
       if (draft.step > 0) {
-        setStep(Math.min(draft.step, 1))  // don't skip past step 1
+        setStep(Math.min(draft.step, 2))  // don't skip past step 2
         setRestored(true)
       }
+      if (draft.intent) setIntent(draft.intent)
       if (draft.action) setAction(draft.action)
     }
   }, [])
 
   // ── Autosave whenever inputs change ───────────────────────────────────────
   useEffect(() => {
-    saveDraft({ name, step, action })
-  }, [name, step, action])
+    saveDraft({ name, step, intent, action })
+  }, [name, step, intent, action])
 
   // ── Also save profile to InstantDB at each step ───────────────────────────
-  // So if they close the tab after step 1, they resume with their name saved
   async function saveProgressToDB(partial = {}) {
     if (!user) return
     try {
-      // Upsert profile with partial data — onboarded stays false until complete
       const { data } = await db.queryOnce({ profiles: { $: { where: { userId: user.id } } } })
       const existing = data?.profiles?.[0]
       const profileId = existing?.id || id()
@@ -71,7 +73,7 @@ export default function OnboardingPage() {
         db.tx.profiles[profileId].update({
           userId:     user.id,
           displayName: name.trim() || partial.displayName,
-          onboarded:  false,    // stays false until final step
+          onboarded:  false,
           createdAt:  existing?.createdAt || Date.now(),
           ...partial,
         })
@@ -93,7 +95,14 @@ export default function OnboardingPage() {
     }
 
     if (step === 1) {
+      if (!intent) { setError('Please choose one to continue.'); return }
+      setError('')
       setStep(2)
+      return
+    }
+
+    if (step === 2) {
+      setStep(3)
       return
     }
 
@@ -115,6 +124,7 @@ export default function OnboardingPage() {
             displayName: name.trim(),
             onboarded:   true,
             plan:        'free',
+            intent:      intent || 'other',
             createdAt:   existing?.createdAt || Date.now(),
           })
         ])
@@ -124,7 +134,6 @@ export default function OnboardingPage() {
       if (inviteCode.trim() && user) {
         const result = await redeemInvite(inviteCode.trim(), user)
         if (!result.ok) {
-          // Non-blocking: show a toast but still complete onboarding
           console.warn('Invite redemption:', result.reason)
         }
       }
@@ -132,7 +141,8 @@ export default function OnboardingPage() {
       clearDraft()
       setSaving(false)
 
-      if (action === 'create') navigate('/create')
+      if (action === 'create' && intent === 'self') navigate('/create?self=1')
+      else if (action === 'create') navigate('/create')
       else if (action === 'import') navigate('/explore')
       else navigate('/dashboard')
 
@@ -214,9 +224,49 @@ export default function OnboardingPage() {
             </motion.div>
           )}
 
-          {/* ── STEP 1: First action ──────────────────────────────────── */}
+          {/* ── STEP 1: Who are you here for? ─────────────────────────── */}
           {step === 1 && (
             <motion.div key="s1" initial={{ opacity:0,x:24 }} animate={{ opacity:1,x:0 }} exit={{ opacity:0,x:-24 }}>
+              <h1 className="font-display text-3xl font-bold text-white mb-2">
+                Who are you here for?
+              </h1>
+              <p className="text-sm text-white/70 mb-7 leading-relaxed">
+                This shapes how your vault and legacy tools work. You can create both
+                kinds later — this is just where you'd like to begin.
+              </p>
+              <div className="space-y-3">
+                {[
+                  {
+                    id:'self', emoji:'✦', title:'Myself — a living legacy',
+                    desc:'Preserve your own voice, story, letters and will. Your private vault is yours, to be opened by family in time.'
+                  },
+                  {
+                    id:'other', emoji:'♡', title:'Someone else — to honour them',
+                    desc:'Build a memorial for someone you love. Your vault becomes your private archive about them.'
+                  },
+                ].map(opt => (
+                  <button key={opt.id} onClick={() => { setIntent(opt.id); setError('') }}
+                    className={`w-full text-left p-4 rounded-2xl transition-all flex items-start gap-4 ${
+                      intent === opt.id
+                        ? 'bg-zinc-800 border border-gold/40 shadow-lg'
+                        : 'bg-zinc-900/90 border border-white/10 hover:border-white/25 hover:bg-zinc-800'
+                    }`}>
+                    <span className="text-2xl flex-shrink-0 mt-0.5">{opt.emoji}</span>
+                    <div>
+                      <div className={`text-sm font-semibold ${intent===opt.id ? 'text-white' : 'text-white/70'}`}>{opt.title}</div>
+                      <div className="text-xs text-white/50 mt-0.5 leading-relaxed">{opt.desc}</div>
+                    </div>
+                    {intent === opt.id && <span className="ml-auto text-gold flex-shrink-0">✓</span>}
+                  </button>
+                ))}
+              </div>
+              {error && <p className="text-xs text-rose mt-3">{error}</p>}
+            </motion.div>
+          )}
+
+          {/* ── STEP 2: First action ──────────────────────────────────── */}
+          {step === 2 && (
+            <motion.div key="s2" initial={{ opacity:0,x:24 }} animate={{ opacity:1,x:0 }} exit={{ opacity:0,x:-24 }}>
               <h1 className="font-display text-3xl font-bold text-white mb-2">
                 Welcome, {name.split(' ')[0]} ✦
               </h1>
@@ -247,9 +297,9 @@ export default function OnboardingPage() {
             </motion.div>
           )}
 
-          {/* ── STEP 2: Invite (optional) ────────────────────────────── */}
-          {step === 2 && (
-            <motion.div key="s2" initial={{ opacity:0,x:24 }} animate={{ opacity:1,x:0 }} exit={{ opacity:0,x:-24 }}>
+          {/* ── STEP 3: Invite (optional) ────────────────────────────── */}
+          {step === 3 && (
+            <motion.div key="s3" initial={{ opacity:0,x:24 }} animate={{ opacity:1,x:0 }} exit={{ opacity:0,x:-24 }}>
               <h1 className="font-display text-3xl font-bold text-white mb-2">Invite your family</h1>
               <p className="text-sm text-white/70 mb-7 leading-relaxed">
                 Have an invite code from a family member? Enter it to connect to their family archive.
@@ -293,7 +343,7 @@ export default function OnboardingPage() {
             </button>
           )}
 
-          {step === 2 && (
+          {step === 3 && (
             <button onClick={async () => {
               setSaving(true);
               try { await completeOnboarding(); } catch {}

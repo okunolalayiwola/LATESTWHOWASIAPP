@@ -131,7 +131,7 @@ function StepPerson({ form, setForm }) {
 function StepStory({ form, setForm }) {
   const [uploading,    setUploading]    = useState(false)
   const [uploadPct,    setUploadPct]    = useState(0)
-  const [photoPreview, setPhotoPreview] = useState(form.coverPhotoUrl || null)
+  const [photoPreview, setPhotoPreview] = useState(form.photoUrl || null)
   const fileRef = useRef()
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
 
@@ -141,7 +141,7 @@ function StepStory({ form, setForm }) {
     setUploading(true)
     try {
       const url = await uploadImage(file, setUploadPct, 'memorials')
-      setForm(f => ({ ...f, coverPhotoUrl: url }))
+      setForm(f => ({ ...f, photoUrl: url }))
     } finally { setUploading(false); setUploadPct(0) }
   }
 
@@ -212,7 +212,7 @@ function StepPrivacy({ form, setForm }) {
 
       {/* Preview card */}
       <div className={`relative h-32 rounded-2xl overflow-hidden bg-gradient-to-br ${form.color||'from-stone-800 to-stone-950'}`}>
-        {form.coverPhotoUrl && <img src={form.coverPhotoUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />}
+        {form.photoUrl && <img src={form.photoUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
         <div className="absolute bottom-0 left-0 p-4">
           <div className="font-display text-xl font-bold text-white">{form.name || 'Name'}</div>
@@ -302,7 +302,7 @@ export default function EditMemorialPage() {
       bio:           m.bio           ?? '',
       location:      m.location      ?? '',
       color:         m.color         ?? COLORS[0].value,
-      coverPhotoUrl: m.coverPhoto    ?? null,
+      photoUrl:      m.photo        ?? null,
       visibility:    m.visibility    ?? 'public',
       allowTributes: m.allowTributes ?? true,
     })
@@ -330,8 +330,7 @@ export default function EditMemorialPage() {
           deathYear:     !form.alive && form.deathYear ? Number(form.deathYear) : null,
           years,
           color:         form.color,
-          coverPhoto:    form.coverPhotoUrl,
-          photo:         form.coverPhotoUrl,
+          photo:         form.photoUrl,
           visibility:    form.visibility,
           allowTributes: form.allowTributes,
           updatedAt:     Date.now(),

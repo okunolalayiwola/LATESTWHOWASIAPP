@@ -80,6 +80,7 @@ export default defineConfig({
 
   build: {
     target: 'es2020',
+    minify: false,
     cssCodeSplit: true,
     assetsInlineLimit: 4096,        // <4KB assets → data URI (fewer requests)
     chunkSizeWarningLimit: 600,
@@ -100,8 +101,4 @@ export default defineConfig({
     },
   },
 
-  esbuild: {
-    // Strip noise from production bundles
-    drop: ['console', 'debugger'],
-  },
 })

@@ -1,4 +1,4 @@
-u// src/hooks/useActivityFeed.js
+// src/hooks/useActivityFeed.js
 // Unified activity feed for the Dashboard — merges tributes, candles, memories,
 // family member joins, vault letters, and upcoming birthdays/anniversaries into
 // a single sorted feed with past and upcoming buckets.

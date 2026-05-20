@@ -1,4 +1,4 @@
-// src/instant.schema.ts — adds wills entity + memorialWills link
+// src/instant.schema.ts — adds wills entity + memorialWills link + intent/isSelf
 // Drop this in to replace the existing schema file.
 
 import { i } from "@instantdb/react"
@@ -41,6 +41,7 @@ const _schema = i.schema({
       voiceDuration:      i.number().optional(),
       elevenLabsVoiceId:  i.string().optional(),
       viewCount:          i.number().optional(),
+      isSelf:             i.boolean().optional(),  // true = this memorial IS the creator
     }),
 
     tributes: i.entity({
@@ -71,6 +72,7 @@ const _schema = i.schema({
       notifyAnniversaries: i.boolean().optional(),
       notifyTributes:      i.boolean().optional(),
       notifyFamily:        i.boolean().optional(),
+      intent:             i.string().optional(),   // 'self' | 'other' (onboarding answer)
     }),
 
     photos: i.entity({

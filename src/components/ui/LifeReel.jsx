@@ -16,6 +16,11 @@
 //   ✦ Date badge — styled glass pill with calendar icon, dates from social import.
 //   ✦ Timeline scrubber — chronological markers, year labels at range ends.
 //   ✦ Parallax text — name/subtitle moves at 0.6× speed of the photo.
+//
+// Props:
+//   photos    — array of photo objects with { url, takenAt, date, caption, createdAt }
+//   memorial  — object with { name, years, subtitle, alive }
+//   musicUrl  — optional ambient audio URL
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -138,7 +143,7 @@ function AnimatedName({ text = '', triggerKey, delay = 0.5 }) {
 // ─── Typographic still (no photos) ───────────────────────────────────────────
 
 function TypographicStill({ memorial }) {
-  const { name, years, subtitle, alive } = memorial
+  const { name, years, subtitle, alive } = memorial || {}
   const glow = alive ? 'rgba(74,170,74,0.14)' : 'rgba(200,160,30,0.11)'
 
   return (
@@ -207,7 +212,7 @@ function Slide({ media, moveIdx, name, years, subtitle, showText, date, caption,
   const imgRef  = useRef(null)
   const gsapRef = useRef(null)
   const displayDate = fmtDate(date)
-  const move = KB_MOVES[moveIdx % KB_MOVES.length]
+  const move = KB_MOVES[(moveIdx || 0) % KB_MOVES.length]
 
   // GSAP Ken Burns — starts when the element mounts (i.e. when slide becomes active)
   useEffect(() => {
@@ -422,9 +427,9 @@ function useMusicPlayer(src) {
 export default function LifeReel({
   photos    = [],
   memorial  = {},
-  musicUrl  = null,   // optional ambient background music URL
+  musicUrl  = null,
 }) {
-  const { name, years, subtitle, alive } = memorial
+  const { name, years, subtitle, alive } = memorial || {}
 
   const containerRef  = useRef(null)
   const [current,     setCurrent]     = useState(0)
@@ -438,7 +443,7 @@ export default function LifeReel({
   const { playing: musicPlaying, toggle: toggleMusic } = useMusicPlayer(musicUrl)
 
   // Sort by date (oldest first)
-  const slides = photos
+  const slides = (photos || [])
     .filter(p => p.url)
     .sort((a, b) => {
       const ad = a.takenAt || (a.createdAt ? a.createdAt / 1000 : 0)
@@ -554,20 +559,20 @@ export default function LifeReel({
           <AnimatePresence>
             {letterbox && (
               <motion.div
+                key="letterbox-top"
                 initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} exit={{ scaleY: 0 }}
-                style={{ transformOrigin: 'top' }}
                 transition={{ duration: 0.4 }}
                 className="absolute inset-x-0 top-0 z-40 pointer-events-none"
-                style={{ height: '9%', background: '#000' }}
+                style={{ height: '9%', background: '#000', transformOrigin: 'top' }}
               />
             )}
             {letterbox && (
               <motion.div
+                key="letterbox-bottom"
                 initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} exit={{ scaleY: 0 }}
                 transition={{ duration: 0.4 }}
-                style={{ transformOrigin: 'bottom' }}
                 className="absolute inset-x-0 bottom-0 z-40 pointer-events-none"
-                style={{ height: '9%', background: '#000' }}
+                style={{ height: '9%', background: '#000', transformOrigin: 'bottom' }}
               />
             )}
           </AnimatePresence>

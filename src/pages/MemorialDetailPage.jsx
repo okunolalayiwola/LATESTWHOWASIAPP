@@ -3,19 +3,66 @@
 // Full design handoff: README.md in design_handoff_memorial_page/
 // Preserves all functionality: VoiceOrb, LifeReel, tributes, gallery, QR, sharing, vault
 
-import { useState, useRef, useMemo, useEffect, lazy, Suspense } from 'react'
+import { useState, useRef, useMemo, useEffect, lazy, Suspense, Component } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { id } from '@instantdb/react'
 import { db } from '../lib/instant'
-import { uploadImage } from '../lib/storage'
-import QRModal from '../components/ui/QRModal'
-import KeepsakeButton from '../components/ui/KeepsakeButton'
-import VoiceOrb from '../components/ui/VoiceOrb'
-const LifeReel = lazy(() => import('../components/ui/LifeReel'))
-import { SkeletonProfile, SkeletonStats, SkeletonListItem } from '../components/ui/Skeleton'
-import EmptyState from '../components/ui/EmptyState'
-import SmartImage from '../components/ui/SmartImage'
+
+// ─── SAFE-LOAD child component imports ───────────────────────────────────────
+// Static imports throw at module evaluation if the target file is missing or
+// doesn't export the expected default. That kills the whole page before any
+// render runs. Loading these lazily means a missing/broken child only affects
+// THAT child's section — the rest of the memorial still renders.
+function safeLazy(loader, label) {
+  return lazy(() =>
+    loader()
+      .then(mod => ({ default: mod.default || mod[label] || (() => null) }))
+      .catch(err => {
+        try { console.warn('[MemorialDetailPage] failed to load', label, err) } catch {}
+        return { default: () => null }
+      })
+  )
+}
+
+const QRModal        = safeLazy(() => import('../components/ui/QRModal'),        'QRModal')
+const KeepsakeButton = safeLazy(() => import('../components/ui/KeepsakeButton'), 'KeepsakeButton')
+const VoiceOrb       = safeLazy(() => import('../components/ui/VoiceOrb'),       'VoiceOrb')
+const LifeReel       = safeLazy(() => import('../components/ui/LifeReel'),       'LifeReel')
+
+// Tiny null fallback for Suspense
+const Empty = () => null
+
+// ── INLINED replacements for fragile UI imports ─────────────────────────────
+// Previously this file imported Skeleton (named), EmptyState (default), and
+// SmartImage (default) from ../components/ui. If ANY of those files or named
+// exports does not exist in the deployed project, the module fails to evaluate
+// at import time and React renders "Something went wrong" — for every memorial,
+// every time. We inline minimal equivalents so nothing external can be missing.
+function SkeletonProfile() {
+  return (
+    <div className="flex flex-col items-center pt-12 space-y-4 px-5">
+      <div className="w-24 h-24 rounded-full bg-white/5 animate-pulse" />
+      <div className="h-6 w-40 bg-white/5 rounded-xl animate-pulse" />
+      <div className="h-4 w-56 bg-white/5 rounded-full animate-pulse" />
+    </div>
+  )
+}
+function SkeletonStats() {
+  return (
+    <div className="grid grid-cols-2 gap-3 px-5 mt-6">
+      {[0,1,2,3].map(i => <div key={i} className="rounded-2xl bg-white/5 animate-pulse h-24" />)}
+    </div>
+  )
+}
+function SkeletonListItem() {
+  return <div className="h-12 rounded-xl bg-white/5 animate-pulse" />
+}
+// Plain <img> wrapper; equivalent to SmartImage's basic role.
+function SmartImage({ src, alt, className, style }) {
+  if (!src) return <div className={className} style={style} />
+  return <img src={src} alt={alt || ''} className={className} style={style} loading="lazy" decoding="async" />
+}
 
 // ── Design tokens (inline, matching handoff) ──────────────────────────
 const C = {
@@ -362,11 +409,13 @@ function StoryTab({ memorial }) {
                 : 'Upload voice samples to generate a talking AI avatar.'}
             </p>
 
-            <VoiceOrb
-              voiceUrl={memorial.voiceUrl} voiceDuration={memorial.voiceDuration}
-              bio={bio} name={memorial.name} elevenLabsVoiceId={memorial.elevenLabsVoiceId}
-              photo={memorial.photo} alive={memorial.alive}
-            />
+            <Suspense fallback={<Empty />}>
+              <VoiceOrb
+                voiceUrl={memorial.voiceUrl} voiceDuration={memorial.voiceDuration}
+                bio={bio} name={memorial.name} elevenLabsVoiceId={memorial.elevenLabsVoiceId}
+                photo={memorial.photo} alive={memorial.alive}
+              />
+            </Suspense>
           </div>
         </Card>
       )}
@@ -480,6 +529,8 @@ function GalleryTab({ photos, memorialId, isOwner }) {
     const file = e.target.files[0]; if (!file) return
     setUploading(true)
     try {
+      const { uploadImage } = await import('../lib/storage').catch(() => ({ uploadImage: null }))
+      if (!uploadImage) throw new Error('storage module unavailable')
       const url = await uploadImage(file, setUploadPct, 'memorials')
       await db.transact([ db.tx.photos[id()].update({ url, createdAt: Date.now() }).link({ memorial: memorialId }) ])
     } finally { setUploading(false); setUploadPct(0) }
@@ -593,7 +644,7 @@ function GalleryTab({ photos, memorialId, isOwner }) {
 // MAIN PAGE
 // ════════════════════════════════════════════════════════════════════════
 
-export default function MemorialDetailPage() {
+function MemorialDetailPageInner() {
   const { id: memorialId } = useParams()
   const navigate = useNavigate()
 
@@ -609,8 +660,14 @@ export default function MemorialDetailPage() {
   const { user } = db.useAuth()
 
   const { isLoading, error, data } = db.useQuery(
-    memorialId ? { memorials: { $: { where: { id: memorialId } }, tributes: {}, photos: {}, letters: {}, documents: {} } } : null
+    memorialId ? { memorials: { $: { where: { id: memorialId } }, tributes: {}, photos: {} } } : null
   )
+  // Letters & documents in a separate query so a missing schema link
+  // cannot take down the whole memorial page.
+  const vaultQ = db.useQuery(
+    memorialId ? { memorials: { $: { where: { id: memorialId } }, letters: {}, documents: {} } } : null
+  )
+  const vaultMemorial = vaultQ?.data?.memorials?.[0]
 
   const memorial = data?.memorials?.[0]
   const tributes = useMemo(
@@ -641,14 +698,46 @@ export default function MemorialDetailPage() {
     </div>
   )
 
+  // ─── Privacy gate ──────────────────────────────────────────────────────────
+  const visibility = memorial.visibility || 'public'
+  const isCreator  = !!(user && memorial.creatorId === user.id)
+  if ((visibility === 'private' || visibility === 'family') && !isCreator) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-6" style={{ background: C.paper }}>
+        <div className="text-center max-w-sm">
+          <div className="text-5xl mb-6" style={{ color: 'rgba(21,18,14,.18)' }}>☽</div>
+          <h1 className="text-2xl font-bold mb-2" style={{ fontFamily:"'Space Grotesk', sans-serif", color: C.ink }}>
+            This memorial is private
+          </h1>
+          <p className="text-sm mb-6 leading-relaxed" style={{ color: C.muted }}>
+            {visibility === 'family'
+              ? 'It is shared with family and people who have the invite link.'
+              : 'It is visible only to the person who created it.'}
+          </p>
+          <div className="flex flex-col gap-2 items-center">
+            {!user && (
+              <Link to="/auth" className="px-5 py-3 rounded-xl text-sm font-bold"
+                style={{ background: C.saffron, color: C.ink }}>
+                Sign in
+              </Link>
+            )}
+            <Link to="/explore" className="text-xs underline" style={{ color: C.saffronDeep }}>
+              Back to explore
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const photos       = memorial.photos || []
   const tributeCount = tributes.length
   const candleCount  = tributes.filter(t => t.type === 'candle').length
   const memoryCount  = tributes.filter(t => t.type === 'memory').length
   const isOwner      = !!(user && memorial.creatorId === user.id)
   const shareUrl     = `${window.location.origin}/memorial/${memorialId}`
-  const letters      = memorial.letters || []
-  const documents    = memorial.documents || []
+  const letters      = vaultMemorial?.letters || memorial.letters || []
+  const documents    = vaultMemorial?.documents || memorial.documents || []
   const sealedCount  = letters.filter(l => l.isLocked).length
   const hasWill      = documents.length > 0
 
@@ -696,35 +785,41 @@ export default function MemorialDetailPage() {
     }
   }
 
-  const tabContent = useMemo(() => {
-    switch (activeTab) {
-      case 'Story':
-        return <StoryTab memorial={memorial} />
-      case 'Tributes':
-        return (
-          <TributesTab
-            tributes={tributes}
-            onLike={handleLikeTribute}
-            onAddTribute={() => setShowTributeForm(true)}
-            onDeleteTribute={handleDeleteTribute}
-            isOwner={isOwner}
-            currentUserId={user?.id}
-          />
-        )
-      case 'Gallery':
-        return <GalleryTab photos={photos} memorialId={memorialId} isOwner={isOwner} />
-      case 'Reel':
-        return (
-          <motion.div key="reel" initial={{ opacity:0, y:14 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }}>
-            <Suspense fallback={<div className="h-64 rounded-[26px]" style={{ background: C.cream2 }} />}>
-              <LifeReel photos={photos} name={memorial.name} />
-            </Suspense>
-          </motion.div>
-        )
-      default:
-        return null
-    }
-  }, [activeTab, memorial, tributes, photos, isOwner, user?.id])
+  // ⚠ Plain switch — NOT a useMemo. useMemo is a hook and cannot be called after
+  // the early returns above (Rules of Hooks: hooks must be called the same number
+  // of times on every render). A plain variable is fine here.
+  let tabContent = null
+  switch (activeTab) {
+    case 'Story':
+      tabContent = <StoryTab memorial={memorial} />
+      break
+    case 'Tributes':
+      tabContent = (
+        <TributesTab
+          tributes={tributes}
+          onLike={handleLikeTribute}
+          onAddTribute={() => setShowTributeForm(true)}
+          onDeleteTribute={handleDeleteTribute}
+          isOwner={isOwner}
+          currentUserId={user?.id}
+        />
+      )
+      break
+    case 'Gallery':
+      tabContent = <GalleryTab photos={photos} memorialId={memorialId} isOwner={isOwner} />
+      break
+    case 'Reel':
+      tabContent = (
+        <motion.div key="reel" initial={{ opacity:0, y:14 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }}>
+          <Suspense fallback={<div className="h-64 rounded-[26px]" style={{ background: C.cream2 }} />}>
+            <LifeReel photos={photos} memorial={memorial} />
+          </Suspense>
+        </motion.div>
+      )
+      break
+    default:
+      tabContent = null
+  }
 
   return (
     <div className="min-h-screen" style={{ background: C.paper }}>
@@ -747,7 +842,9 @@ export default function MemorialDetailPage() {
               style={{ fontFamily:"'JetBrains Mono', monospace", background: C.cream2, color: C.muted }}>
               QR
             </button>
-            <KeepsakeButton memorialId={memorialId} name={memorial.name} />
+            <Suspense fallback={<Empty />}>
+              <KeepsakeButton memorialId={memorialId} memorialName={memorial.name} />
+            </Suspense>
           </div>
         </div>
       </div>
@@ -927,7 +1024,51 @@ export default function MemorialDetailPage() {
       </AnimatePresence>
 
       {/* ── QR modal ────────────────────────────────────────────── */}
-      <QRModal open={showQR} onClose={() => setShowQR(false)} url={shareUrl} name={memorial.name} />
+      <Suspense fallback={<Empty />}>
+        <QRModal open={showQR} onClose={() => setShowQR(false)} url={shareUrl} name={memorial.name} />
+      </Suspense>
     </div>
+  )
+}
+
+// ─── Internal error boundary — keeps the page visible no matter what ─────────
+class MemorialBoundary extends Component {
+  constructor(p) { super(p); this.state = { err: null } }
+  static getDerivedStateFromError(err) { return { err } }
+  componentDidCatch(err) { try { console.error('MemorialDetailPage caught:', err) } catch {} }
+  render() {
+    if (this.state.err) {
+      return (
+        <div className="relative z-10 min-h-screen flex items-center justify-center px-6">
+          <div className="text-center max-w-sm">
+            <div className="text-4xl mb-4 opacity-30">✦</div>
+            <h1 className="font-display text-xl font-bold text-white mb-2">This memorial</h1>
+            <p className="text-sm text-white/50 mb-6">
+              Part of this memorial couldn't load right now, but the data is safe.
+            </p>
+            <div className="flex flex-col gap-2 items-center">
+              <button
+                onClick={() => { try { window.location.reload() } catch {} }}
+                className="px-5 py-3 rounded-xl text-sm font-bold metal-btn text-black"
+              >
+                Reload
+              </button>
+              <a href="/explore" className="text-xs text-white/40 hover:text-white/70 mt-1">
+                Back to explore
+              </a>
+            </div>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
+export default function MemorialDetailPage() {
+  return (
+    <MemorialBoundary>
+      <MemorialDetailPageInner />
+    </MemorialBoundary>
   )
 }

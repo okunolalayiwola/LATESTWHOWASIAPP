@@ -576,22 +576,23 @@ export default function DashboardPage() {
 
                 {/* Quick actions */}
                 <div className="qa">
-                  <Link to="/create">
-                    <div className="qic butter">+</div>
-                    <div className="qt">New Memorial</div>
-                    <div className="qs">Create a living tribute</div>
+                  <Link to={memorials.length > 0 ? `/memorial/${memorials[0].id}/letters` : "/create"}>
+                    <div className="qic butter">🔒</div>
+                    <div className="qt">Legacy Vault</div>
+                    <div className="qs">Secure letters, wills & documents</div>
                     <span className="arr">→</span>
                   </Link>
-                  <Link to="/family">
+
+                  <Link to="/family-tree">
                     <div className="qic rose">👨‍👩‍👧</div>
                     <div className="qt">Family Tree</div>
                     <div className="qs">Manage relatives & access</div>
                     <span className="arr">→</span>
                   </Link>
-                  <Link to="/settings">
+                  <Link to="/profile">
                     <div className="qic mint">⚙️</div>
-                    <div className="qt">Settings</div>
-                    <div className="qs">Profile, billing & more</div>
+                    <div className="qt">Profile</div>
+                    <div className="qs">View & edit your profile</div>
                     <span className="arr">→</span>
                   </Link>
                   <Link to="/premium" className="premium">

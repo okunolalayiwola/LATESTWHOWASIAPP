@@ -5,9 +5,11 @@
 // Step 3: Privacy & publish   — visibility, final review
 //
 // Writes to InstantDB memorials collection via db.transact().
+// Supports ?self=1 query param — when set, the memorial is marked as
+// the creator's own living legacy (isSelf=true, relation='self').
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { id } from '@instantdb/react'
 import { db } from '../lib/instant'
@@ -234,7 +236,7 @@ function VoiceRecorder({ form, setForm }) {
 
 // ─── Step components ──────────────────────────────────────────────────────────
 
-function StepPerson({ form, setForm }) {
+function StepPerson({ form, setForm, isSelf }) {
   const set  = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
   const setB = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -244,10 +246,6 @@ function StepPerson({ form, setForm }) {
   const [avatarPreview, setAvatarPreview] = useState(form.photoUrl || null)
   const [avatarUploading, setAvatarUploading] = useState(false)
   const avatarRef = useRef()
-
-  // Banner upload
-  const bannerRef = useRef(null)
-  const [bannerPreview, setBannerPreview] = useState(form.coverPhotoUrl || null)
 
   // Relation picker
   const [showRelationPicker, setShowRelationPicker] = useState(false)
@@ -266,16 +264,6 @@ function StepPerson({ form, setForm }) {
     } finally {
       setAvatarUploading(false)
     }
-  }
-
-  async function handleBanner(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setBannerPreview(URL.createObjectURL(file))
-    try {
-      const url = await uploadImage(file, undefined, 'memorials/banners')
-      setForm(f => ({ ...f, coverPhotoUrl: url }))
-    } catch (err) { console.warn('banner upload failed:', err) }
   }
 
   return (
@@ -309,38 +297,15 @@ function StepPerson({ form, setForm }) {
               {avatarPreview ? 'Change photo' : 'Upload photo'}
             </button>
             <p className="text-[0.55rem] text-white/30 mt-1">
-              The portrait of the person this memorial honours — not your own profile photo.
+              {isSelf
+                ? 'This is your portrait — the face of your living legacy.'
+                : 'The portrait of the person this memorial honours — not your own profile photo.'}
             </p>
           </div>
         </div>
         <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={handleAvatar} />
       </div>
 
-      {/* Banner / Cover photo */}
-      <div>
-        <label className="block text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim mb-2">
-          Cover photo (optional)
-        </label>
-        <div
-          onClick={() => bannerRef.current?.click()}
-          className={`relative w-full h-28 rounded-2xl border border-dashed border-white/15 flex flex-col items-center justify-center cursor-pointer hover:border-gold/30 transition-all overflow-hidden group`}
-        >
-          {bannerPreview ? (
-            <>
-              <img src={bannerPreview} alt="" className="absolute inset-0 w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <span className="text-xs text-white font-semibold">Change cover</span>
-              </div>
-            </>
-          ) : (
-            <>
-              <span className="text-xl opacity-20 mb-1">✦</span>
-              <span className="text-[0.6rem] text-white/30">Add a cover photo</span>
-            </>
-          )}
-        </div>
-        <input ref={bannerRef} type="file" accept="image/*" className="hidden" onChange={handleBanner} />
-      </div>
 
       <div>
         <label className="block text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim mb-2">
@@ -351,32 +316,34 @@ function StepPerson({ form, setForm }) {
           className={inputCls}
           value={form.name}
           onChange={set('name')}
-          placeholder="e.g. Grace Okonkwo"
+          placeholder={isSelf ? "e.g. Your full name" : "e.g. Grace Okonkwo"}
         />
       </div>
 
-      <div>
-        <label className="block text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim mb-2">
-          Your relation to them
-        </label>
-        <button
-          type="button"
-          onClick={() => setShowRelationPicker(true)}
-          className={`w-full flex items-center justify-between rounded-2xl px-4 py-3.5 text-sm transition-colors ${
-            form.relation
-              ? 'bg-white/5 border border-gold/40 text-white'
-              : 'bg-white/5 border border-white/10 text-white/40 hover:text-white/60 hover:border-white/20'
-          }`}
-        >
-          <span>{form.relation ? getRelationLabel(form.relation) : 'Select relation...'}</span>
-          <svg className="w-4 h-4 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-        {relationError && (
-          <p className="text-[0.6rem] text-red-400 mt-1">{relationError}</p>
-        )}
-      </div>
+      {!isSelf && (
+        <div>
+          <label className="block text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim mb-2">
+            Your relation to them
+          </label>
+          <button
+            type="button"
+            onClick={() => setShowRelationPicker(true)}
+            className={`w-full flex items-center justify-between rounded-2xl px-4 py-3.5 text-sm transition-colors ${
+              form.relation
+                ? 'bg-white/5 border border-gold/40 text-white'
+                : 'bg-white/5 border border-white/10 text-white/40 hover:text-white/60 hover:border-white/20'
+            }`}
+          >
+            <span>{form.relation ? getRelationLabel(form.relation) : 'Select relation...'}</span>
+            <svg className="w-4 h-4 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {relationError && (
+            <p className="text-[0.6rem] text-red-400 mt-1">{relationError}</p>
+          )}
+        </div>
+      )}
 
       {/* Relation Picker Modal */}
       <AnimatePresence>
@@ -454,7 +421,7 @@ function StepPerson({ form, setForm }) {
 function StepStory({ form, setForm }) {
   const [uploading,   setUploading]   = useState(false)
   const [uploadPct,   setUploadPct]   = useState(0)
-  const [photoPreview, setPhotoPreview] = useState(form.coverPhotoUrl || null)
+  const [photoPreview, setPhotoPreview] = useState(form.photoUrl || null)
   const fileRef = useRef()
 
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
@@ -466,7 +433,7 @@ function StepStory({ form, setForm }) {
     setUploading(true)
     try {
       const url = await uploadImage(file, setUploadPct, 'memorials')
-      setForm(f => ({ ...f, coverPhotoUrl: url }))
+      setForm(f => ({ ...f, photoUrl: url }))
     } catch {
       // If upload fails, use preview-only (can be re-uploaded later)
     } finally {
@@ -565,7 +532,7 @@ function StepStory({ form, setForm }) {
   )
 }
 
-function StepPublish({ form, setForm }) {
+function StepPublish({ form, setForm, isSelf }) {
   const years = form.birthYear && form.deathYear
     ? `${form.birthYear} — ${form.deathYear}`
     : form.birthYear
@@ -581,8 +548,8 @@ function StepPublish({ form, setForm }) {
     >
       {/* Preview card */}
       <div className={`relative h-36 rounded-2xl overflow-hidden bg-gradient-to-br ${form.color || 'from-stone-800 to-stone-950'}`}>
-        {form.coverPhotoUrl && (
-          <img src={form.coverPhotoUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        {form.photoUrl && (
+          <img src={form.photoUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
         <div className="absolute bottom-0 left-0 p-4 flex items-center gap-3">
@@ -675,7 +642,6 @@ const initForm = () => ({
   location:      '',
   color:         COLORS[0].value,
   photoUrl:      null,
-  coverPhotoUrl: null,
   voiceUrl:      null,
   voiceDuration: null,
   visibility:    'public',
@@ -684,8 +650,11 @@ const initForm = () => ({
 
 export default function CreateMemorialPage() {
   const navigate   = useNavigate()
+  const [searchParams] = useSearchParams()
   const { toast }  = useToast()
   const { user }   = db.useAuth()
+
+  const isSelf = searchParams.get('self') === '1'
 
   const [step,   setStep]   = useState(0)
   const [form,   setForm]   = useState(initForm)
@@ -736,7 +705,7 @@ export default function CreateMemorialPage() {
         db.tx.memorials[memId].update({
           name:              form.name.trim(),
           subtitle:          form.subtitle.trim(),
-          relation:          form.relation.trim(),
+          relation:          isSelf ? 'self' : form.relation.trim(),
           bio:               form.bio.trim(),
           location:          form.location.trim(),
           alive:             form.alive,
@@ -745,7 +714,6 @@ export default function CreateMemorialPage() {
           years,
           color:             form.color,
           photo:             form.photoUrl,
-          coverPhoto:        form.coverPhotoUrl,
           visibility:        form.visibility,
           allowTributes:     form.allowTributes,
           voiceUrl:          form.voiceUrl,
@@ -755,6 +723,7 @@ export default function CreateMemorialPage() {
           createdBy:         user.id,
           createdAt:         Date.now(),
           updatedAt:         Date.now(),
+          isSelf:            isSelf || undefined,  // true when this memorial IS the creator
         }),
       ])
 
@@ -811,8 +780,9 @@ export default function CreateMemorialPage() {
         </h1>
         {step === 0 && (
           <p className="text-xs text-white/35 mt-1">
-            You're creating a memorial for someone else. Your own account profile is
-            managed separately in the Profile tab.
+            {isSelf
+              ? "You're creating your own living legacy — a memorial for yourself. Your story, your voice, preserved forever."
+              : "You're creating a memorial for someone else. Your own account profile is managed separately in the Profile tab."}
           </p>
         )}
       </div>
@@ -820,42 +790,29 @@ export default function CreateMemorialPage() {
       {/* ── Step content ───────────────────────────────────────────────────── */}
       <div className="px-5">
         <AnimatePresence mode="wait">
-          {step === 0 && <StepPerson  key="p" form={form} setForm={setForm} />}
+          {step === 0 && <StepPerson  key="p" form={form} setForm={setForm} isSelf={isSelf} />}
           {step === 1 && <StepStory   key="s" form={form} setForm={setForm} />}
-          {step === 2 && <StepPublish key="r" form={form} setForm={setForm} />}
+          {step === 2 && <StepPublish key="c" form={form} setForm={setForm} isSelf={isSelf} />}
         </AnimatePresence>
       </div>
 
-      {/* ── CTA ────────────────────────────────────────────────────────────── */}
-      <div className="fixed bottom-0 left-0 right-0 px-5 pb-safe z-30"
-        style={{ paddingBottom: 'max(20px, env(safe-area-inset-bottom))' }}
-      >
-        <div className="bg-black/80 backdrop-blur-xl pt-4 -mx-5 px-5">
+      {/* ── CTA ──────────────────────────────────────────────────────────────── */}
+      <div className="fixed bottom-0 left-0 right-0 p-5 z-20" style={{ background: 'linear-gradient(to top, #000 60%, transparent)' }}>
+        <div className="max-w-sm mx-auto">
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={handleNext}
             disabled={saving}
-            className="w-full py-4 rounded-2xl text-sm font-bold tracking-wider bg-gradient-to-r from-gold to-sky text-black hover:opacity-90 transition-opacity disabled:opacity-50 mb-3"
+            className="w-full py-4 rounded-2xl text-sm font-bold tracking-wide text-black metal-btn disabled:opacity-50"
           >
             {saving
               ? <span className="flex items-center justify-center gap-2">
-                  <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                  Creating memorial...
+                  <div className="w-4 h-4 border-2 border-black/20 border-t-black/70 rounded-full animate-spin" />
+                  Creating memorial…
                 </span>
-              : step < STEPS.length - 1
-              ? 'Continue →'
-              : `Publish ${form.name ? `${form.name}'s memorial` : 'memorial'} ✦`
+              : step < STEPS.length - 1 ? 'Continue →' : 'Publish memorial ✦'
             }
           </motion.button>
-
-          {step < STEPS.length - 1 && (
-            <button
-              onClick={() => setStep(s => s + 1)}
-              className="w-full py-2 text-xs text-white/25 hover:text-white/40 transition-colors mb-2"
-            >
-              Skip for now
-            </button>
-          )}
         </div>
       </div>
 
