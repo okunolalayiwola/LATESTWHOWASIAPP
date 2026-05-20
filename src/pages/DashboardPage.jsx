@@ -280,6 +280,37 @@ const CSS = `
 .spin{ width:20px; height:20px; border:2px solid rgba(247,217,74,.3);
   border-top-color:var(--butter-2); border-radius:50%; animation:rot .8s linear infinite; }
 @keyframes rot{ to{ transform:rotate(360deg); } }
+
+/* ── Vault picker modal ──────────────────────────────────────────── */
+.vp-backdrop{ position:fixed; inset:0; background:rgba(14,11,8,.72);
+  backdrop-filter:blur(6px); z-index:1000;
+  display:flex; align-items:center; justify-content:center; padding:20px; }
+.vp-sheet{ background:var(--card-bg); border:1px solid var(--card-line-2);
+  border-radius:28px; padding:24px; width:100%; max-width:420px;
+  box-shadow:0 32px 80px rgba(14,11,8,.5); }
+.vp-title{ font-size:20px; font-weight:800; color:var(--card-text);
+  letter-spacing:-.02em; margin:0 0 4px; }
+.vp-sub{ font-size:13px; color:var(--card-text-2); margin:0 0 20px; }
+.vp-item{ display:flex; align-items:center; gap:14px; padding:12px 14px;
+  border-radius:16px; cursor:pointer; text-decoration:none;
+  border:1px solid transparent; transition:background .15s,border-color .15s; }
+.vp-item:hover{ background:rgba(247,241,227,.06); border-color:var(--card-line-2); }
+.vp-av{ width:44px; height:44px; border-radius:12px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Fraunces',serif; font-style:italic; font-size:24px; color:var(--ink); }
+.vp-av img{ width:100%; height:100%; object-fit:cover; border-radius:12px; }
+.vp-av.alive{ background:var(--mint); }
+.vp-av.gold{ background:var(--butter); }
+.vp-name{ font-size:16px; font-weight:700; color:var(--card-text); letter-spacing:-.01em; }
+.vp-hint{ font-size:12px; color:var(--card-text-2); margin-top:2px; }
+.vp-badge{ margin-left:auto; font-size:11px; font-weight:700;
+  background:var(--butter); color:var(--ink);
+  padding:3px 9px; border-radius:999px; flex-shrink:0; }
+.vp-cancel{ display:block; width:100%; margin-top:16px; padding:11px;
+  background:rgba(247,241,227,.06); border:1px solid var(--card-line);
+  border-radius:14px; color:var(--card-text-2); font-family:inherit;
+  font-size:14px; font-weight:600; cursor:pointer; transition:background .15s; }
+.vp-cancel:hover{ background:rgba(247,241,227,.10); }
 `
 
 // ── tiny inline icons (stroke, currentColor) ─────────────────────────────────
@@ -420,7 +451,8 @@ function EventCard({ ev, navigate }) {
 export default function DashboardPage() {
   const navigate = useNavigate()
   const { user, isLoading: authLoading } = db.useAuth()
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab,       setActiveTab]       = useState('overview')
+  const [showVaultPicker, setShowVaultPicker] = useState(false)
 
   // Redirect unauthenticated users to auth page
   useEffect(() => {
@@ -444,7 +476,8 @@ export default function DashboardPage() {
     = usePullToRefresh(async () => { await new Promise(r => setTimeout(r, 800)) })
 
 
-  const memorials     = data?.memorials     || []
+  // Sort memorials newest-first so [0] is always the most recent
+  const memorials     = (data?.memorials || []).slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
   const profile       = data?.profiles?.[0]
   const familyMembers = data?.familyMembers || []
   const invites       = data?.invites       || []
@@ -476,6 +509,14 @@ export default function DashboardPage() {
   }
 
   const displayName = profile?.displayName || user?.email?.split('@')[0] || 'there'
+
+  // Vault button handler — direct if one memorial, picker if many, create if none
+  function openVault(e) {
+    e.preventDefault()
+    if (memorials.length === 0) { navigate('/create'); return }
+    if (memorials.length === 1) { navigate(`/memorial/${memorials[0].id}/letters`); return }
+    setShowVaultPicker(true)
+  }
 
   const TABS = [
     { id:'overview', label:'Overview', badge: memorials.length },
@@ -576,12 +617,12 @@ export default function DashboardPage() {
 
                 {/* Quick actions */}
                 <div className="qa">
-                  <Link to={memorials.length > 0 ? `/memorial/${memorials[0].id}/letters` : "/create"}>
+                  <a href="#" onClick={openVault}>
                     <div className="qic butter">🔒</div>
                     <div className="qt">Legacy Vault</div>
-                    <div className="qs">Secure letters, wills & documents</div>
+                    <div className="qs">{memorials.length > 1 ? `${memorials.length} vaults available` : 'Secure letters, wills & documents'}</div>
                     <span className="arr">→</span>
-                  </Link>
+                  </a>
 
                   <Link to="/family-tree">
                     <div className="qic rose">👨‍👩‍👧</div>
@@ -659,6 +700,56 @@ export default function DashboardPage() {
 
         </div>{/* .cw */}
       </div>{/* .canvas */}
+
+      {/* ── Vault picker modal ────────────────────────────────────── */}
+      <AnimatePresence>
+        {showVaultPicker && (
+          <motion.div
+            className="vp-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowVaultPicker(false)}
+          >
+            <motion.div
+              className="vp-sheet"
+              initial={{ opacity: 0, y: 24, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 16, scale: 0.97 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+              onClick={e => e.stopPropagation()}
+            >
+              <p className="vp-title">🔒 Legacy Vault</p>
+              <p className="vp-sub">Choose which memorial vault to open</p>
+
+              {memorials.map(m => {
+                const isAlive = m.alive !== false
+                return (
+                  <a
+                    key={m.id}
+                    className="vp-item"
+                    onClick={() => { setShowVaultPicker(false); navigate(`/memorial/${m.id}/letters`) }}
+                  >
+                    <div className={`vp-av ${isAlive ? 'alive' : 'gold'}`}>
+                      {m.photo ? <img src={m.photo} alt="" /> : (m.name?.charAt(0) || '?').toLowerCase()}
+                    </div>
+                    <div>
+                      <div className="vp-name">{m.name}</div>
+                      <div className="vp-hint">{m.years || m.location || (isAlive ? 'Living' : 'Passed')}</div>
+                    </div>
+                    <span className="vp-badge">Open →</span>
+                  </a>
+                )
+              })}
+
+              <button className="vp-cancel" onClick={() => setShowVaultPicker(false)}>
+                Cancel
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   )
 }
