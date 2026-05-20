@@ -57,26 +57,29 @@ IMPORTANT: This is a sacred space for grieving families. Every response should f
 }
 
 // ─── AI response generator ────────────────────────────────────────────────────
+// Calls the /api/chat serverless proxy — the Anthropic key lives server-side
+// only and is never shipped to the browser.
 
 async function generateResponse(messages, memorial, tributes) {
-  const systemPrompt = buildSystemPrompt(memorial, tributes)
+  const system = buildSystemPrompt(memorial, tributes)
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const response = await fetch('/api/chat', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({
-      model:      'claude-sonnet-4-20250514',
-      max_tokens: 300,
-      system:     systemPrompt,
-      messages:   messages.map(m => ({
-        role:    m.role,
-        content: m.content,
-      })),
+      system,
+      maxTokens: 300,
+      messages: messages.map(m => ({ role: m.role, content: m.content })),
     }),
   })
 
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}))
+    throw new Error(err.error || `API error ${response.status}`)
+  }
+
   const data = await response.json()
-  return data.content?.[0]?.text || "I'm here with you, always."
+  return data.text || "I'm here with you, always."
 }
 
 // ─── Message bubble ───────────────────────────────────────────────────────────
