@@ -94,7 +94,7 @@ export default function FamilyTreePage() {
         />
       )}
 
-      {/* ── Centre label — person's name in the middle ──────────────────── */}
+      {/* ── Centre label — user's name in the middle, always visible when nothing selected ── */}
       {!selected && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -104,7 +104,7 @@ export default function FamilyTreePage() {
             position: 'absolute', top: '50%', left: '50%',
             transform: 'translate(-50%, -50%)',
             textAlign: 'center', pointerEvents: 'none', zIndex: 5,
-            // Offset so text appears just below the center node
+            // Offset so text sits just below where the center node would appear
             marginTop: 60,
           }}
         >
@@ -122,6 +122,32 @@ export default function FamilyTreePage() {
           }}>
             {userName}
           </p>
+
+          {/* Empty state hint — shown inline below user's name, not as a conflicting overlay */}
+          {!isLoading && members.length === 0 && (
+            <div style={{ marginTop: 14 }}>
+              <p style={{
+                fontFamily: "'Inter', -apple-system, sans-serif",
+                fontSize: 11, color: 'rgba(255,255,255,0.28)', marginBottom: 10,
+              }}>
+                No connections yet
+              </p>
+              <button
+                onClick={() => setShowAdd(true)}
+                style={{
+                  pointerEvents: 'auto',
+                  background: 'rgba(255,215,0,0.10)',
+                  border: '1px solid rgba(255,215,0,0.25)',
+                  borderRadius: 20, padding: '8px 20px',
+                  color: 'rgba(255,215,0,0.75)',
+                  fontFamily: "'Inter', sans-serif",
+                  fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                }}
+              >
+                + Add first member
+              </button>
+            </div>
+          )}
         </motion.div>
       )}
 
@@ -205,23 +231,7 @@ export default function FamilyTreePage() {
         </div>
       </div>
 
-      {/* Empty state */}
-      {!isLoading && members.length === 0 && (
-        <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', zIndex:5, pointerEvents:'none' }}>
-          <p style={{ color:'rgba(255,255,255,0.28)', fontSize:13, marginBottom:16 }}>No family members yet</p>
-          <button
-            onClick={() => setShowAdd(true)}
-            style={{
-              pointerEvents:'auto',
-              background:'rgba(255,215,0,0.10)', border:'1px solid rgba(255,215,0,0.25)',
-              borderRadius:20, padding:'8px 20px', color:'rgba(255,215,0,0.75)',
-              fontFamily:"'Inter',sans-serif", fontSize:11, fontWeight:600, cursor:'pointer',
-            }}
-          >
-            + Add first member
-          </button>
-        </div>
-      )}
+      {/* Empty state is now integrated into the centre label above */}
 
       {/* ── Floating HUD panel ─────────────────────────────────────────── */}
       <AnimatePresence>

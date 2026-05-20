@@ -68,15 +68,24 @@ export default function FamilyTreeOrb({ members = [], onSelectMember, centerMemb
   const hovRef     = useRef(null)
 
   useEffect(() => {
-    if (!members.length) return
+    if (!members.length) {
+      // No members — clear center so the canvas draws nothing in the middle;
+      // the JSX overlay in FamilyTreePage shows the user's name instead.
+      centerRef.current = null
+      layoutRef.current = []
+      return
+    }
+    // When a member is explicitly selected as center, use it; otherwise null so
+    // the JSX label (user's own name) shows as the center, not a random member.
     centerRef.current = centerMemberId
-      ? (members.find(m => m.id === centerMemberId) ?? members[0])
-      : (members.find(m => m.ring === 0) ?? members[0])
+      ? (members.find(m => m.id === centerMemberId) ?? null)
+      : null
     layoutRef.current = layoutMembers(members, centerRef.current?.id)
   }, [members, centerMemberId])
 
   useEffect(() => {
-    if (centerMemberId) selRef.current = centerMemberId
+    // Always sync selection ref — clear it when centerMemberId goes back to null
+    selRef.current = centerMemberId || null
   }, [centerMemberId])
 
   useEffect(() => {

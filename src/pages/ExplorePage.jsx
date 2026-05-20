@@ -13,6 +13,7 @@ import exploreBg from '../assets/explore-bg.webp'
 import { SkeletonGrid } from '../components/ui/Skeleton'
 import EmptyState from '../components/ui/EmptyState'
 
+
 // ─── Filter categories (tabs) ─────────────────────────────────────────────────
 // filterCategory must match what getRelationFilterCategory() returns.
 // null means "show all".
@@ -46,7 +47,7 @@ function resolveFilterCategory(relationValue) {
 
 // ─── Memorial card ────────────────────────────────────────────────────────────
 
-function MemorialCard({ memorial, index }) {
+function MemorialCard({ memorial, index, connected }) {
   const tributeCount = memorial.tributes?.length || memorial.tributeCount || 0
 
   return (
@@ -72,8 +73,8 @@ function MemorialCard({ memorial, index }) {
           )}
           {/* Gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-          {/* Relation badge */}
-          {memorial.relation && (
+          {/* Relation badge — only shown for connected visitors (creator or invite) */}
+          {memorial.relation && connected && (
             <div className="absolute top-2.5 right-2.5">
               <span className="text-[0.55rem] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full stat-badge text-white/60">
                 {getRelationFilterCategory(memorial.relation) || 'other'}
@@ -128,6 +129,14 @@ export default function ExplorePage() {
   const [activeFilter, setActiveFilter] = useState('all')
   const [activeSort,   setActiveSort]   = useState('Recently Added')
 
+  // Auth — used to determine which memorials the viewer is connected to
+  const { user } = db.useAuth()
+
+  // Viewer's profile — familyOwnerId tells us who they were invited by
+  const { data: profileData } = db.useQuery(
+    user ? { profiles: { $: { where: { userId: user.id } } } } : null
+  )
+
   const { isLoading, error, data } = db.useQuery({
     memorials: {
       $: { where: { visibility: 'public' }, limit: 100 },
@@ -139,6 +148,21 @@ export default function ExplorePage() {
     (data?.memorials || []).filter(m => m.visibility === 'public' || !m.visibility),
     [data]
   )
+
+  // ── Which memorial creators is this viewer connected to? ──────────────────
+  // Connection comes from two sources:
+  //   1. Viewer created the memorial themselves (creatorId === user.id)
+  //   2. Viewer was invited into a family tree (profile.familyOwnerId === memorial.creatorId)
+  const connectedCreatorIds = useMemo(() => {
+    const ids = new Set()
+    if (!user) return ids
+    const familyOwnerId = profileData?.profiles?.[0]?.familyOwnerId
+    memorials.forEach(m => {
+      if (m.creatorId === user.id) ids.add(m.creatorId)        // own memorial
+      if (familyOwnerId && m.creatorId === familyOwnerId) ids.add(m.creatorId) // invite
+    })
+    return ids
+  }, [user, memorials, profileData])
 
   // ── Featured pick ──────────────────────────────────────────────────────────
   const featured = useMemo(() =>
@@ -373,7 +397,12 @@ export default function ExplorePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             <AnimatePresence mode="popLayout">
               {filtered.map((memorial, i) => (
-                <MemorialCard key={memorial.id} memorial={memorial} index={i} />
+                <MemorialCard
+                  key={memorial.id}
+                  memorial={memorial}
+                  index={i}
+                  connected={connectedCreatorIds.has(memorial.creatorId)}
+                />
               ))}
             </AnimatePresence>
           </div>
