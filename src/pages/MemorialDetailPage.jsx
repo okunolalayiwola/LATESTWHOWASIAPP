@@ -189,22 +189,36 @@ function Hero({ memorial, memorialId, isOwner, navigate }) {
       maxHeight: 680,
       border: '1px solid rgba(21,18,14,.12)',
     }}>
-      {/* Photo */}
-      {memorial.photo
-        ? <img src={memorial.photo} alt={memorial.name}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 25%',
-              filter: 'saturate(.9) contrast(1.02)',
-              animation: 'slowzoom 1.8s ease-out both',
-              position: 'absolute', inset: 0 }} />
-        : <div style={{ position: 'absolute', inset: 0,
-            background: `linear-gradient(135deg, ${C.ink2} 0%, ${C.ink} 100%)` }} />
-      }
+      {/* Dark ink base — fills the whole hero (visible on right where photo stops) */}
+      <div style={{ position: 'absolute', inset: 0,
+        background: `linear-gradient(135deg, ${C.ink2} 0%, ${C.ink} 100%)` }} />
 
-      {/* Scrims */}
+      {/* Photo — confined to the left ~62%, portrait-style */}
+      {memorial.photo && (
+        <img src={memorial.photo} alt={memorial.name}
+          className="hero-photo"
+          style={{
+            position: 'absolute',
+            top: 0, left: 0, bottom: 0,
+            width: '62%',
+            height: '100%',
+            objectFit: 'cover',
+            objectPosition: 'center 20%',
+            filter: 'saturate(.9) contrast(1.04)',
+            animation: 'slowzoom 1.8s ease-out both',
+          }}
+        />
+      )}
+
+      {/* Bottom scrim — text readability over the name plate */}
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: 'linear-gradient(to bottom, rgba(21,18,14,.05) 0%, transparent 30%, rgba(21,18,14,.55) 80%, rgba(21,18,14,.85) 100%)' }} />
-      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: 'linear-gradient(to right, rgba(21,18,14,.6) 0%, transparent 45%)' }} />
+        background: 'linear-gradient(to bottom, rgba(21,18,14,.04) 0%, transparent 25%, rgba(21,18,14,.58) 78%, rgba(21,18,14,.92) 100%)' }} />
+
+      {/* Right-blend — photo dissolves seamlessly into the dark background */}
+      {memorial.photo && (
+        <div className="hero-blend" style={{ position: 'absolute', inset: 0, pointerEvents: 'none',
+          background: `linear-gradient(to right, transparent 28%, rgba(21,18,14,.72) 50%, ${C.ink} 66%)` }} />
+      )}
       {/* Film-strip inner border */}
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none',
         boxShadow: 'inset 0 0 0 1px rgba(241,236,225,.16)', borderRadius: 26 }} />
@@ -314,6 +328,10 @@ function Hero({ memorial, memorialId, isOwner, navigate }) {
         @keyframes slowzoom { from { transform: scale(1.07); } to { transform: scale(1); } }
         @keyframes rise     { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes livepulse{ 0%,100%{ opacity:1; transform:scale(1); } 50%{ opacity:.4; transform:scale(.85); } }
+        @media (max-width: 640px) {
+          .hero-photo { width: 78% !important; }
+          .hero-blend { background: linear-gradient(to right, transparent 34%, rgba(21,18,14,.75) 56%, #15120e 72%) !important; }
+        }
       `}</style>
     </section>
   )
@@ -1131,7 +1149,7 @@ function MemorialDetailPageInner() {
   ]
 
   return (
-    <div style={{ background: C.paper, minHeight: '100vh' }}>
+    <div style={{ background: C.paper, minHeight: '100vh', paddingTop: 56 }}>
 
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
       <Hero memorial={memorial} memorialId={memorialId} isOwner={isOwner} navigate={navigate} />
