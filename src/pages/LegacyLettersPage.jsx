@@ -737,8 +737,15 @@ export default function LegacyLettersPage() {
   )
   const lockMemorial    = lockData?.memorials?.[0]
   const lockFirstName   = lockMemorial?.name?.split(' ')?.[0]
-  // Only the memorial creator can set up the vault PIN for the first time
-  const isVaultCreator  = !!(user && lockMemorial?.creatorId && lockMemorial.creatorId === user.id)
+  // Creator check:
+  //  • If memorial has creatorId set → must match the logged-in user
+  //  • If creatorId is missing (older memorial) → any logged-in user can set up the vault
+  //    (prevents visitors from being permanently locked out of unowned memorials)
+  const isVaultCreator  = !!(
+    user &&
+    lockMemorial &&
+    (!lockMemorial.creatorId || lockMemorial.creatorId === user.id)
+  )
 
   // ── Check auth state on mount ─────────────────────────────────────────────
   useEffect(() => {

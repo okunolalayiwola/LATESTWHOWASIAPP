@@ -139,30 +139,31 @@ export default function ExplorePage() {
 
   const { isLoading, error, data } = db.useQuery({
     memorials: {
-      $: { where: { visibility: 'public' }, limit: 100 },
+      $: { limit: 100 },   // fetch all (capped at 100); filter visibility in JS below
       tributes: {},
     }
   })
 
+  // Keep only public memorials — includes those explicitly marked 'public'
+  // AND those created before the visibility field was added (no value = public intent)
   const memorials = useMemo(() =>
-    (data?.memorials || []).filter(m => m.visibility === 'public' || !m.visibility),
+    (data?.memorials || []).filter(m => !m.visibility || m.visibility === 'public'),
     [data]
   )
 
   // ── Which memorial creators is this viewer connected to? ──────────────────
   // Connection comes from two sources:
-  //   1. Viewer created the memorial themselves (creatorId === user.id)
-  //   2. Viewer was invited into a family tree (profile.familyOwnerId === memorial.creatorId)
+  //   1. Viewer created the memorial themselves → always add user.id directly,
+  //      regardless of whether their memorial is currently in the explore results.
+  //   2. Viewer was invited into a family tree → profile.familyOwnerId === memorial.creatorId
   const connectedCreatorIds = useMemo(() => {
     const ids = new Set()
     if (!user) return ids
+    ids.add(user.id)   // always connected to own memorials
     const familyOwnerId = profileData?.profiles?.[0]?.familyOwnerId
-    memorials.forEach(m => {
-      if (m.creatorId === user.id) ids.add(m.creatorId)        // own memorial
-      if (familyOwnerId && m.creatorId === familyOwnerId) ids.add(m.creatorId) // invite
-    })
+    if (familyOwnerId) ids.add(familyOwnerId)
     return ids
-  }, [user, memorials, profileData])
+  }, [user, profileData])
 
   // ── Featured pick ──────────────────────────────────────────────────────────
   const featured = useMemo(() =>
