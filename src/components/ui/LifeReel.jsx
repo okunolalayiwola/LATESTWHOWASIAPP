@@ -428,6 +428,7 @@ export default function LifeReel({
   photos    = [],
   memorial  = {},
   musicUrl  = null,
+  onEnd     = null,   // called when the reel plays through every slide once
 }) {
   const { name, years, subtitle, alive } = memorial || {}
 
@@ -453,17 +454,22 @@ export default function LifeReel({
 
   const hasSlides = slides.length > 0
 
-  // Auto-advance
+  // Auto-advance — if onEnd is provided the reel plays through once then stops
   const advance = useCallback(() => {
-    if (!hasSlides || slides.length < 2) return
+    if (!hasSlides) return
+    const isLastSlide = current === slides.length - 1
+    // When onEnd is provided and we've reached the final slide, call it
+    if (isLastSlide && onEnd) { onEnd(); return }
+    if (slides.length < 2) return
+    const next = (current + 1) % slides.length
     setPrev(current)
     setIsExiting(true)
     setTimeout(() => {
-      setCurrent(c => (c + 1) % slides.length)
+      setCurrent(next)
       setIsExiting(false)
       setPrev(null)
     }, FADE_DURATION)
-  }, [current, slides.length, hasSlides])
+  }, [current, slides.length, hasSlides, onEnd])
 
   useEffect(() => {
     clearTimeout(timerRef.current)

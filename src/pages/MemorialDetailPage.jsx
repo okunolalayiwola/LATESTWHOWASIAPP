@@ -1026,6 +1026,7 @@ function MemorialDetailPageInner() {
   const [shareToast,      setShareToast]      = useState(false)
   const [showQR,          setShowQR]          = useState(false)
   const [showTalkScreen,  setShowTalkScreen]  = useState(false)
+  const [showReelFull,    setShowReelFull]    = useState(false)
 
   const { user } = db.useAuth()
 
@@ -1212,9 +1213,66 @@ function MemorialDetailPageInner() {
 
               {activeTab === 'Reel' && (
                 <motion.div key="reel" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                  <Suspense fallback={<div style={{ height: 320, borderRadius: 26, background: C.cream2, animation: 'pulse 1.5s infinite' }} />}>
-                    <LifeReel photos={photos} memorial={memorial} />
-                  </Suspense>
+
+                  {/* ── Desktop: inline player in a card ──────────────────── */}
+                  <div className="reel-desktop-wrap">
+                    <Card variant="ink" style={{ padding: 0, overflow: 'hidden' }}>
+                      {/* Card header — mirrors VoiceSection style */}
+                      <div style={{ padding: '18px 24px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        borderBottom: '1px solid rgba(241,236,225,.06)' }}>
+                        <Label onInk>Life Reel — {memorial.name?.split(' ')[0]}</Label>
+                        <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.22em', textTransform: 'uppercase',
+                          color: 'rgba(241,236,225,.3)' }}>
+                          {photos.length} {photos.length === 1 ? 'frame' : 'frames'}
+                        </span>
+                      </div>
+                      <Suspense fallback={<div style={{ aspectRatio:'16/9', background:'#080808' }} />}>
+                        <LifeReel photos={photos} memorial={memorial} />
+                      </Suspense>
+                    </Card>
+                  </div>
+
+                  {/* ── Mobile: teaser card + "See Reel" button ───────────── */}
+                  <div className="reel-mobile-wrap">
+                    <button onClick={() => setShowReelFull(true)} style={{
+                      width: '100%', border: 'none', cursor: 'pointer', padding: 0,
+                      borderRadius: 26, overflow: 'hidden', position: 'relative',
+                      aspectRatio: '16/9', background: C.ink, display: 'block',
+                      boxShadow: '0 14px 40px rgba(21,18,14,.28)',
+                    }}>
+                      {/* Blurred first photo as background */}
+                      {photos[0] && (
+                        <img src={photos[0].url} alt=""
+                          style={{ position:'absolute', inset:0, width:'100%', height:'100%',
+                            objectFit:'cover', filter:'blur(8px) saturate(.8)', opacity:.45, transform:'scale(1.06)' }} />
+                      )}
+                      {/* Overlay gradient */}
+                      <div style={{ position:'absolute', inset:0, background:'linear-gradient(to bottom, rgba(21,18,14,.3), rgba(21,18,14,.7))' }} />
+                      {/* Content */}
+                      <div style={{ position:'relative', zIndex:2, display:'flex', flexDirection:'column',
+                        alignItems:'center', justifyContent:'center', height:'100%', gap:14 }}>
+                        {/* Saffron play disc */}
+                        <div style={{ width:68, height:68, borderRadius:'50%',
+                          background:'linear-gradient(155deg,#ffd166 0%,#f3b21a 45%,#d99206 100%)',
+                          display:'flex', alignItems:'center', justifyContent:'center',
+                          boxShadow:'0 12px 32px -4px rgba(243,178,26,.55), 0 4px 16px rgba(0,0,0,.45)' }}>
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="#15120e">
+                            <polygon points="5,3 19,12 5,21" />
+                          </svg>
+                        </div>
+                        <div style={{ textAlign:'center' }}>
+                          <p style={{ fontFamily:DISP, fontWeight:700, fontSize:18, color:'#fff', margin:0 }}>
+                            See {memorial.name?.split(' ')[0]}'s Reel
+                          </p>
+                          <p style={{ fontFamily:MONO, fontSize:10, letterSpacing:'.22em', textTransform:'uppercase',
+                            color:'rgba(241,236,225,.45)', marginTop:4 }}>
+                            {photos.length} {photos.length === 1 ? 'moment' : 'moments'} · tap to play
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+
                 </motion.div>
               )}
             </AnimatePresence>
@@ -1243,6 +1301,14 @@ function MemorialDetailPageInner() {
         @media (max-width: 768px) {
           .page-grid { padding: 0 .75rem; }
         }
+        /* Reel — desktop shows inline player, mobile shows teaser button */
+        .reel-desktop-wrap { display: block; }
+        .reel-mobile-wrap  { display: none;  }
+        @media (max-width: 768px) {
+          .reel-desktop-wrap { display: none;  }
+          .reel-mobile-wrap  { display: block; }
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
 
       {/* ── Tribute form ──────────────────────────────────────────────────── */}
@@ -1273,6 +1339,44 @@ function MemorialDetailPageInner() {
           <Suspense fallback={null}>
             <QRModal onClose={() => setShowQR(false)} url={shareUrl} name={memorial.name} />
           </Suspense>
+        )}
+      </AnimatePresence>
+
+      {/* ── Mobile fullscreen reel overlay ───────────────────────────────── */}
+      <AnimatePresence>
+        {showReelFull && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            style={{ position:'fixed', inset:0, zIndex:150, background:'#000' }}>
+
+            {/* Back button — top left */}
+            <button
+              onClick={() => setShowReelFull(false)}
+              style={{ position:'absolute', top:20, left:16, zIndex:160, display:'flex', alignItems:'center', gap:8,
+                background:'rgba(241,236,225,.12)', border:'1px solid rgba(241,236,225,.15)',
+                backdropFilter:'blur(8px)', borderRadius:999, padding:'8px 14px',
+                fontFamily:MONO, fontSize:10.5, letterSpacing:'.18em', textTransform:'uppercase',
+                color:'rgba(241,236,225,.8)', cursor:'pointer' }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M15 18l-6-6 6-6"/>
+              </svg>
+              Back
+            </button>
+
+            {/* Full-height reel player */}
+            <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <Suspense fallback={<div style={{ width:40, height:40, borderRadius:'50%', border:'2px solid rgba(255,215,0,.3)', borderTopColor:'#FFD700', animation:'spin 0.8s linear infinite' }} />}>
+                <LifeReel
+                  photos={photos}
+                  memorial={memorial}
+                  onEnd={() => setShowReelFull(false)}
+                />
+              </Suspense>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
 

@@ -707,6 +707,7 @@ export default function LegacyLettersPage() {
   const [resetStage,  setResetStage]  = useState(null) // null | 'sending' | 'enterCode' | 'newPin'
   const [resetError,  setResetError]  = useState('')
   const [accountEmail, setAccountEmail] = useState('')
+  const [setupStep,   setSetupStep]   = useState('understand') // 'understand' | 'pin'
   const idleTimer = useRef(null)
 
   const vaultId = getVaultId(memorialId || '')
@@ -734,8 +735,10 @@ export default function LegacyLettersPage() {
   const { data: lockData } = db.useQuery(
     memorialId ? { memorials: { $: { where: { id: memorialId } } } } : null
   )
-  const lockMemorial  = lockData?.memorials?.[0]
-  const lockFirstName = lockMemorial?.name?.split(' ')?.[0]
+  const lockMemorial    = lockData?.memorials?.[0]
+  const lockFirstName   = lockMemorial?.name?.split(' ')?.[0]
+  // Only the memorial creator can set up the vault PIN for the first time
+  const isVaultCreator  = !!(user && lockMemorial?.creatorId && lockMemorial.creatorId === user.id)
 
   // ── Check auth state on mount ─────────────────────────────────────────────
   useEffect(() => {
@@ -813,7 +816,12 @@ export default function LegacyLettersPage() {
 
   function unlockVault() {
     setUnlocking(true)
-    setTimeout(() => { openSession(memorialId, uid); setAuthState('open'); setUnlocking(false) }, 1200)
+    setTimeout(() => {
+      openSession(memorialId, uid)
+      setAuthState('open')
+      setUnlocking(false)
+      setSetupStep('understand')  // reset so consent shows fresh if vault is ever re-created
+    }, 1200)
   }
 
   function lock() {
@@ -935,25 +943,91 @@ export default function LegacyLettersPage() {
 
         <AnimatePresence mode="wait">
 
-          {/* ── SETUP: first time ──────────────────────────────────── */}
-          {(authState === 'setup' || authState === 'creatingPin') && (
+          {/* ── SETUP: still fetching memorial data ───────────────── */}
+          {authState === 'setup' && !lockMemorial && (
+            <motion.div key="setup-loading" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+              className="mt-10 text-center">
+              <div className="w-9 h-9 border-2 border-gold/25 border-t-gold rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-xs text-white/25">Loading vault…</p>
+            </motion.div>
+          )}
+
+          {/* ── SETUP: vault not initialised — visitor, not creator ── */}
+          {authState === 'setup' && lockMemorial && !isVaultCreator && (
+            <motion.div key="not-ready" initial={{ opacity:0,y:16 }} animate={{ opacity:1,y:0 }} exit={{ opacity:0 }}
+              className="w-full max-w-xs mt-8 text-center space-y-4">
+              <div className="text-5xl opacity-20">🔐</div>
+              <p className="text-sm text-white/55 leading-relaxed">
+                {lockFirstName ? `${lockFirstName}'s` : 'This'} vault hasn't been set up yet.
+              </p>
+              <p className="text-xs text-white/25 leading-relaxed max-w-[26ch] mx-auto">
+                The memorial creator needs to set a vault PIN before anyone else can access it.
+              </p>
+            </motion.div>
+          )}
+
+          {/* ── SETUP: creator flow ─────────────────────────────────── */}
+          {(authState === 'setup' || authState === 'creatingPin') && isVaultCreator && (
             <motion.div key="setup" initial={{ opacity:0,y:16 }} animate={{ opacity:1,y:0 }} exit={{ opacity:0 }}
               className="w-full max-w-xs mt-8">
-              <p className="text-sm text-white/50 mb-2 leading-relaxed">
-                Create a 6-digit PIN to secure{lockFirstName ? ` ${lockFirstName}'s` : ' this'} vault.
-                {bioAvailable && ' Biometric authentication will also be enabled.'}
-              </p>
-              <div className="glass rounded-2xl p-4 mb-6 border border-gold/15">
-                <p className="text-xs text-white/40 leading-relaxed">
-                  ✦ Your PIN is hashed — never stored in plain text.{' '}
-                  {bioAvailable ? 'Face ID / Fingerprint will be registered for fast access.' : ''}
-                </p>
-              </div>
-              <PINInput
-                label={pinStep === 'confirm' ? 'Confirm your PIN' : 'Choose a 6-digit PIN'}
-                onComplete={pin => { setAuthState('creatingPin'); tryPIN(pin) }}
-                error={pinError}
-              />
+
+              {setupStep === 'understand' ? (
+                /* Step 1 — Do you understand? */
+                <>
+                  <p className="font-display text-xl font-bold text-white text-center mb-1">
+                    Before you continue
+                  </p>
+                  <p className="text-xs text-white/40 text-center mb-5 leading-relaxed">
+                    You're setting up the vault for{' '}
+                    <span className="text-white font-semibold">{lockMemorial?.name}</span>.
+                  </p>
+
+                  <div className="glass rounded-2xl p-5 mb-5 border border-gold/15 space-y-4">
+                    {[
+                      `This PIN protects ${lockFirstName ? `${lockFirstName}'s` : 'the'} Legacy Vault — letters, will documents and private files.`,
+                      'Family members and trusted people you share it with will use this same PIN to access the vault.',
+                      'Write it somewhere safe. You can reset it via email, but it cannot be recovered without your account.',
+                    ].map((tip, i) => (
+                      <div key={i} className="flex gap-3 items-start">
+                        <span className="text-gold text-xs mt-0.5 flex-shrink-0">✦</span>
+                        <p className="text-xs text-white/55 leading-relaxed">{tip}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => setSetupStep('pin')}
+                    className="w-full py-4 metal-btn text-black rounded-2xl font-bold text-sm mb-3">
+                    Yes, I understand →
+                  </button>
+                  <p className="text-[0.58rem] text-white/15 text-center leading-relaxed">
+                    Do you understand? By continuing you confirm that you have read the above.
+                  </p>
+                </>
+              ) : (
+                /* Step 2 — Choose PIN */
+                <>
+                  <p className="text-sm text-white/50 mb-2 leading-relaxed text-center">
+                    Create a 6-digit PIN to secure{lockFirstName ? ` ${lockFirstName}'s` : ' this'} vault.
+                    {bioAvailable && ' Biometric authentication will also be enabled.'}
+                  </p>
+                  <div className="glass rounded-2xl p-4 mb-6 border border-gold/15">
+                    <p className="text-xs text-white/40 leading-relaxed">
+                      ✦ Your PIN is hashed — never stored in plain text.{' '}
+                      {bioAvailable ? 'Face ID / Fingerprint will be registered for fast access.' : ''}
+                    </p>
+                  </div>
+                  <PINInput
+                    label={pinStep === 'confirm' ? 'Confirm your PIN' : 'Choose a 6-digit PIN'}
+                    onComplete={pin => { setAuthState('creatingPin'); tryPIN(pin) }}
+                    error={pinError}
+                  />
+                  <button onClick={() => setSetupStep('understand')}
+                    className="text-xs text-white/25 hover:text-white/45 transition-colors mt-5 w-full">
+                    ← Back
+                  </button>
+                </>
+              )}
             </motion.div>
           )}
 
