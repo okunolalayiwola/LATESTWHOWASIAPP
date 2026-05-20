@@ -1023,10 +1023,14 @@ function MemorialDetailPageInner() {
         )}
       </AnimatePresence>
 
-      {/* ── QR modal ────────────────────────────────────────────── */}
-      <Suspense fallback={<Empty />}>
-        <QRModal open={showQR} onClose={() => setShowQR(false)} url={shareUrl} name={memorial.name} />
-      </Suspense>
+      {/* ── QR modal — only mount when open, QRModal has no open prop ── */}
+      <AnimatePresence>
+        {showQR && (
+          <Suspense fallback={null}>
+            <QRModal onClose={() => setShowQR(false)} url={shareUrl} name={memorial.name} />
+          </Suspense>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
