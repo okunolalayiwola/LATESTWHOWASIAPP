@@ -729,6 +729,14 @@ export default function LegacyLettersPage() {
   const wills     = memorial?.wills     || []
   const documents = memorial?.documents || []
 
+  // Lightweight always-running query — provides the memorial name & photo
+  // BEFORE the vault is opened (the full data query above is gated on 'open')
+  const { data: lockData } = db.useQuery(
+    memorialId ? { memorials: { $: { where: { id: memorialId } } } } : null
+  )
+  const lockMemorial  = lockData?.memorials?.[0]
+  const lockFirstName = lockMemorial?.name?.split(' ')?.[0]
+
   // ── Check auth state on mount ─────────────────────────────────────────────
   useEffect(() => {
     async function check() {
@@ -916,7 +924,12 @@ export default function LegacyLettersPage() {
           />
         </div>
 
-        {/* Title */}
+        {/* Title — shows the memorial subject's first name when available */}
+        {lockFirstName && (
+          <p className="font-display text-xl font-semibold text-white/50 mb-0.5 tracking-wide">
+            {lockFirstName}'s
+          </p>
+        )}
         <h1 className="font-display text-3xl font-bold text-white mb-1">Legacy Vault</h1>
         <p className="text-xs text-white/30 mb-1 font-mono tracking-widest">VAULT ID: {vaultId}</p>
 
@@ -927,7 +940,7 @@ export default function LegacyLettersPage() {
             <motion.div key="setup" initial={{ opacity:0,y:16 }} animate={{ opacity:1,y:0 }} exit={{ opacity:0 }}
               className="w-full max-w-xs mt-8">
               <p className="text-sm text-white/50 mb-2 leading-relaxed">
-                Create a 6-digit PIN to secure this vault.
+                Create a 6-digit PIN to secure{lockFirstName ? ` ${lockFirstName}'s` : ' this'} vault.
                 {bioAvailable && ' Biometric authentication will also be enabled.'}
               </p>
               <div className="glass rounded-2xl p-4 mb-6 border border-gold/15">

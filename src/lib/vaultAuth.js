@@ -5,13 +5,15 @@
 //   1. Biometric  — WebAuthn platform authenticator (Face ID / Fingerprint)
 //   2. PIN        — 6-digit code, stored as SHA-256 hash in localStorage
 //
-// Keys are scoped per memorialId + userId so each vault is independent.
+// PIN/setup are shared across all visitors of a memorial — the vault creator
+// sets the PIN once, and any visitor (family member, etc.) can open it with the
+// same code. Biometrics, session, and reset codes remain per-device/per-user.
 
 // ─── Storage keys ─────────────────────────────────────────────────────────────
 
-const pinKey   = (mid, uid) => `wwi_vault_${mid}_${uid}_pin`
-const credKey  = (mid, uid) => `wwi_vault_${mid}_${uid}_cred`
-const setupKey = (mid, uid) => `wwi_vault_${mid}_${uid}_setup`
+const pinKey   = (mid)      => `wwi_vault_${mid}_shared_pin`    // shared — any visitor with correct PIN
+const setupKey = (mid)      => `wwi_vault_${mid}_shared_setup`  // shared — marks vault as initialised
+const credKey  = (mid, uid) => `wwi_vault_${mid}_${uid}_cred`   // per-device biometrics
 const idKey    = (mid, uid) => `wwi_vault_${mid}_${uid}_id`
 
 // ─── Generate a unique vault ID (displayed on the lock screen) ────────────────
@@ -43,27 +45,27 @@ async function sha256(text) {
 
 // ─── Setup state ──────────────────────────────────────────────────────────────
 
-export function isVaultSetup(memorialId, userId) {
-  return !!localStorage.getItem(setupKey(memorialId, userId))
+export function isVaultSetup(memorialId, _userId) {
+  return !!localStorage.getItem(setupKey(memorialId))
 }
 
 // ─── PIN management ───────────────────────────────────────────────────────────
 
-export async function setPIN(memorialId, userId, pin) {
+export async function setPIN(memorialId, _userId, pin) {
   const hash = await sha256(pin + memorialId)  // salted with memorialId
-  localStorage.setItem(pinKey(memorialId, userId), hash)
-  localStorage.setItem(setupKey(memorialId, userId), '1')
+  localStorage.setItem(pinKey(memorialId), hash)
+  localStorage.setItem(setupKey(memorialId), '1')
 }
 
-export async function verifyPIN(memorialId, userId, pin) {
-  const stored = localStorage.getItem(pinKey(memorialId, userId))
+export async function verifyPIN(memorialId, _userId, pin) {
+  const stored = localStorage.getItem(pinKey(memorialId))
   if (!stored) return false
   const hash = await sha256(pin + memorialId)
   return hash === stored
 }
 
-export function hasPIN(memorialId, userId) {
-  return !!localStorage.getItem(pinKey(memorialId, userId))
+export function hasPIN(memorialId, _userId) {
+  return !!localStorage.getItem(pinKey(memorialId))
 }
 
 // ─── PIN reset via email ──────────────────────────────────────────────────────
@@ -166,7 +168,7 @@ export async function registerBiometrics(memorialId, userId, displayName = 'Vaul
   // Store credential ID
   const credId = b64encode(credential.rawId)
   localStorage.setItem(credKey(memorialId, userId), credId)
-  localStorage.setItem(setupKey(memorialId, userId), '1')
+  localStorage.setItem(setupKey(memorialId), '1')
 
   return credId
 }
