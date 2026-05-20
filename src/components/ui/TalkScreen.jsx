@@ -180,6 +180,15 @@ export default function TalkScreen({ memorial, memorialId, onClose }) {
     }
   }, [])
 
+  // ── Add a system error bubble to the transcript ──────────────────────────
+  function addErrorBubble(msg) {
+    setMessages(prev => [...prev, {
+      id:   Date.now() + 2,
+      who:  'system-error',
+      text: msg,
+    }])
+  }
+
   // ── Speak text via ElevenLabs TTS ─────────────────────────────────────────
   async function speakText(text) {
     if (!hasVoice) return
@@ -187,7 +196,12 @@ export default function TalkScreen({ memorial, memorialId, onClose }) {
     setSessionState('speaking')
     try {
       const blob = await generateSpeech(memorial.elevenLabsVoiceId, text)
-      if (!blob) { setSessionState('idle'); return }
+      if (!blob) {
+        // TTS failed — still show the text, just don't play audio
+        setSessionState('idle')
+        busyRef.current = false
+        return
+      }
       const url   = URL.createObjectURL(blob)
       const audio = new Audio(url)
       audioRef.current = audio
@@ -218,14 +232,16 @@ export default function TalkScreen({ memorial, memorialId, onClose }) {
       setMessages(prev => [...prev, aiMsg])
 
       if (hasVoice) {
-        await speakText(aiText)  // sets state → speaking → idle; unsets busyRef
+        await speakText(aiText)
       } else {
         setSessionState('idle')
         busyRef.current = false
       }
-    } catch {
+    } catch (err) {
+      console.error('TalkScreen AI error:', err)
       setSessionState('idle')
       busyRef.current = false
+      addErrorBubble("I couldn't connect just now — please try again.")
     }
   }
 
@@ -234,7 +250,12 @@ export default function TalkScreen({ memorial, memorialId, onClose }) {
     const SR = (typeof window !== 'undefined')
       ? (window.SpeechRecognition || window.webkitSpeechRecognition)
       : null
-    if (!SR || busyRef.current) return
+
+    if (!SR) {
+      addErrorBubble("Voice input isn't supported in this browser. Switch to Type mode below.")
+      return
+    }
+    if (busyRef.current) return
 
     const r = new SR()
     recognitionRef.current = r
@@ -248,8 +269,18 @@ export default function TalkScreen({ memorial, memorialId, onClose }) {
       const t = e.results[0][0].transcript
       if (t.trim()) sendMessage(t.trim())
     }
-    r.onerror  = () => { setSessionState('idle'); setMicActive(false) }
-    r.onend    = () => { setMicActive(false) }
+    r.onerror  = e => {
+      setSessionState('idle')
+      setMicActive(false)
+      if (e.error === 'not-allowed') {
+        addErrorBubble("Microphone access was denied. Allow mic access in your browser settings, or use Type mode.")
+      } else if (e.error === 'no-speech') {
+        // silence — no bubble needed, just reset
+      } else {
+        addErrorBubble(`Mic error: ${e.error}. Try Type mode instead.`)
+      }
+    }
+    r.onend = () => { setMicActive(false) }
     r.start()
   }
 
@@ -537,33 +568,51 @@ export default function TalkScreen({ memorial, memorialId, onClose }) {
           maskImage: 'linear-gradient(to top, black 70%, transparent 100%)',
           animation: 'ts-fadeup 1s ease-out .75s both',
         }}>
-          {messages.map((msg, idx) => (
-            <div key={msg.id} style={{
-              padding: '11px 15px', borderRadius: 22,
-              backdropFilter: 'blur(20px) saturate(1.3)',
-              WebkitBackdropFilter: 'blur(20px) saturate(1.3)',
-              animation: 'ts-bubblein .5s ease-out both',
-              animationDelay: idx === messages.length - 1 ? '0s' : '0s',
-              ...(msg.who === 'user' ? {
-                alignSelf: 'flex-end',
-                background: 'rgba(255,215,179,.55)', border: '1px solid rgba(255,215,179,.65)',
-                color: INK, borderBottomRightRadius: 6, fontSize: 14, lineHeight: 1.45,
-              } : {
-                alignSelf: 'flex-start',
-                background: 'rgba(201,168,255,.50)', border: '1px solid rgba(201,168,255,.65)',
-                color: INK, borderBottomLeftRadius: 6,
-                fontFamily: SERIF, fontStyle: 'italic', fontWeight: 400, fontSize: 16, lineHeight: 1.4,
-              }),
-            }}>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 5,
-                fontFamily: MONO, fontSize: 9.5, letterSpacing: '.2em', textTransform: 'uppercase',
-                color: 'rgba(26,15,42,.6)' }}>
-                <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor', flexShrink: 0 }} />
-                {msg.who === 'user' ? 'You' : firstName}
+          {messages.map((msg) => {
+            // ── System error bubble ───────────────────────────────────────
+            if (msg.who === 'system-error') {
+              return (
+                <div key={msg.id} style={{
+                  alignSelf: 'center', padding: '8px 14px', borderRadius: 14,
+                  background: 'rgba(255,100,100,.25)', border: '1px solid rgba(255,120,120,.45)',
+                  backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+                  color: '#ffe0e0', fontSize: 12.5, lineHeight: 1.5, textAlign: 'center',
+                  animation: 'ts-bubblein .4s ease-out both',
+                  maxWidth: '90%',
+                }}>
+                  ⚠ {msg.text}
+                </div>
+              )
+            }
+
+            // ── Normal user / AI bubble ───────────────────────────────────
+            return (
+              <div key={msg.id} style={{
+                padding: '11px 15px', borderRadius: 22,
+                backdropFilter: 'blur(20px) saturate(1.3)',
+                WebkitBackdropFilter: 'blur(20px) saturate(1.3)',
+                animation: 'ts-bubblein .5s ease-out both',
+                ...(msg.who === 'user' ? {
+                  alignSelf: 'flex-end',
+                  background: 'rgba(255,215,179,.55)', border: '1px solid rgba(255,215,179,.65)',
+                  color: INK, borderBottomRightRadius: 6, fontSize: 14, lineHeight: 1.45,
+                } : {
+                  alignSelf: 'flex-start',
+                  background: 'rgba(201,168,255,.50)', border: '1px solid rgba(201,168,255,.65)',
+                  color: INK, borderBottomLeftRadius: 6,
+                  fontFamily: SERIF, fontStyle: 'italic', fontWeight: 400, fontSize: 16, lineHeight: 1.4,
+                }),
+              }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 5,
+                  fontFamily: MONO, fontSize: 9.5, letterSpacing: '.2em', textTransform: 'uppercase',
+                  color: 'rgba(26,15,42,.6)' }}>
+                  <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor', flexShrink: 0 }} />
+                  {msg.who === 'user' ? 'You' : firstName}
+                </div>
+                <div>{msg.text}</div>
               </div>
-              <div>{msg.text}</div>
-            </div>
-          ))}
+            )
+          })}
 
           {/* Speaking-wave bars while AI is playing audio */}
           {sessionState === 'speaking' && (
