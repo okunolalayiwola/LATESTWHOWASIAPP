@@ -812,15 +812,26 @@ function StepStory({ form, setForm, lifePhotos, setLifePhotos, copy }) {
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
 
   const MIN_PHOTOS = 5
+  const MAX_PHOTOS = 50
   const photoCount = lifePhotos.length
   const remaining  = Math.max(0, MIN_PHOTOS - photoCount)
+  const atLimit    = photoCount >= MAX_PHOTOS
 
   async function handlePhotos(e) {
     const files = Array.from(e.target.files)
     if (!files.length) return
-    setUploading(true)
 
-    for (const file of files) {
+    // Enforce the 50-photo hard cap — silently truncate selection
+    const slotsLeft = MAX_PHOTOS - lifePhotos.length
+    const accepted  = files.slice(0, Math.max(0, slotsLeft))
+    const skipped   = files.length - accepted.length
+    if (skipped > 0) {
+      // surface a non-blocking warning via the input's ariaLabel
+      console.warn(`${skipped} photos skipped — reel cap is ${MAX_PHOTOS}.`)
+    }
+
+    setUploading(true)
+    for (const file of accepted) {
       const photoId  = Math.random().toString(36).slice(2)
       const preview  = URL.createObjectURL(file)
       const takenAt  = await readExifDate(file)
@@ -856,24 +867,34 @@ function StepStory({ form, setForm, lifePhotos, setLifePhotos, copy }) {
       className="space-y-6"
     >
 
-      {/* ── Life Photos — required min 5 ────────────────────────────────── */}
+      {/* ── Life Photos — min 5, max 50 ─────────────────────────────────── */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <label className="text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim">
             Life photos
           </label>
-          <span className={`text-[0.6rem] font-bold tracking-wider uppercase ${photoCount >= MIN_PHOTOS ? 'text-emerald-400' : 'text-amber-400'}`}>
-            {photoCount}/{MIN_PHOTOS} {photoCount < MIN_PHOTOS ? `— add ${remaining} more` : '✓ Ready'}
+          <span className={`text-[0.6rem] font-bold tracking-wider uppercase ${
+            atLimit ? 'text-gold' :
+            photoCount >= MIN_PHOTOS ? 'text-emerald-400' : 'text-amber-400'
+          }`}>
+            {photoCount}/{MAX_PHOTOS}
+            {atLimit
+              ? ' ✦ Reel full'
+              : photoCount < MIN_PHOTOS
+                ? ` — add ${remaining} more`
+                : ' ✓ Ready'}
           </span>
         </div>
 
-        {/* Progress bar */}
+        {/* Progress bar — two-stage: amber to mint (min reached), then gold (cap) */}
         <div className="h-1 bg-white/10 rounded-full overflow-hidden mb-3">
           <div
             className="h-full transition-all rounded-full"
             style={{
-              width: `${Math.min(100, (photoCount / MIN_PHOTOS) * 100)}%`,
-              background: photoCount >= MIN_PHOTOS ? '#34d399' : '#f59e0b',
+              width: `${Math.min(100, (photoCount / MAX_PHOTOS) * 100)}%`,
+              background: atLimit ? '#FFD700'
+                : photoCount >= MIN_PHOTOS ? '#34d399'
+                : '#f59e0b',
             }}
           />
         </div>
@@ -888,20 +909,24 @@ function StepStory({ form, setForm, lifePhotos, setLifePhotos, copy }) {
               onDateChange={updatePhotoDate}
             />
           ))}
-          {/* Upload slot */}
-          <button
-            onClick={() => fileRef.current?.click()}
-            className="aspect-square rounded-xl border-2 border-dashed border-white/15 flex flex-col items-center justify-center cursor-pointer hover:border-gold/40 transition-all text-white/25 hover:text-white/50"
-          >
-            <span className="text-xl mb-1">+</span>
-            <span className="text-[0.55rem] text-center leading-tight">Add<br/>photos</span>
-          </button>
+          {/* Upload slot — hidden once we hit the cap */}
+          {!atLimit && (
+            <button
+              onClick={() => fileRef.current?.click()}
+              className="aspect-square rounded-xl border-2 border-dashed border-white/15 flex flex-col items-center justify-center cursor-pointer hover:border-gold/40 transition-all text-white/25 hover:text-white/50"
+            >
+              <span className="text-xl mb-1">+</span>
+              <span className="text-[0.55rem] text-center leading-tight">Add<br/>photos</span>
+            </button>
+          )}
         </div>
 
         <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotos} />
 
         <p className="text-[0.6rem] text-white/25 mt-2 leading-relaxed">
-          Dates are read automatically from photo metadata. If no date is found, tap the photo to add one. The Life Reel arranges photos in chronological order.
+          {atLimit
+            ? `You've reached the ${MAX_PHOTOS}-photo limit for the reel. You can add more photos to the gallery later — they'll appear in the gallery but won't change the reel.`
+            : `Dates are read from photo metadata. The reel auto-orders photos chronologically and stays under 2 minutes. Upload clear, well-lit images for the best reel.`}
         </p>
       </div>
 
@@ -1197,17 +1222,22 @@ export default function CreateMemorialPage() {
         }
       }
 
-      // Build photo transactions — each uploaded photo links to the memorial
+      // Build photo transactions — each uploaded photo links to the memorial.
+      // First-batch photos are tagged usedForTraining:true so the AI persona
+      // hooks (added later, not here) know which photos shape the avatar.
+      // Photos added after creation will set addedAfterCreation:true instead.
       const photoTxs = lifePhotos
         .filter(p => p.url)
         .map(p => {
           const photoId = id()
           return db.tx.photos[photoId]
             .update({
-              url:       p.url,
-              takenAt:   p.takenAt || null,
-              createdAt: Date.now(),
-              source:    'upload',
+              url:                p.url,
+              takenAt:            p.takenAt || null,
+              createdAt:          Date.now(),
+              source:             'upload',
+              usedForTraining:    true,
+              addedAfterCreation: false,
             })
             .link({ memorial: memId })
         })

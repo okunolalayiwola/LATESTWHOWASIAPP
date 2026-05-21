@@ -108,7 +108,11 @@ const _schema = i.schema({
       createdAt:   i.number().optional(),
       takenAt:     i.number().optional(),      // original Unix timestamp (EXIF/social)
       displayDate: i.string().optional(),      // "15 June 2019"
-      source:      i.string().optional(),      // 'facebook' | 'instagram' | null
+      source:      i.string().optional(),      // 'upload' | 'facebook' | 'instagram'
+      // Internal flags — drive AI persona enrichment (not exposed to users)
+      usedForTraining:     i.boolean().optional(),  // first-batch photos that shape the AI persona
+      addedAfterCreation:  i.boolean().optional(),  // true = added later; AI persona untouched
+      aiDescription:       i.string().optional(),   // optional vision-extracted scene/context
     }),
 
     // ─── Family Members (orbital tree nodes) ─────────────────────────────────

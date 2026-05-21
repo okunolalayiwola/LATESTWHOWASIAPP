@@ -23,8 +23,9 @@ function safeLazy(loader) {
 const QRModal       = safeLazy(() => import('../components/ui/QRModal'))
 const LifeReel      = safeLazy(() => import('../components/ui/LifeReel'))
 const TalkScreen    = safeLazy(() => import('../components/ui/TalkScreen'))
-const FamilyTreeOrb = safeLazy(() => import('../components/orbital/FamilyTreeOrb'))
-const InviteModal   = safeLazy(() => import('../components/shared/InviteModal'))
+const FamilyTreeOrb       = safeLazy(() => import('../components/orbital/FamilyTreeOrb'))
+const FamilyTreeSidePanel = safeLazy(() => import('../components/orbital/FamilyTreeSidePanel'))
+const InviteModal         = safeLazy(() => import('../components/shared/InviteModal'))
 const Empty = () => null
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -904,80 +905,152 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
   const [pct,       setPct]       = useState(0)
   const fileRef = useRef(null)
 
+  // Photos added here (after the memorial exists) are NOT used to shape the
+  // AI persona. The flag is silent to the user — they're just told to upload.
   async function handleUpload(e) {
-    const file = e.target.files?.[0]; if (!file) return
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
     setUploading(true)
     try {
-      const url = await uploadImage(file, setPct, 'memorials')
-      await db.transact([db.tx.photos[id()].update({ url, createdAt: Date.now() }).link({ memorial: memorialId })])
+      for (const file of files) {
+        const url = await uploadImage(file, setPct, 'memorials')
+        await db.transact([
+          db.tx.photos[id()].update({
+            url,
+            createdAt:          Date.now(),
+            source:             'upload',
+            usedForTraining:    false,
+            addedAfterCreation: true,
+          }).link({ memorial: memorialId })
+        ])
+      }
     } finally { setUploading(false); setPct(0) }
+    if (fileRef.current) fileRef.current.value = ''
   }
 
-  const shown   = preview ? photos.slice(0, 5) : photos
+  // Preview shows up to 3 photos (was 5)
+  const PREVIEW_COUNT = 3
+  const shown   = preview ? photos.slice(0, PREVIEW_COUNT) : photos
   const overflow = photos.length - shown.length
 
+  // Empty + guest → small inline tease so the section doesn't vanish
   if (photos.length === 0 && !isOwner) {
     return (
-      <div style={{ textAlign: 'center', padding: '48px 0' }}>
-        <div style={{ fontSize: 36, marginBottom: 16, color: 'rgba(21,18,14,.12)' }}>✿</div>
-        <p style={{ fontFamily: DISP, color: C.muted, fontSize: 14 }}>No photos added yet.</p>
-      </div>
+      <Card variant="ink" style={{ padding: '24px', textAlign: 'center' }}>
+        <div style={{ fontSize: 28, marginBottom: 10, color: 'rgba(241,236,225,.18)' }}>✿</div>
+        <p style={{ fontFamily: DISP, color: 'rgba(241,236,225,.45)', fontSize: 13, margin: 0 }}>
+          No photos in the gallery yet.
+        </p>
+      </Card>
+    )
+  }
+
+  // Owner with no photos — friendly upload card matching the rest of the page
+  if (photos.length === 0 && isOwner) {
+    return (
+      <Card variant="ink" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ padding: '18px 24px 14px',
+          borderBottom: '1px solid rgba(241,236,225,.06)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Label onInk>Gallery</Label>
+          <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.22em', textTransform: 'uppercase',
+            color: 'rgba(241,236,225,.3)' }}>0 photos</span>
+        </div>
+        <div onClick={() => fileRef.current?.click()}
+          style={{ margin: 18, padding: '28px 0', borderRadius: 18, cursor: 'pointer',
+            border: '2px dashed rgba(243,178,26,.30)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+            background: 'rgba(243,178,26,.04)' }}>
+          <span style={{ fontSize: 28, color: 'rgba(243,178,26,.55)' }}>✿</span>
+          <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.18em',
+            textTransform: 'uppercase', color: 'rgba(243,178,26,.85)', fontWeight: 700 }}>
+            {uploading ? `Uploading ${pct}%` : 'Add photos to the gallery'}
+          </span>
+          <span style={{ fontSize: 11, color: 'rgba(241,236,225,.40)', textAlign: 'center', padding: '0 20px' }}>
+            Add more memories any time. These appear here and don't change the reel.
+          </span>
+        </div>
+        <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
+      </Card>
     )
   }
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '22px 4px 12px' }}>
-        <Label>Gallery</Label>
-        <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.2em', textTransform: 'uppercase', color: C.muted }}>
-          {photos.length} photograph{photos.length !== 1 ? 's' : ''}
+    <Card variant="ink" style={{ padding: 0, overflow: 'hidden' }}>
+      <div style={{
+        padding: '18px 24px 14px',
+        borderBottom: '1px solid rgba(241,236,225,.06)',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 12, flexWrap: 'wrap',
+      }}>
+        <Label onInk>Gallery</Label>
+        <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.22em', textTransform: 'uppercase',
+          color: 'rgba(241,236,225,.3)' }}>
+          {photos.length} photo{photos.length !== 1 ? 's' : ''}
         </span>
       </div>
 
-      {isOwner && !preview && (
-        <div onClick={() => fileRef.current?.click()}
-          style={{ width: '100%', padding: '24px 0', borderRadius: 20, marginBottom: 12,
-            border: `2px dashed rgba(21,18,14,.15)`, display: 'flex', flexDirection: 'column',
-            alignItems: 'center', gap: 8, cursor: 'pointer', background: C.paper }}>
-          <span style={{ fontSize: 24, color: 'rgba(21,18,14,.2)' }}>✿</span>
-          <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase', color: C.muted }}>
-            {uploading ? `Uploading ${pct}%` : 'Add photos'}
-          </span>
-        </div>
-      )}
-      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gridAutoRows: 140, gap: 10 }}
-        className="gallery-grid">
-        {shown.map((photo, i) => (
-          <motion.div key={photo.id || i} whileHover={{ scale: .98 }}
-            onClick={() => setSelected(photo)}
-            style={{
-              position: 'relative', overflow: 'hidden', borderRadius: 20, cursor: 'pointer',
-              background: C.cream2, border: '1px solid rgba(21,18,14,.08)',
-              gridColumn: i === 0 ? 'span 2' : undefined,
-              gridRow:    i === 0 ? 'span 2' : undefined,
-            }}>
-            <img src={photo.url} alt={photo.caption || ''} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform .4s' }} />
-            {photo.caption && (
-              <span style={{ position: 'absolute', left: 10, top: 10, fontFamily: MONO, fontSize: 9.5,
-                letterSpacing: '.18em', textTransform: 'uppercase', color: C.cream,
-                background: 'rgba(21,18,14,.7)', padding: '3px 7px', borderRadius: 999, backdropFilter: 'blur(4px)' }}>
-                {photo.caption}
-              </span>
-            )}
-          </motion.div>
-        ))}
-
-        {(overflow > 0 || (preview && photos.length > 5)) && (
-          <div style={{ background: C.ink, color: C.cream, borderRadius: 20, padding: 14,
-            display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-between',
-            cursor: 'pointer' }}>
-            <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(241,236,225,.6)' }}>◆ view all</span>
-            <span style={{ fontFamily: DISP, fontWeight: 700, fontSize: 38, letterSpacing: '-.03em', lineHeight: 1, color: C.saffron }}>
-              +{overflow || (photos.length - 5)}
+      <div style={{ padding: '14px 16px 16px' }}>
+        {isOwner && !preview && (
+          <div onClick={() => fileRef.current?.click()}
+            style={{ padding: '18px 0', borderRadius: 16, marginBottom: 12,
+              border: `2px dashed rgba(243,178,26,.30)`,
+              background: 'rgba(243,178,26,.04)',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+            <span style={{ fontSize: 22, color: 'rgba(243,178,26,.55)' }}>✿</span>
+            <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.18em',
+              textTransform: 'uppercase', color: 'rgba(243,178,26,.85)', fontWeight: 700 }}>
+              {uploading ? `Uploading ${pct}%` : 'Add photos'}
             </span>
           </div>
+        )}
+        <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}
+          className="gallery-grid">
+          {shown.map((photo, i) => (
+            <motion.div key={photo.id || i} whileHover={{ scale: .98 }}
+              onClick={() => setSelected(photo)}
+              style={{
+                position: 'relative', overflow: 'hidden', borderRadius: 14, cursor: 'pointer',
+                aspectRatio: '1 / 1',
+                background: 'rgba(241,236,225,.04)',
+                border: '1px solid rgba(241,236,225,.08)',
+              }}>
+              <img src={photo.url} alt={photo.caption || ''}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform .4s' }} />
+              {photo.caption && (
+                <span style={{ position: 'absolute', left: 8, top: 8, fontFamily: MONO, fontSize: 9,
+                  letterSpacing: '.14em', textTransform: 'uppercase', color: C.cream,
+                  background: 'rgba(21,18,14,.7)', padding: '2px 6px', borderRadius: 999, backdropFilter: 'blur(4px)' }}>
+                  {photo.caption}
+                </span>
+              )}
+            </motion.div>
+          ))}
+        </div>
+
+        {/* View-all CTA when preview mode + overflow */}
+        {preview && overflow > 0 && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              // Navigate to full Gallery tab by clicking the tab through the URL hash
+              const tabBtn = document.querySelector('[data-tab="Gallery"]')
+              if (tabBtn) tabBtn.click()
+            }}
+            style={{
+              width: '100%', marginTop: 12,
+              padding: '11px 0', borderRadius: 14,
+              background: 'rgba(243,178,26,.10)',
+              border: '1px solid rgba(243,178,26,.25)',
+              color: C.saffron, cursor: 'pointer',
+              fontFamily: MONO, fontSize: 10.5, letterSpacing: '.18em',
+              textTransform: 'uppercase', fontWeight: 700,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}>
+            View all {photos.length} photos →
+          </button>
         )}
       </div>
       <style>{`@media (max-width: 600px) { .gallery-grid { grid-template-columns: repeat(2, 1fr) !important; } }`}</style>
@@ -999,7 +1072,7 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </Card>
   )
 }
 
@@ -1372,6 +1445,21 @@ function MemorialFamilyCircle({ memorial, memorialId, user, isOwner, onClose }) 
             }
           }}
           panResetSignal={recenterTick}
+        />
+      </Suspense>
+
+      {/* Right-rail side panel (mobile → bottom pill) */}
+      <Suspense fallback={null}>
+        <FamilyTreeSidePanel
+          scope="memorial"
+          centerLabel={centered?.name || memorial?.name || 'Memorial'}
+          subtitle={memorial?.years || (memorial?.birthYear ? `Born ${memorial.birthYear}` : '')}
+          selected={selected}
+          members={memberOrbiters}
+          pendingCount={pendingConns.length}
+          isOwner={isOwner}
+          onInvite={() => setShowInvite(true)}
+          onOpenPending={() => setShowPending(true)}
         />
       </Suspense>
 
@@ -1866,14 +1954,16 @@ function MemorialDetailPageInner() {
                   style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   <VoiceSection memorial={memorial} onOpenTalk={() => setShowTalkScreen(true)} />
                   <ReelViewport memorial={memorial} photos={photos} onExpand={() => setShowReelFull(true)} />
+                  {/* Gallery preview — sits directly under the Reel as photo browse entry.
+                      Renders even with no photos so owners always see "Add photos". */}
+                  {(photos.length > 0 || isOwner) && (
+                    <GallerySection photos={photos} memorialId={memorialId} isOwner={isOwner} preview />
+                  )}
                   <StoryCard memorial={memorial} />
                   {tributes.length > 0 && (
                     <TributesSection tributes={tributes} onLike={handleLikeTribute} onDelete={handleDeleteTribute}
                       isOwner={isOwner} currentUserId={user?.id} memorialId={memorialId}
                       user={user} userProfile={userProfile} isFamilyMember={isFamilyMember} preview />
-                  )}
-                  {photos.length > 0 && (
-                    <GallerySection photos={photos} memorialId={memorialId} isOwner={isOwner} preview />
                   )}
                 </motion.div>
               )}

@@ -92,6 +92,9 @@ const _schema = i.schema({
       takenAt:     i.number().optional(),
       displayDate: i.string().optional(),
       source:      i.string().optional(),
+      usedForTraining:    i.boolean().optional(),
+      addedAfterCreation: i.boolean().optional(),
+      aiDescription:      i.string().optional(),
     }),
 
     familyMembers: i.entity({

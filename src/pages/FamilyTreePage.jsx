@@ -7,8 +7,9 @@ import { useState, useEffect, useMemo } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { db } from '../lib/instant'
-import FamilyTreeOrb    from '../components/orbital/FamilyTreeOrb'
-import HudPanel         from '../components/orbital/HudPanel'
+import FamilyTreeOrb       from '../components/orbital/FamilyTreeOrb'
+import FamilyTreeSidePanel from '../components/orbital/FamilyTreeSidePanel'
+import HudPanel            from '../components/orbital/HudPanel'
 import SearchModal      from '../components/members/SearchModal'
 import InviteModal      from '../components/shared/InviteModal'
 import { getRelationLabel } from '../lib/relations'
@@ -140,6 +141,18 @@ export default function FamilyTreePage() {
               onSelectMember={handleSelect}
               onCenterClick={handleCenterClick}
               panResetSignal={recenterTick}
+            />
+          )}
+
+          {/* Right-rail side panel — persistent stats + selected profile */}
+          {!isLoading && (
+            <FamilyTreeSidePanel
+              scope="user"
+              centerLabel={centered?.name || userName}
+              selected={selected}
+              members={members}
+              isOwner={true}
+              onInvite={() => setShowInvite(true)}
             />
           )}
 

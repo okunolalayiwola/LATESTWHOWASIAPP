@@ -31,11 +31,14 @@ import gsap from 'gsap'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const TITLE_DURATION   = 5200
-const PHOTO_DURATION   = 5400
-const CHAPTER_DURATION = 3200
-const CLOSING_DURATION = 5800
-const FADE_DURATION    = 1400
+const MAX_RUNTIME_MS   = 120_000   // 2 min hard cap on total reel duration
+const TITLE_HOLD_MS    = 5400      // how long the title overlay sits on first photo
+const PHOTO_DURATION   = 5400      // default — recalculated dynamically below
+const PHOTO_MIN_DUR    = 2800
+const PHOTO_MAX_DUR    = 6200
+const CHAPTER_DURATION = 3000
+const CLOSING_DURATION = 5400
+const FADE_DURATION    = 1300
 
 const GRAIN_FPS     = 24
 const GRAIN_OPACITY = 0.045
@@ -400,12 +403,19 @@ function ChapterCard({ year, label }) {
 
 // ─── Photo slide with Ken Burns ───────────────────────────────────────────────
 
-function PhotoSlide({ media, moveIdx, name, dateRaw, caption, showText }) {
+function PhotoSlide({ media, moveIdx, memorial, dateRaw, caption, showText, showOpeningTitle }) {
   const imgRef  = useRef(null)
   const gsapRef = useRef(null)
   const move    = KB_MOVES[(moveIdx || 0) % KB_MOVES.length]
   const displayDate = fmtFullDate(dateRaw)
   const yearOnly    = pickYear(dateRaw)
+  const name        = memorial?.name
+  const subtitle    = memorial?.subtitle
+  const yrs         = extractYears(memorial || {})
+  const dateLine    = yrs.born && yrs.died ? `${yrs.born} — ${yrs.died}`
+                    : yrs.born ? `Born ${yrs.born}`
+                    : yrs.died ? `${yrs.died}`
+                    : null
 
   useEffect(() => {
     const el = imgRef.current
@@ -523,8 +533,67 @@ function PhotoSlide({ media, moveIdx, name, dateRaw, caption, showText }) {
         </motion.div>
       )}
 
-      {/* Name nameplate — bottom left */}
-      {showText && name && (
+      {/* ── Opening title overlay (only on first photo) ────────────────────
+          Photo is already visible behind. Strong full-width text block with
+          name + date line + "In loving memory". Stays on screen during the
+          TITLE_HOLD portion of the slide. */}
+      {showText && showOpeningTitle && name && (
+        <>
+          {/* Stronger gradient behind title text for legibility */}
+          <div className="absolute inset-x-0 bottom-0 z-[9] pointer-events-none"
+            style={{
+              height: '62%',
+              background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.45) 50%, transparent 100%)',
+            }} />
+
+          <div className="absolute bottom-0 left-0 right-0 z-10 px-6 pb-12 md:px-12 md:pb-16 text-left">
+            <motion.p
+              initial={{ opacity: 0, letterSpacing: '0.1em' }}
+              animate={{ opacity: 1, letterSpacing: '0.34em' }}
+              transition={{ delay: 0.3, duration: 0.9 }}
+              className="text-[0.62rem] uppercase font-semibold mb-3"
+              style={{ color: 'rgba(255,215,0,0.85)' }}>
+              {yrs.alive ? '◆ A life in motion' : '✦ In loving memory'}
+            </motion.p>
+
+            <h1 className="font-display font-bold text-white leading-none mb-4"
+              style={{ fontSize: 'clamp(2.4rem, 7vw, 5.2rem)', letterSpacing: '-0.02em',
+                textShadow: '0 4px 30px rgba(0,0,0,0.65)' }}>
+              <AnimatedName text={name} triggerKey={`opening-${moveIdx}`} delay={0.55} />
+            </h1>
+
+            {dateLine && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.9 + (name.length * 0.038), duration: 0.6 }}
+                className="flex items-center gap-3 mb-3"
+              >
+                <span className="h-px w-10" style={{ background: 'linear-gradient(to right, transparent, rgba(255,215,0,0.65))' }} />
+                <span className="font-mono text-sm md:text-base tracking-[0.18em] tabular-nums"
+                  style={{ color: 'rgba(255,215,0,0.92)', textShadow: '0 2px 12px rgba(0,0,0,0.7)' }}>
+                  {dateLine}
+                </span>
+              </motion.div>
+            )}
+
+            {subtitle && (
+              <motion.p
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.5, duration: 0.7 }}
+                className="text-sm md:text-base max-w-xl leading-relaxed italic"
+                style={{ color: 'rgba(255,255,255,0.78)', fontFamily: 'Georgia, serif',
+                  textShadow: '0 2px 12px rgba(0,0,0,0.7)' }}>
+                {subtitle}
+              </motion.p>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ── Compact nameplate on subsequent photos ─────────────────────────── */}
+      {showText && !showOpeningTitle && name && (
         <div className="absolute bottom-6 left-5 z-10">
           <motion.p
             initial={{ opacity: 0 }}
@@ -547,17 +616,18 @@ function PhotoSlide({ media, moveIdx, name, dateRaw, caption, showText }) {
 // ─── Render a slide of any kind ───────────────────────────────────────────────
 
 function RenderSlide({ slide, idx, memorial, showText }) {
-  if (slide.kind === 'title')   return <TitleCard memorial={memorial} />
-  if (slide.kind === 'closing') return <ClosingCard memorial={memorial} />
-  if (slide.kind === 'chapter') return <ChapterCard year={slide.year} label={slide.label} />
+  if (slide.kind === 'title-only') return <TitleCard memorial={memorial} />
+  if (slide.kind === 'closing')    return <ClosingCard memorial={memorial} />
+  if (slide.kind === 'chapter')    return <ChapterCard year={slide.year} label={slide.label} />
   return (
     <PhotoSlide
       media={slide.url}
       moveIdx={idx}
-      name={memorial?.name}
+      memorial={memorial}
       dateRaw={slide.date}
       caption={slide.caption}
       showText={showText}
+      showOpeningTitle={slide.showTitle === true}
     />
   )
 }
@@ -626,8 +696,12 @@ function useMusicPlayer(src) {
 }
 
 // ─── Build the storyboard ─────────────────────────────────────────────────────
-// Returns the ordered list of slides: title → photos (with chapter year markers
-// between major year gaps) → closing.
+// When photos exist: first photo gets a `showTitle` flag — the name + dates
+//   overlay appears on top of the actual photo (no separate blank title card).
+// When no photos: returns a single typographic title-only slide.
+//
+// Total runtime is capped at MAX_RUNTIME_MS (2 min). Per-photo duration scales
+// down as the number of photos grows. Chapter markers count toward the budget.
 
 function buildStoryboard(photos, memorial) {
   const sorted = (photos || [])
@@ -635,22 +709,45 @@ function buildStoryboard(photos, memorial) {
     .map(p => ({ ...p, date: getDate(p) }))
     .sort((a, b) => (a.date || 0) - (b.date || 0))
 
-  const slides = []
-  slides.push({ kind: 'title', duration: TITLE_DURATION })
+  // No photos → typography-only title slide
+  if (sorted.length === 0) {
+    return [{ kind: 'title-only', duration: 8000 }]
+  }
 
+  const slides = []
+
+  // ── Plan chapter markers ──────────────────────────────────────────────────
+  // Identify year transitions (skip first), so we can budget time for them.
+  const chapterIndexes = []
   let lastYear = null
-  sorted.forEach(p => {
+  sorted.forEach((p, i) => {
     const year = pickYear(p.date)
-    // Insert a chapter card if we've crossed into a new year (and not the first photo)
+    if (year && lastYear !== null && year !== lastYear) chapterIndexes.push(i)
+    if (year) lastYear = year
+  })
+
+  // ── Compute dynamic per-photo duration so total ≤ MAX_RUNTIME_MS ──────────
+  const fixedTime = TITLE_HOLD_MS + CLOSING_DURATION + chapterIndexes.length * CHAPTER_DURATION
+  const available = Math.max(MAX_RUNTIME_MS - fixedTime, sorted.length * PHOTO_MIN_DUR)
+  let perPhoto    = Math.floor(available / sorted.length)
+  perPhoto = Math.max(PHOTO_MIN_DUR, Math.min(PHOTO_MAX_DUR, perPhoto))
+
+  // ── Emit slides ───────────────────────────────────────────────────────────
+  lastYear = null
+  sorted.forEach((p, i) => {
+    const year = pickYear(p.date)
     if (year && lastYear !== null && year !== lastYear) {
       slides.push({ kind: 'chapter', year, duration: CHAPTER_DURATION })
     }
+    // First photo carries the opening title overlay + extra hold
+    const isFirst = i === 0
     slides.push({
       kind: 'photo',
       url: p.url,
       date: p.date,
       caption: p.caption,
-      duration: PHOTO_DURATION,
+      duration: isFirst ? perPhoto + TITLE_HOLD_MS : perPhoto,
+      showTitle: isFirst,
     })
     if (year) lastYear = year
   })

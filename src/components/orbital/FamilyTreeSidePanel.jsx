@@ -1,0 +1,404 @@
+// src/components/orbital/FamilyTreeSidePanel.jsx
+//
+// Persistent right rail (desktop) / collapsible bottom sheet (mobile) that
+// sits next to the orbital canvas. Always visible by default so the user
+// can see selected-profile details + member counts at a glance.
+//
+// Props:
+//   scope         — 'memorial' | 'user'
+//   centerLabel   — display name of the current centre
+//   selected      — { id, name, photo, relation } | null → falls back to centre
+//   members       — array of orbiters (used for stats)
+//   pendingCount  — number (optional, shown only when scope='memorial' + isOwner)
+//   isOwner       — boolean
+//   onInvite      — () => void
+//   onOpenPending — () => void
+//   subtitle      — short string under the title (e.g. memorial dates)
+
+import { useMemo, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { getRelationFilterCategory } from '../../lib/relations'
+
+// Mobile detection via media query — driven by CSS so we avoid re-renders
+const PANEL_W   = 320
+const PANEL_TOP = 96   // sit below the top bar
+const PANEL_BOT = 28
+
+const FAMILY_CATS = new Set(['partner','children','siblings','parents','extended','grandparents'])
+
+function StatTile({ label, value, accent = '#FFD700' }) {
+  return (
+    <div style={{
+      flex: 1,
+      background: 'rgba(255,255,255,0.04)',
+      border: '1px solid rgba(255,255,255,0.08)',
+      borderRadius: 14,
+      padding: '12px 14px',
+      minWidth: 0,
+    }}>
+      <p style={{
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: 9, letterSpacing: '.20em', textTransform: 'uppercase',
+        color: 'rgba(255,255,255,0.42)', margin: 0,
+      }}>
+        {label}
+      </p>
+      <p style={{
+        fontFamily: "'Cormorant Garamond', Georgia, serif",
+        fontWeight: 700, fontSize: 26, lineHeight: 1.05,
+        color: accent, margin: '4px 0 0', letterSpacing: '-.02em',
+      }}>
+        {value}
+      </p>
+    </div>
+  )
+}
+
+function RelationBar({ label, count, total, color }) {
+  const pct = total > 0 ? Math.round((count / total) * 100) : 0
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+        <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, color: 'rgba(255,255,255,0.62)', fontWeight: 600 }}>
+          {label}
+        </span>
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: 'rgba(255,255,255,0.4)' }}>
+          {count}
+        </span>
+      </div>
+      <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+        <div style={{
+          width: `${pct}%`, height: '100%', borderRadius: 2,
+          background: color, transition: 'width 400ms',
+        }} />
+      </div>
+    </div>
+  )
+}
+
+export default function FamilyTreeSidePanel({
+  scope         = 'memorial',
+  centerLabel   = 'Memorial',
+  selected      = null,
+  members       = [],
+  pendingCount  = 0,
+  isOwner       = false,
+  onInvite,
+  onOpenPending,
+  subtitle      = '',
+}) {
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  // Breakdown by relation type — drives the bars
+  const breakdown = useMemo(() => {
+    let family = 0, friends = 0, other = 0
+    members.forEach(m => {
+      const raw = m.rawRelation || m.relation
+      const cat = getRelationFilterCategory(raw)
+      if (FAMILY_CATS.has(cat))   family++
+      else if (cat === 'friends') friends++
+      else                         other++
+    })
+    return { family, friends, other }
+  }, [members])
+
+  const display = selected || {
+    name:     centerLabel,
+    photo:    null,
+    relation: scope === 'memorial' ? '✦ Centre of the circle' : 'You',
+    isCenter: true,
+  }
+
+  // Hide the panel entirely when nothing useful to show
+  const total = members.length
+
+  const Body = (
+    <>
+      {/* Header */}
+      <div style={{ marginBottom: 16 }}>
+        <p style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 9, letterSpacing: '.28em', textTransform: 'uppercase',
+          color: 'rgba(255,215,0,0.65)', margin: 0,
+        }}>
+          ◉ {scope === 'memorial' ? 'Family circle' : 'Your family'}
+        </p>
+        <h3 style={{
+          fontFamily: "'Cormorant Garamond', Georgia, serif",
+          fontWeight: 700, fontSize: 22, color: '#fff',
+          margin: '4px 0 2px', letterSpacing: '-.01em', lineHeight: 1.15,
+        }}>
+          {centerLabel}
+        </h3>
+        {subtitle && (
+          <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 11,
+            color: 'rgba(255,255,255,0.40)', margin: 0 }}>
+            {subtitle}
+          </p>
+        )}
+      </div>
+
+      {/* Selected profile card */}
+      <div style={{
+        background: 'linear-gradient(135deg, rgba(255,215,0,0.06) 0%, rgba(56,189,248,0.04) 100%)',
+        border: '1px solid rgba(255,215,0,0.20)',
+        borderRadius: 18, padding: '14px 14px 16px',
+        marginBottom: 16,
+      }}>
+        <p style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 8.5, letterSpacing: '.26em', textTransform: 'uppercase',
+          color: 'rgba(255,215,0,0.60)', margin: '0 0 10px',
+        }}>
+          Selected profile
+        </p>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{
+            width: 54, height: 54, borderRadius: '50%', flexShrink: 0,
+            background: 'linear-gradient(135deg, rgba(255,215,0,.22), rgba(56,189,248,.18))',
+            border: '1.5px solid rgba(255,215,0,0.35)',
+            overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: "'Cormorant Garamond', serif",
+            fontSize: 20, fontWeight: 700, color: '#FFD700',
+          }}>
+            {display.photo
+              ? <img src={display.photo} alt={display.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : (display.name?.[0] || '?').toUpperCase()
+            }
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{
+              fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 14,
+              color: '#fff', margin: 0, lineHeight: 1.2,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {display.name}
+            </p>
+            <p style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 9.5, letterSpacing: '.16em', textTransform: 'uppercase',
+              color: '#FFD700', margin: '4px 0 0',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {display.relation || 'family'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats — total + pending */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+        <StatTile
+          label="Total members"
+          value={total}
+          accent="#FFD700"
+        />
+        {scope === 'memorial' && isOwner ? (
+          <StatTile
+            label="Pending"
+            value={pendingCount}
+            accent={pendingCount > 0 ? '#FFCC4D' : 'rgba(255,255,255,0.55)'}
+          />
+        ) : (
+          <StatTile
+            label="Generations"
+            value={total > 0 ? Math.min(3, Math.ceil(Math.sqrt(total))) : 0}
+            accent="#38BDF8"
+          />
+        )}
+      </div>
+
+      {/* Pending alert */}
+      {scope === 'memorial' && isOwner && pendingCount > 0 && (
+        <button onClick={onOpenPending}
+          style={{
+            width: '100%', marginBottom: 16,
+            background: 'rgba(255,215,0,0.10)',
+            border: '1px solid rgba(255,215,0,0.30)',
+            borderRadius: 14, padding: '10px 12px',
+            color: '#FFD700', cursor: 'pointer',
+            fontFamily: "'Inter', sans-serif",
+            fontSize: 11.5, fontWeight: 700, letterSpacing: '.04em',
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+          <span style={{
+            display: 'inline-flex', width: 22, height: 22, borderRadius: 11,
+            background: 'rgba(255,215,0,0.22)', color: '#FFD700',
+            alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11,
+          }}>
+            {pendingCount}
+          </span>
+          <span style={{ flex: 1, textAlign: 'left' }}>
+            Review {pendingCount === 1 ? 'request' : 'requests'}
+          </span>
+          <span>→</span>
+        </button>
+      )}
+
+      {/* Relation breakdown */}
+      {total > 0 && (
+        <div style={{
+          marginBottom: 16,
+          padding: '14px 14px 6px',
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.06)',
+          borderRadius: 16,
+        }}>
+          <p style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase',
+            color: 'rgba(255,255,255,0.35)', margin: '0 0 10px',
+          }}>
+            Breakdown
+          </p>
+          {breakdown.family > 0 && (
+            <RelationBar label="Family" count={breakdown.family} total={total} color="linear-gradient(90deg, #FFD700, #FFB400)" />
+          )}
+          {breakdown.friends > 0 && (
+            <RelationBar label="Friends" count={breakdown.friends} total={total} color="linear-gradient(90deg, #38BDF8, #60c0dc)" />
+          )}
+          {breakdown.other > 0 && (
+            <RelationBar label="Other" count={breakdown.other} total={total} color="rgba(255,255,255,.35)" />
+          )}
+        </div>
+      )}
+
+      {/* Invite CTA */}
+      {isOwner && (
+        <button onClick={onInvite}
+          style={{
+            width: '100%',
+            background: 'linear-gradient(135deg, #FFD700 0%, #38BDF8 130%)',
+            border: 'none', borderRadius: 14, padding: '12px 0',
+            color: '#0a0a12', cursor: 'pointer',
+            fontFamily: "'Inter', sans-serif",
+            fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase',
+            boxShadow: '0 6px 20px rgba(255,215,0,0.25)',
+          }}>
+          ✦ Invite to circle
+        </button>
+      )}
+
+      {/* Footer tip */}
+      <p style={{
+        marginTop: 14, fontFamily: "'Inter', sans-serif",
+        fontSize: 10.5, lineHeight: 1.55, color: 'rgba(255,255,255,0.35)',
+      }}>
+        Drag to pan around the web. Tap any face to re-centre on them — the circle
+        reorders to their world.
+      </p>
+    </>
+  )
+
+  return (
+    <>
+      {/* Desktop right rail */}
+      <div
+        className="ftsp-desktop"
+        style={{
+          position: 'fixed',
+          top: PANEL_TOP, right: 16, bottom: PANEL_BOT,
+          width: PANEL_W,
+          zIndex: 22,
+          background: 'rgba(10,10,15,0.82)',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: 22,
+          padding: '20px 18px',
+          overflowY: 'auto',
+          boxShadow: '0 10px 40px rgba(0,0,0,0.55)',
+        }}>
+        {Body}
+      </div>
+
+      {/* Mobile — compact pill at the bottom that opens into a sheet */}
+      <button
+        className="ftsp-mobile-pill"
+        onClick={() => setMobileOpen(true)}
+        style={{
+          position: 'fixed',
+          bottom: 'calc(74px + env(safe-area-inset-bottom))',
+          left: 16, right: 16,
+          zIndex: 22,
+          background: 'rgba(10,10,15,0.92)',
+          backdropFilter: 'blur(24px)',
+          border: '1px solid rgba(255,215,0,0.25)',
+          borderRadius: 16, padding: '10px 14px',
+          color: '#fff', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 10,
+          fontFamily: "'Inter', sans-serif", fontSize: 12, textAlign: 'left',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.55)',
+        }}>
+        <span style={{
+          display: 'inline-flex', width: 32, height: 32, borderRadius: 8,
+          background: 'linear-gradient(135deg,rgba(255,215,0,.20),rgba(56,189,248,.15))',
+          border: '1px solid rgba(255,215,0,0.30)',
+          alignItems: 'center', justifyContent: 'center',
+          color: '#FFD700', fontWeight: 800, fontSize: 13,
+        }}>
+          {total}
+        </span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ margin: 0, fontWeight: 700, color: '#fff', fontSize: 12 }}>
+            {total === 0 ? 'No family yet' : `${total} member${total !== 1 ? 's' : ''} · tap for details`}
+          </p>
+          <p style={{ margin: '2px 0 0', color: 'rgba(255,255,255,.45)', fontSize: 10.5 }}>
+            {scope === 'memorial' && isOwner && pendingCount > 0
+              ? `${pendingCount} pending`
+              : 'Stats · breakdown · invite'}
+          </p>
+        </span>
+        <span style={{ color: 'rgba(255,215,0,0.75)', fontSize: 14 }}>↑</span>
+      </button>
+
+      <AnimatePresence>
+        {mobileOpen && (
+          <>
+            <motion.div
+              key="ftsp-backdrop"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setMobileOpen(false)}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 30, backdropFilter: 'blur(8px)' }}
+            />
+            <motion.div
+              key="ftsp-sheet"
+              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 320 }}
+              style={{
+                position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 31,
+                background: '#0a0a14', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+                padding: '14px 18px 30px', maxWidth: 560, margin: '0 auto',
+                border: '1px solid rgba(255,255,255,0.08)',
+                maxHeight: '85vh', overflowY: 'auto',
+              }}>
+              <div style={{ width: 42, height: 4, background: 'rgba(255,255,255,.18)', borderRadius: 2, margin: '0 auto 16px' }} />
+              {Body}
+              <button onClick={() => setMobileOpen(false)}
+                style={{
+                  width: '100%', marginTop: 14, padding: '11px 0',
+                  background: 'transparent',
+                  border: '1px solid rgba(255,255,255,0.10)',
+                  borderRadius: 12, color: 'rgba(255,255,255,0.55)',
+                  cursor: 'pointer', fontFamily: "'Inter',sans-serif",
+                  fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase',
+                }}>
+                Close
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      <style>{`
+        .ftsp-desktop  { display: block; }
+        .ftsp-mobile-pill { display: none; }
+        @media (max-width: 1023px) {
+          .ftsp-desktop  { display: none; }
+          .ftsp-mobile-pill { display: flex; }
+        }
+      `}</style>
+    </>
+  )
+}
