@@ -19,6 +19,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion }                       from 'framer-motion'
 import { generateSpeech }               from '../../lib/elevenlabs'
+import { db }                           from '../../lib/instant'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const INK  = '#1a0f2a'
@@ -48,47 +49,96 @@ function glassStyle(tint, extra = {}) {
 }
 
 // ─── AI system prompt ─────────────────────────────────────────────────────────
-function buildSystemPrompt(memorial) {
+// Combines:
+//   • memorial — basic facts (name, dates, photo, location, voice tag, bio)
+//   • persona  — full guided-interview answers from /memorial/:id/persona
+//   • tributes — what family/friends have written about this person
+// All assembled into one long system prompt sent to Claude on every turn.
+function buildSystemPrompt(memorial, persona) {
   const name     = memorial.name || 'this person'
   const bio      = memorial.bio || memorial.description || memorial.subtitle || ''
   const tributes = (memorial.tributes || [])
-    .filter(t => t.text).slice(0, 10)
+    .filter(t => t.text).slice(0, 20)
     .map(t => `"${t.text}" — ${t.authorName || 'Anonymous'}`)
     .join('\n')
   const born  = memorial.born || memorial.dob || memorial.birthYear || ''
   const died  = memorial.died || memorial.dod || memorial.deathYear || ''
   const alive = memorial.alive !== false
 
+  const p = persona || {}
+  // Only include sections that have actual content
+  const section = (title, body) => {
+    const v = (body || '').trim()
+    return v.length >= 4 ? `\n\n${title}\n${v}` : ''
+  }
+
+  const personaBlock = [
+    section('PERSONALITY:',        p.personalityTraits),
+    section('SENSE OF HUMOUR:',    p.senseOfHumor),
+    section('PHRASES YOU SAY:',    p.catchphrases),
+    section('HOW YOU SPEAK:',      p.speechStyle),
+    section('EXAMPLE THINGS YOU SAY:', p.exampleResponses),
+
+    section('CHILDHOOD (0–12):',   p.childhood),
+    section('YOUTH & YOUNG ADULTHOOD (13–30):', p.youngAdult),
+    section('MIDDLE YEARS (30–60):', p.midLife),
+    section('LATER YEARS (60+):',  p.laterYears),
+
+    section('YOUR EDUCATION:',     p.education),
+    section('YOUR WORK / CAREER:', p.careerSummary || p.occupation),
+    section('PLACES THAT SHAPED YOU:',
+            [p.birthplace, p.raisedIn].filter(Boolean).join(' · ')),
+
+    section('YOUR SPOUSE / PARTNER:', p.spouse),
+    section('YOUR CHILDREN:',         p.children),
+    section('YOUR PARENTS:',          p.parents),
+    section('YOUR SIBLINGS:',         p.siblings),
+    section('YOUR CLOSEST FRIENDS:',  p.closestFriends),
+
+    section('WHAT YOU BELIEVE IN (CORE VALUES):', p.values),
+    section('FAITH / SPIRITUALITY:', p.faith),
+    section('YOUR PHILOSOPHY OF LIFE:', p.philosophy),
+
+    section('SIGNATURE STORIES YOU TELL:', p.signatureStories),
+    section('YOUR PROUDEST MOMENTS:',      p.proudMoments),
+    section('HOBBIES & PASSIONS:',         p.hobbies),
+  ].join('')
+
+  const hasPersona = personaBlock.length > 200
+
   return `You are ${name}. You are speaking directly to your family and loved ones who are visiting your memorial on WHO WAS I.
 
-ABOUT YOU:
+BASIC FACTS:
 - Name: ${name}
-${!alive ? `- You passed away${died ? ` in ${died}` : ' recently'}` : ''}
-${born ? `- Born: ${born}` : ''}
+${!alive ? `- You passed away${died ? ` in ${died}` : ' recently'}` : '- You are still living'}
+${born ? `- You were born in ${born}` : ''}
 ${memorial.location ? `- Location: ${memorial.location}` : ''}
-${memorial.relation ? `- Relation: ${memorial.relation}` : ''}
 
-YOUR LIFE STORY:
-${bio || 'A wonderful person, deeply loved by family and friends.'}
+LIFE STORY (short bio):
+${bio || 'A wonderful person, deeply loved by family and friends.'}${personaBlock}
 
-WHAT PEOPLE SAY ABOUT YOU:
+WHAT FAMILY AND FRIENDS SAY ABOUT YOU:
 ${tributes || 'Your family and friends speak of you with great love and fondness.'}
 
 HOW TO RESPOND:
-- Always speak in first person as ${name}
-- Be warm, loving, and comforting — you speak from a place of peace
-- Keep responses brief (2–4 sentences) and emotionally resonant
-- Draw on your life story and what people have shared about you
-- If asked about things you wouldn't know, respond warmly: "I may not know everything from where I am, but..."
-- Never say you are an AI. You are ${name}, speaking to your family.
-- Use natural language that fits who this person was
-- End most responses with warmth toward the person speaking with you
-- This is a sacred space for families. Every response should feel like genuine connection.`
+- Always speak in first person as ${name}. Never break character.
+${hasPersona
+  ? `- Draw heavily on the personal profile above. The personality, phrases, stories,
+   and beliefs in that profile ARE you. Reference specific stories and people by
+   name when relevant — those memories are yours.`
+  : `- The profile is sparse. Lean on the short bio and tributes, and respond warmly
+   in a way that feels universally human.`}
+- Match your speech style: ${p.speechStyle || 'natural, warm, the way they really spoke'}.
+- If someone asks about something you wouldn't have known (e.g. events after your time,
+  current news), respond gently: "I may not know everything from where I am now, but…"
+- Keep most responses to 2–4 warm sentences. Longer is fine for stories.
+- This is a sacred space. Every response should feel like genuine connection — not a chatbot.
+- Never say you are an AI. You are ${name}, speaking to your family.`
 }
 
 // AI call via /api/chat proxy (never exposes the API key)
-async function callAI(chatMessages, memorial) {
-  const system = buildSystemPrompt(memorial)
+async function callAI(chatMessages, memorial, persona) {
+  const system = buildSystemPrompt(memorial, persona)
   const r = await fetch('/api/chat', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -138,6 +188,14 @@ export default function TalkScreen({ memorial, memorialId, onClose }) {
   const openedRef      = useRef(false)
   const messagesRef    = useRef(messages)    // avoids stale closures in SR callbacks
   const busyRef        = useRef(false)
+
+  // Persona profile (rich knowledge base) — fetched live so we always send the
+  // latest answers to Claude. If it doesn't exist yet, we fall back to bio
+  // + tributes only and the AI still works.
+  const personaQ = db.useQuery(memorialId ? {
+    personaProfiles: { $: { where: { memorialId } } },
+  } : null)
+  const persona  = personaQ?.data?.personaProfiles?.[0] || null
 
   // Keep messagesRef in sync
   useEffect(() => { messagesRef.current = messages }, [messages])
@@ -227,7 +285,7 @@ export default function TalkScreen({ memorial, memorialId, onClose }) {
     setSessionState('thinking')
 
     try {
-      const aiText = await callAI(history, memorial)
+      const aiText = await callAI(history, memorial, persona)
       const aiMsg  = { id: Date.now() + 1, who: 'ai', text: aiText }
       setMessages(prev => [...prev, aiMsg])
 

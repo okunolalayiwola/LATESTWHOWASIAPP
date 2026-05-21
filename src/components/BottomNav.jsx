@@ -26,7 +26,7 @@ export default function BottomNav() {
   const inFocusedFlow =
     HIDE_EXACT.includes(path) ||
     HIDE_PREFIX.some(p => path.startsWith(p)) ||
-    /^\/memorial\/[^/]+\/(edit|conversation|letters|import)$/.test(path)
+    /^\/memorial\/[^/]+\/(edit|conversation|letters|import|persona)$/.test(path)
   if (inFocusedFlow) return null
 
   const active = (to) => location.pathname === to || location.pathname.startsWith(to + '/')

@@ -173,6 +173,52 @@ const _schema = i.schema({
       inviterRespondedAt: i.number().optional(),
     }),
 
+    // ─── Persona Profiles — AI knowledge base per memorial ──────────────────
+    // Structured biographical and personality data used to build the system
+    // prompt for the "hear them speak" AI conversation. One profile per
+    // memorial. All fields are long-text optional so the form can save
+    // progressively and chapters can be completed in any order.
+    personaProfiles: i.entity({
+      memorialId:   i.string().unique().indexed(),
+      ownerId:      i.string().indexed(),
+      // Identity foundation
+      birthplace:        i.string().optional(),
+      raisedIn:          i.string().optional(),
+      occupation:        i.string().optional(),
+      careerSummary:     i.string().optional(),   // long
+      education:         i.string().optional(),   // long
+      // Personality + voice
+      personalityTraits: i.string().optional(),   // long — adjectives + how they act
+      senseOfHumor:      i.string().optional(),
+      catchphrases:      i.string().optional(),   // sayings they'd repeat
+      speechStyle:       i.string().optional(),   // accent, vocabulary, formality
+      // Life chapters (chronological — each is long-text)
+      childhood:         i.string().optional(),
+      youngAdult:        i.string().optional(),
+      midLife:           i.string().optional(),
+      laterYears:        i.string().optional(),
+      // People — relationships in their life
+      spouse:            i.string().optional(),
+      children:          i.string().optional(),
+      parents:           i.string().optional(),
+      siblings:          i.string().optional(),
+      closestFriends:    i.string().optional(),
+      // Worldview
+      values:            i.string().optional(),   // long
+      faith:             i.string().optional(),
+      philosophy:        i.string().optional(),
+      // Memories
+      signatureStories:  i.string().optional(),   // anecdotes they retold
+      proudMoments:      i.string().optional(),
+      hobbies:           i.string().optional(),
+      // Voice samples — example things they'd say
+      exampleResponses:  i.string().optional(),
+      // Meta — which chapters have been completed at least once
+      completedChapters: i.json().optional(),     // string[]
+      createdAt:         i.number(),
+      updatedAt:         i.number().optional(),
+    }),
+
     // ─── Family Messages (private, approved-members only) ────────────────────
     familyMessages: i.entity({
       memorialId: i.string().indexed(),

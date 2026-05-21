@@ -43,6 +43,8 @@ const SettingsPage         = lazyWithRetry(() => import('./pages/SettingsPage'))
 const PremiumPage          = lazyWithRetry(() => import('./pages/PremiumPage'))
 
 const ReelsPage            = lazyWithRetry(() => import('./pages/ReelsPage'))
+const ChatPage             = lazyWithRetry(() => import('./pages/ChatPage'))
+const PersonaProfilePage   = lazyWithRetry(() => import('./pages/PersonaProfilePage'))
 const FacebookCallbackPage = lazyWithRetry(() => import('./pages/FacebookCallbackPage'))
 
 const PrivacyPolicyPage    = lazyWithRetry(() => import('./pages/LegalPages').then(m => ({ default: m.PrivacyPolicyPage })))
@@ -211,11 +213,13 @@ function AppInner() {
               <Route path="/memorial/:id"        element={<MemorialDetailPage />} />
               <Route path="/memorial/:id/edit"   element={<EditMemorialPage />}   />
 
-              <Route path="/memorial/:id/conversation" element={<ConversationPage />}  />
-              <Route path="/memorial/:id/letters"      element={<LegacyLettersPage />} />
-              <Route path="/memorial/:id/import"       element={<SocialImportPage />}  />
+              <Route path="/memorial/:id/conversation" element={<ConversationPage />}    />
+              <Route path="/memorial/:id/letters"      element={<LegacyLettersPage />}   />
+              <Route path="/memorial/:id/import"       element={<SocialImportPage />}    />
+              <Route path="/memorial/:id/persona"      element={<PersonaProfilePage />}  />
 
               <Route path="/reels"       element={<ReelsPage />}          />
+              <Route path="/chat"        element={<ChatPage />}           />
               <Route path="/create"      element={<CreateMemorialPage />} />
               <Route path="/dashboard"   element={<DashboardPage />}      />
               <Route path="/profile"     element={<ProfilePage />}        />

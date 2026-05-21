@@ -1727,6 +1727,83 @@ function getRelationLabel(value) {
   return String(value).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
+// ─── Persona profile callout ──────────────────────────────────────────────────
+// Shown to owners only, just below the Voice section. Surfaces the memory
+// profile flow — the questionnaire that trains the AI conversation.
+function PersonaProfileCallout({ memorial, memorialId }) {
+  const { data } = db.useQuery(memorialId ? {
+    personaProfiles: { $: { where: { memorialId } } },
+  } : null)
+  const profile  = data?.personaProfiles?.[0]
+  const chapters = Array.isArray(profile?.completedChapters) ? profile.completedChapters.length : 0
+  const total    = 6
+  const pct      = Math.round((chapters / total) * 100)
+  const firstName = memorial?.name?.split(' ')[0] || 'them'
+  const isSelf   = memorial?.isSelf === true
+
+  return (
+    <Link to={`/memorial/${memorialId}/persona`}
+      style={{
+        display: 'block', textDecoration: 'none',
+        background: 'linear-gradient(135deg, rgba(243,178,26,0.10), rgba(56,189,248,0.06))',
+        border: '1px solid rgba(243,178,26,0.28)',
+        borderRadius: 22,
+        padding: '18px 22px',
+        position: 'relative',
+        overflow: 'hidden',
+      }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+        <div style={{
+          width: 44, height: 44, borderRadius: 14, flexShrink: 0,
+          background: 'linear-gradient(135deg, #FFD700, #38BDF8)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 22, color: '#0a0a12', fontWeight: 800,
+          boxShadow: '0 6px 18px rgba(243,178,26,.30)',
+        }}>
+          ◆
+        </div>
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <p style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.22em', textTransform: 'uppercase',
+            color: C.saffron, margin: 0 }}>
+            Memory profile · {chapters}/{total} chapters
+          </p>
+          <h3 style={{ fontFamily: DISP, fontWeight: 700, fontSize: 18, color: C.cream,
+            margin: '4px 0 4px', letterSpacing: '-.01em' }}>
+            {chapters === 0
+              ? (isSelf ? 'Build the AI that will speak as you' : `Train the AI to speak as ${firstName}`)
+              : pct === 100
+                ? `${firstName}'s memory is ready`
+                : `${pct}% — keep going`}
+          </h3>
+          <p style={{ margin: 0, fontSize: 13, color: 'rgba(241,236,225,.55)', lineHeight: 1.5 }}>
+            {chapters === 0
+              ? `Answer a guided interview about ${isSelf ? 'yourself' : firstName} — life chapters, personality, stories, beliefs. The AI uses everything you write to power "Hear ${isSelf ? 'you' : 'them'} speak".`
+              : `Add more detail or revisit any chapter — every paragraph makes the conversation richer.`}
+          </p>
+        </div>
+        <div style={{
+          padding: '9px 16px', borderRadius: 999,
+          background: C.saffron, color: C.ink,
+          fontFamily: MONO, fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase',
+          fontWeight: 800, flexShrink: 0,
+          boxShadow: '0 4px 14px rgba(243,178,26,.30)',
+        }}>
+          {chapters === 0 ? 'Start' : 'Continue'} →
+        </div>
+      </div>
+      {/* Progress bar */}
+      {chapters > 0 && (
+        <div style={{ marginTop: 14, height: 3, borderRadius: 2,
+          background: 'rgba(243,178,26,.10)', overflow: 'hidden' }}>
+          <div style={{ width: `${pct}%`, height: '100%',
+            background: 'linear-gradient(90deg, #FFD700, #38BDF8)',
+            transition: 'width 0.4s ease' }} />
+        </div>
+      )}
+    </Link>
+  )
+}
+
 // ─── Main inner component ─────────────────────────────────────────────────────
 function MemorialDetailPageInner() {
   const { id: memorialId } = useParams()
@@ -1968,6 +2045,9 @@ function MemorialDetailPageInner() {
                 <motion.div key="story" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                   style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   <VoiceSection memorial={memorial} onOpenTalk={() => setShowTalkScreen(true)} />
+                  {isOwner && (
+                    <PersonaProfileCallout memorial={memorial} memorialId={memorialId} />
+                  )}
                   <ReelViewport memorial={memorial} photos={photos} onExpand={() => setShowReelFull(true)} />
                   {/* Gallery preview — sits directly under the Reel as photo browse entry.
                       Renders even with no photos so owners always see "Add photos". */}

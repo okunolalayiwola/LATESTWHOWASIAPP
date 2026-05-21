@@ -7,11 +7,11 @@ import { db } from '../lib/instant'
 import { useNotifications } from '../hooks/useNotifications'
 
 const NAV_LINKS = [
-  { to:'/explore',                 label:'Explore'   },
-  { to:'/dashboard',               label:'Dashboard' },
-  { to:'/family-tree',             label:'Family'    },
-  { to:'/dashboard?tab=messages',  label:'💬 Chat'   },
-  { to:'/premium',                 label:'Premium ✦' },
+  { to:'/explore',     label:'Explore'   },
+  { to:'/dashboard',   label:'Dashboard' },
+  { to:'/family-tree', label:'Family'    },
+  { to:'/chat',        label:'💬 Chat'   },
+  { to:'/premium',     label:'Premium ✦' },
 ]
 
 export default function Navigation() {
@@ -25,14 +25,7 @@ export default function Navigation() {
   const HIDE = ['/', '/auth', '/onboarding']
   if (HIDE.includes(location.pathname) || isLoading) return null
 
-  const active = (to) => {
-    const [path, query] = to.split('?')
-    const pathMatches = location.pathname === path || location.pathname.startsWith(path + '/')
-    if (!query) return pathMatches && !location.search.includes('tab=messages')
-    // Query-tagged links (e.g. /dashboard?tab=messages) only count as active
-    // when the corresponding tab param is in the current URL.
-    return pathMatches && location.search.includes(query)
-  }
+  const active = (to) => location.pathname === to || location.pathname.startsWith(to + '/')
 
   return (
     <>

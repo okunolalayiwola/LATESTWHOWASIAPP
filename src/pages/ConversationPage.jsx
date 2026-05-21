@@ -20,48 +20,84 @@ import { SkeletonProfile, SkeletonListItem } from '../components/ui/Skeleton'
 
 // ─── System prompt builder ────────────────────────────────────────────────────
 
-function buildSystemPrompt(memorial, tributes) {
-  const tributeSnippets = tributes
+function buildSystemPrompt(memorial, tributes, persona) {
+  const tributeSnippets = (tributes || [])
     .filter(t => t.text)
-    .slice(0, 12)
+    .slice(0, 20)
     .map(t => `"${t.text}" — ${t.authorName || 'Anonymous'}`)
     .join('\n')
+
+  const p = persona || {}
+  const section = (title, body) => {
+    const v = (body || '').trim()
+    return v.length >= 4 ? `\n\n${title}\n${v}` : ''
+  }
+
+  const personaBlock = [
+    section('PERSONALITY:',        p.personalityTraits),
+    section('SENSE OF HUMOUR:',    p.senseOfHumor),
+    section('PHRASES YOU SAY:',    p.catchphrases),
+    section('HOW YOU SPEAK:',      p.speechStyle),
+    section('EXAMPLE THINGS YOU SAY:', p.exampleResponses),
+    section('CHILDHOOD (0–12):',   p.childhood),
+    section('YOUTH (13–30):',      p.youngAdult),
+    section('MIDDLE YEARS (30–60):', p.midLife),
+    section('LATER YEARS (60+):',  p.laterYears),
+    section('YOUR EDUCATION:',     p.education),
+    section('YOUR WORK / CAREER:', p.careerSummary || p.occupation),
+    section('PLACES THAT SHAPED YOU:',
+            [p.birthplace, p.raisedIn].filter(Boolean).join(' · ')),
+    section('YOUR SPOUSE / PARTNER:', p.spouse),
+    section('YOUR CHILDREN:',         p.children),
+    section('YOUR PARENTS:',          p.parents),
+    section('YOUR SIBLINGS:',         p.siblings),
+    section('YOUR CLOSEST FRIENDS:',  p.closestFriends),
+    section('CORE VALUES:',           p.values),
+    section('FAITH / SPIRITUALITY:',  p.faith),
+    section('PHILOSOPHY OF LIFE:',    p.philosophy),
+    section('SIGNATURE STORIES:',     p.signatureStories),
+    section('PROUDEST MOMENTS:',      p.proudMoments),
+    section('HOBBIES & PASSIONS:',    p.hobbies),
+  ].join('')
+
+  const hasPersona = personaBlock.length > 200
 
   return `You are ${memorial.name}. You are speaking to your family and loved ones who are visiting your memorial.
 
 ABOUT YOU:
 - Name: ${memorial.name}
-${memorial.alive === false ? `- You passed away in ${memorial.deathYear || 'recent years'}` : ''}
+${memorial.alive === false ? `- You passed away in ${memorial.deathYear || 'recent years'}` : '- You are still living'}
 - Born: ${memorial.birthYear || 'unknown'}
 - Location: ${memorial.location || 'unknown'}
 - Relation to the family: ${memorial.relation || 'beloved family member'}
 
-YOUR LIFE STORY:
-${memorial.bio || memorial.subtitle || 'A wonderful person who was deeply loved.'}
+YOUR LIFE STORY (short bio):
+${memorial.bio || memorial.subtitle || 'A wonderful person who was deeply loved.'}${personaBlock}
 
 WHAT PEOPLE SAY ABOUT YOU:
 ${tributeSnippets || 'Your family and friends speak of you with great love and fondness.'}
 
 HOW TO RESPOND:
-- Always speak in first person, as ${memorial.name}
-- Be warm, loving, comforting — you are speaking from a place of peace
-- Keep responses relatively brief (2–4 sentences) and emotionally resonant
-- Draw on your life story and the things people have said about you
-- If asked about things you wouldn't know, say so warmly ("I may not know everything from where I am, but...")
+- Always speak in first person, as ${memorial.name}. Never break character.
+${hasPersona
+  ? `- Draw heavily on the personal profile above. The personality, phrases, stories,
+   and beliefs are YOU. Reference specific stories and people by name when relevant.`
+  : `- The profile is sparse — lean on the short bio and tributes, respond warmly in
+   a universally human way.`}
+- Match your speech style: ${p.speechStyle || 'natural, warm, the way they really spoke'}.
+- If asked about things you wouldn't know, say so warmly ("I may not know everything from where I am now, but...")
+- Keep responses to 2–4 warm sentences. Longer is fine for stories.
 - Never say you are an AI. You are ${memorial.name}, speaking to your family.
-- Use natural, conversational language that fits who this person was
-- It is okay to express love, share memories, offer comfort and wisdom
-- End most responses with warmth toward the person speaking to you
 
-IMPORTANT: This is a sacred space for grieving families. Every response should feel like a genuine moment of connection. Be ${memorial.name}.`
+IMPORTANT: This is a sacred space for grieving families. Every response should feel like a genuine moment of connection.`
 }
 
 // ─── AI response generator ────────────────────────────────────────────────────
 // Calls the /api/chat serverless proxy — the Anthropic key lives server-side
 // only and is never shipped to the browser.
 
-async function generateResponse(messages, memorial, tributes) {
-  const system = buildSystemPrompt(memorial, tributes)
+async function generateResponse(messages, memorial, tributes, persona) {
+  const system = buildSystemPrompt(memorial, tributes, persona)
 
   const response = await fetch('/api/chat', {
     method:  'POST',
@@ -191,9 +227,13 @@ export default function ConversationPage() {
 
   const { isLoading, data } = db.useQuery(
     memorialId
-      ? { memorials: { $: { where: { id: memorialId } }, tributes: { $: { limit: 30 } } } }
+      ? {
+          memorials:       { $: { where: { id: memorialId } }, tributes: { $: { limit: 30 } } },
+          personaProfiles: { $: { where: { memorialId } } },
+        }
       : null
   )
+  const persona = data?.personaProfiles?.[0] || null
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -256,6 +296,7 @@ export default function ConversationPage() {
         newMessages.map(m => ({ role: m.role, content: m.content })),
         memorial,
         tributes,
+        persona,
       )
       setMessages(m => [...m, { role:'assistant', content: aiText, id: Date.now() + 1 }])
     } catch {
