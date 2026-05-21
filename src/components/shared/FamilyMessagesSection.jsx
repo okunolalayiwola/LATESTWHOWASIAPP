@@ -65,6 +65,29 @@ function timeAgo(ts) {
   return new Date(ts).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
+// Day label for date-divider rows
+function dayLabel(ts) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  const today = new Date()
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1)
+  const same = (a, b) => a.getFullYear() === b.getFullYear()
+                       && a.getMonth() === b.getMonth()
+                       && a.getDate() === b.getDate()
+  if (same(d, today))     return 'Today'
+  if (same(d, yesterday)) return 'Yesterday'
+  const sameYear = d.getFullYear() === today.getFullYear()
+  return d.toLocaleDateString('en-GB', sameYear
+    ? { weekday: 'long', day: 'numeric', month: 'long' }
+    : { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+function dayKey(ts) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+}
+
 function initials(name = '') {
   return name.trim().split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase() || '??'
 }
@@ -123,8 +146,29 @@ function MemberChip({ name, photo, isYou, colour, compact = false }) {
   )
 }
 
+// ─── Date divider row ─────────────────────────────────────────────────────────
+function DateDivider({ label }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8,
+      margin: '14px 0 10px',
+    }}>
+      <span style={{ flex: 1, height: 1, background: 'rgba(21,18,14,0.08)' }} />
+      <span style={{
+        fontFamily: MONO, fontSize: 9.5, letterSpacing: '.22em', textTransform: 'uppercase',
+        color: C.muted2,
+        padding: '3px 10px', borderRadius: 999,
+        background: 'rgba(21,18,14,0.04)', border: '1px solid rgba(21,18,14,0.06)',
+      }}>
+        {label}
+      </span>
+      <span style={{ flex: 1, height: 1, background: 'rgba(21,18,14,0.08)' }} />
+    </div>
+  )
+}
+
 // ─── Single message bubble ────────────────────────────────────────────────────
-function MessageBubble({ msg, isMine, showName }) {
+function MessageBubble({ msg, isMine, showName, totalRecipients }) {
   const c = isMine ? null : colourFor(msg.fromUserId)
   return (
     <motion.div
@@ -193,12 +237,38 @@ function MessageBubble({ msg, isMine, showName }) {
           )}
         </div>
 
-        <span style={{
-          fontFamily: MONO, fontSize: 9.5, color: C.muted2, marginTop: 3,
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6, marginTop: 3,
           marginLeft: isMine ? 0 : 4, marginRight: isMine ? 4 : 0,
         }}>
-          {timeAgo(msg.createdAt)}
-        </span>
+          <span style={{ fontFamily: MONO, fontSize: 9.5, color: C.muted2 }}>
+            {timeAgo(msg.createdAt)}
+          </span>
+          {/* Read-receipt — only on my messages */}
+          {isMine && (() => {
+            const readBy = Array.isArray(msg.readBy) ? msg.readBy : []
+            const seenByOthers = readBy.filter(uid => uid !== msg.fromUserId).length
+            // ticks: single grey = sent, double grey = delivered, double saffron = read
+            const everyoneSeen = totalRecipients > 0 && seenByOthers >= totalRecipients
+            const someoneSeen  = seenByOthers > 0
+            const colour = everyoneSeen ? C.saffron : C.muted2
+            return (
+              <span title={
+                everyoneSeen ? 'Read by everyone'
+                : someoneSeen ? `Read by ${seenByOthers}`
+                : 'Sent'
+              }
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 0,
+                  color: colour, fontSize: 11, fontWeight: 700 }}>
+                <svg width="14" height="10" viewBox="0 0 16 12" fill="none" stroke="currentColor"
+                  strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 6l4 4 7-9" />
+                  {someoneSeen && <path d="M7 10l7-9" />}
+                </svg>
+              </span>
+            )
+          })()}
+        </div>
       </div>
     </motion.div>
   )
@@ -446,6 +516,29 @@ export default function FamilyMessagesSection({ memorialId, user, userProfile, c
         </button>
       </div>
 
+      {/* ── Secure-messaging banner ────────────────────────────────────────── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '8px 14px',
+        background: 'linear-gradient(90deg, rgba(243,178,26,0.10) 0%, rgba(56,189,248,0.06) 100%)',
+        borderBottom: '1px solid rgba(243,178,26,0.18)',
+      }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.saffron} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        <p style={{
+          fontFamily: MONO, fontSize: 10.5, letterSpacing: '.10em',
+          color: C.ink, margin: 0, lineHeight: 1.4, fontWeight: 600,
+          flex: 1, minWidth: 0,
+        }}>
+          <span style={{ color: C.saffron, fontWeight: 800 }}>Secure messaging</span>
+          <span style={{ color: C.muted, fontWeight: 500 }}>
+            {' · Only approved family members can read this chat'}
+          </span>
+        </p>
+      </div>
+
       {/* ── Members strip (top, collapsible) ───────────────────────────────── */}
       <AnimatePresence>
         {showMembers && (
@@ -497,13 +590,19 @@ export default function FamilyMessagesSection({ memorialId, user, userProfile, c
               {messages.map((msg, i) => {
                 const prev = messages[i - 1]
                 const showName = !prev || prev.fromUserId !== msg.fromUserId
+                const newDay  = !prev || dayKey(prev.createdAt) !== dayKey(msg.createdAt)
+                // Other members in the chat — recipients for read-receipt math
+                const recipientCount = Math.max(0, members.length - 1)
                 return (
-                  <MessageBubble
-                    key={msg.id}
-                    msg={msg}
-                    isMine={msg.fromUserId === user?.id}
-                    showName={showName}
-                  />
+                  <div key={msg.id}>
+                    {newDay && <DateDivider label={dayLabel(msg.createdAt)} />}
+                    <MessageBubble
+                      msg={msg}
+                      isMine={msg.fromUserId === user?.id}
+                      showName={showName}
+                      totalRecipients={recipientCount}
+                    />
+                  </div>
                 )
               })}
             </AnimatePresence>
