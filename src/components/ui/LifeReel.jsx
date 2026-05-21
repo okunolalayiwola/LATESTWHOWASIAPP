@@ -216,7 +216,7 @@ function TitleCard({ memorial }) {
 
         {/* Name */}
         <h1 className="font-display font-bold text-white leading-none mb-5"
-          style={{ fontSize: 'clamp(2.4rem, 7.5vw, 5.4rem)', letterSpacing: '-0.02em' }}>
+          style={{ fontSize: 'clamp(1.45rem, 4.5vw, 3.25rem)', letterSpacing: '-0.02em' }}>
           <AnimatedName text={name} triggerKey="title" delay={0.45} />
         </h1>
 
@@ -306,7 +306,7 @@ function ClosingCard({ memorial }) {
         </motion.p>
 
         <h2 className="font-display font-bold text-white leading-tight mb-4"
-          style={{ fontSize: 'clamp(2rem, 6vw, 4rem)', letterSpacing: '-0.02em' }}>
+          style={{ fontSize: 'clamp(1.2rem, 3.6vw, 2.4rem)', letterSpacing: '-0.02em' }}>
           <AnimatedName text={name} triggerKey="closing" delay={1.3} />
         </h2>
 
@@ -557,7 +557,7 @@ function PhotoSlide({ media, moveIdx, memorial, dateRaw, caption, showText, show
             </motion.p>
 
             <h1 className="font-display font-bold text-white leading-none mb-4"
-              style={{ fontSize: 'clamp(2.4rem, 7vw, 5.2rem)', letterSpacing: '-0.02em',
+              style={{ fontSize: 'clamp(1.45rem, 4.2vw, 3.1rem)', letterSpacing: '-0.02em',
                 textShadow: '0 4px 30px rgba(0,0,0,0.65)' }}>
               <AnimatedName text={name} triggerKey={`opening-${moveIdx}`} delay={0.55} />
             </h1>
@@ -604,7 +604,7 @@ function PhotoSlide({ media, moveIdx, memorial, dateRaw, caption, showText, show
             ◆ Life reel
           </motion.p>
           <h3 className="font-display font-bold text-white"
-            style={{ fontSize: 'clamp(1.2rem, 3vw, 1.9rem)', letterSpacing: '-0.015em', textShadow: '0 2px 12px rgba(0,0,0,0.7)' }}>
+            style={{ fontSize: 'clamp(0.75rem, 1.8vw, 1.15rem)', letterSpacing: '-0.015em', textShadow: '0 2px 12px rgba(0,0,0,0.7)' }}>
             <AnimatedName text={name} triggerKey={`${name}-${moveIdx}`} delay={0.55} />
           </h3>
         </div>
