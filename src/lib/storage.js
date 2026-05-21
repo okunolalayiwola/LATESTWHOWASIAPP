@@ -53,11 +53,17 @@ export async function uploadImage(file, onProgress, folder = 'whowasi') {
         )
         resolve(optimised)
       } else {
-        reject(new Error(`Upload failed: ${xhr.status}`))
+        // Pull Cloudinary's real error message out of the response body
+        let detail = ''
+        try { detail = JSON.parse(xhr.responseText)?.error?.message || '' } catch {}
+        reject(new Error(detail
+          ? `Cloudinary ${xhr.status}: ${detail}`
+          : `Upload failed (status ${xhr.status})`))
       }
     })
 
-    xhr.addEventListener('error', () => reject(new Error('Upload network error')))
+    xhr.addEventListener('error', () => reject(new Error('Network error — check your connection')))
+    xhr.addEventListener('timeout', () => reject(new Error('Upload timed out')))
     xhr.open('POST', UPLOAD_URL)
     xhr.send(formData)
   })
@@ -108,11 +114,16 @@ export async function uploadAudio(file, onProgress, folder = 'whowasi') {
         const data = JSON.parse(xhr.responseText)
         resolve({ url: data.secure_url, duration })
       } else {
-        reject(new Error(`Upload failed: ${xhr.status}`))
+        let detail = ''
+        try { detail = JSON.parse(xhr.responseText)?.error?.message || '' } catch {}
+        reject(new Error(detail
+          ? `Cloudinary ${xhr.status}: ${detail}`
+          : `Upload failed (status ${xhr.status})`))
       }
     })
 
-    xhr.addEventListener('error', () => reject(new Error('Upload network error')))
+    xhr.addEventListener('error', () => reject(new Error('Network error — check your connection')))
+    xhr.addEventListener('timeout', () => reject(new Error('Upload timed out')))
     xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`)
     xhr.send(formData)
   })
@@ -153,11 +164,16 @@ export async function uploadDocument(file, onProgress, folder = 'whowasi/documen
           ext,
         })
       } else {
-        reject(new Error(`Upload failed: ${xhr.status} — check the Cloudinary preset allows raw/auto files`))
+        let detail = ''
+        try { detail = JSON.parse(xhr.responseText)?.error?.message || '' } catch {}
+        reject(new Error(detail
+          ? `Cloudinary ${xhr.status}: ${detail}`
+          : `Upload failed (status ${xhr.status}) — check the Cloudinary preset allows raw/auto files`))
       }
     })
 
-    xhr.addEventListener('error', () => reject(new Error('Upload network error')))
+    xhr.addEventListener('error', () => reject(new Error('Network error — check your connection')))
+    xhr.addEventListener('timeout', () => reject(new Error('Upload timed out')))
     // /auto/ endpoint accepts image, video, AND raw (pdf, doc, docx, etc.)
     xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`)
     xhr.send(formData)

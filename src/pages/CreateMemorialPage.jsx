@@ -498,6 +498,7 @@ function StepPerson({ form, setForm, isSelf, copy }) {
   // Avatar upload
   const [avatarPreview, setAvatarPreview] = useState(form.photoUrl || null)
   const [avatarUploading, setAvatarUploading] = useState(false)
+  const [avatarError, setAvatarError] = useState('')
   const avatarRef = useRef()
 
   // Relation picker
@@ -510,13 +511,16 @@ function StepPerson({ form, setForm, isSelf, copy }) {
   async function handleAvatar(e) {
     const file = e.target.files[0]
     if (!file) return
+    setAvatarError('')
     setAvatarPreview(URL.createObjectURL(file))
     setAvatarUploading(true)
     try {
       const url = await uploadImage(file, () => {}, 'memorials/avatars')
       setForm(f => ({ ...f, photoUrl: url }))
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[avatar upload]', err)
+      setAvatarError(err?.message || 'Could not upload photo. Try again.')
+      setAvatarPreview(form.photoUrl || null)
     } finally {
       setAvatarUploading(false)
     }
@@ -585,6 +589,12 @@ function StepPerson({ form, setForm, isSelf, copy }) {
           </div>
         </div>
         <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={handleAvatar} />
+        {avatarUploading && (
+          <p className="text-[0.6rem] text-white/40 mt-2">Uploading…</p>
+        )}
+        {avatarError && (
+          <p className="text-[0.65rem] text-coral mt-2">{avatarError}</p>
+        )}
       </div>
 
 
@@ -823,6 +833,8 @@ function LifePhotoItem({ photo, onRemove, onDateChange }) {
 
 function StepStory({ form, setForm, lifePhotos, setLifePhotos, copy }) {
   const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const [failedCount, setFailedCount] = useState(0)
   const fileRef = useRef()
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
 
@@ -836,16 +848,20 @@ function StepStory({ form, setForm, lifePhotos, setLifePhotos, copy }) {
     const files = Array.from(e.target.files)
     if (!files.length) return
 
+    setUploadError('')
+    setFailedCount(0)
+
     // Enforce the 50-photo hard cap — silently truncate selection
     const slotsLeft = MAX_PHOTOS - lifePhotos.length
     const accepted  = files.slice(0, Math.max(0, slotsLeft))
     const skipped   = files.length - accepted.length
     if (skipped > 0) {
-      // surface a non-blocking warning via the input's ariaLabel
       console.warn(`${skipped} photos skipped — reel cap is ${MAX_PHOTOS}.`)
     }
 
     setUploading(true)
+    let firstErr  = ''
+    let failures  = 0
     for (const file of accepted) {
       const photoId  = Math.random().toString(36).slice(2)
       const preview  = URL.createObjectURL(file)
@@ -857,11 +873,18 @@ function StepStory({ form, setForm, lifePhotos, setLifePhotos, copy }) {
       try {
         const url = await uploadImage(file, () => {}, 'memorials')
         setLifePhotos(prev => prev.map(p => p.id === photoId ? { ...p, url, uploading: false } : p))
-      } catch {
+      } catch (err) {
+        console.error('[photo upload]', file.name, err)
+        failures += 1
+        if (!firstErr) firstErr = err?.message || 'Upload failed'
         setLifePhotos(prev => prev.filter(p => p.id !== photoId))
       }
     }
     setUploading(false)
+    if (failures > 0) {
+      setFailedCount(failures)
+      setUploadError(firstErr)
+    }
     if (fileRef.current) fileRef.current.value = ''
   }
 
@@ -937,6 +960,21 @@ function StepStory({ form, setForm, lifePhotos, setLifePhotos, copy }) {
         </div>
 
         <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotos} />
+
+        {uploadError && (
+          <div className="mt-3 p-3 rounded-xl bg-coral/10 border border-coral/30">
+            <p className="text-[0.7rem] text-coral font-semibold">
+              {failedCount === 1 ? '1 photo failed to upload' : `${failedCount} photos failed to upload`}
+            </p>
+            <p className="text-[0.6rem] text-coral/80 mt-1 leading-relaxed">{uploadError}</p>
+            <button
+              onClick={() => { setUploadError(''); setFailedCount(0); fileRef.current?.click() }}
+              className="text-[0.65rem] text-coral font-semibold mt-2 hover:underline"
+            >
+              Try again
+            </button>
+          </div>
+        )}
 
         <p className="text-[0.6rem] text-white/25 mt-2 leading-relaxed">
           {atLimit
