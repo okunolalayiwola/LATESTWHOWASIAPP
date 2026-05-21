@@ -644,6 +644,90 @@ function VoiceSection({ memorial, onOpenTalk }) {
   )
 }
 
+// ─── Reel viewport ────────────────────────────────────────────────────────────
+// Cinematic Life Reel rendered as a small inline viewport directly under the
+// "Hear them speak" voice section. Includes an Expand button that opens the
+// full theater overlay (showReelFull state in the parent).
+function ReelViewport({ memorial, photos, onExpand }) {
+  const firstName = memorial?.name?.split(' ')[0] || 'them'
+  const frameCount = photos?.length || 0
+
+  return (
+    <Card variant="ink" style={{ padding: 0, position: 'relative', overflow: 'hidden' }}>
+      {/* Header — mirrors VoiceSection styling */}
+      <div style={{
+        padding: '18px 24px 14px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 12,
+        borderBottom: '1px solid rgba(241,236,225,.06)',
+        flexWrap: 'wrap',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Label onInk>Life Reel of {firstName}</Label>
+          <span style={{
+            fontFamily: MONO, fontSize: 9.5, letterSpacing: '.18em', textTransform: 'uppercase',
+            color: 'rgba(243,178,26,.85)',
+            background: 'rgba(243,178,26,.10)',
+            border: '1px solid rgba(243,178,26,.25)',
+            padding: '3px 8px', borderRadius: 999,
+          }}>
+            ◆ Cinematic
+          </span>
+        </div>
+
+        <button
+          onClick={onExpand}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: 'rgba(243,178,26,.12)',
+            color: C.saffron,
+            border: '1px solid rgba(243,178,26,.30)',
+            borderRadius: 999,
+            padding: '7px 14px',
+            cursor: 'pointer',
+            fontFamily: MONO, fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase',
+            fontWeight: 600,
+          }}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/>
+          </svg>
+          Open theater
+        </button>
+      </div>
+
+      {/* Sub-headline */}
+      <div style={{ padding: '12px 24px 0' }}>
+        <h3 style={{
+          fontFamily: DISP, fontWeight: 700, fontSize: 22, letterSpacing: '-.02em',
+          lineHeight: 1.15, margin: 0, color: C.cream,
+        }}>
+          A cinematic story —{' '}
+          <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: C.saffron2 }}>
+            in moments.
+          </em>
+        </h3>
+        <p style={{ color: 'rgba(241,236,225,.55)', fontSize: 13, lineHeight: 1.55, margin: '6px 0 14px' }}>
+          {frameCount > 0
+            ? `${frameCount} frame${frameCount === 1 ? '' : 's'} woven into a living film — Ken Burns zooms, dated chapters, immersive transitions.`
+            : `An opening title plays automatically. Add photos in the Gallery and they'll appear here as cinematic frames.`}
+        </p>
+      </div>
+
+      {/* The viewport — compact LifeReel */}
+      <div style={{ padding: '0 16px 16px' }}>
+        <Suspense fallback={<div style={{ aspectRatio: '16/9', background: '#080808', borderRadius: 16 }} />}>
+          <LifeReel
+            photos={photos}
+            memorial={memorial}
+            compact
+            onExpand={onExpand}
+          />
+        </Suspense>
+      </div>
+    </Card>
+  )
+}
+
 // ─── Story card ───────────────────────────────────────────────────────────────
 function StoryCard({ memorial }) {
   const bio = memorial.bio || memorial.description || ''
@@ -1330,7 +1414,6 @@ function MemorialDetailPageInner() {
     { key: 'Story',    label: 'Story',    count: 1 },
     { key: 'Tributes', label: 'Tributes', count: tributeCount },
     { key: 'Gallery',  label: 'Gallery',  count: photos.length },
-    { key: 'Reel',     label: 'Reel',     count: photos.length },
     // Family tab — only shown to owner or approved family members
     ...((isOwner || isFamilyMember) ? [{ key: 'Family', label: '✦ Family', count: 0 }] : []),
   ]
@@ -1401,6 +1484,7 @@ function MemorialDetailPageInner() {
                 <motion.div key="story" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                   style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   <VoiceSection memorial={memorial} onOpenTalk={() => setShowTalkScreen(true)} />
+                  <ReelViewport memorial={memorial} photos={photos} onExpand={() => setShowReelFull(true)} />
                   <StoryCard memorial={memorial} />
                   {tributes.length > 0 && (
                     <TributesSection tributes={tributes} onLike={handleLikeTribute} onDelete={handleDeleteTribute}
@@ -1434,71 +1518,6 @@ function MemorialDetailPageInner() {
               {activeTab === 'Gallery' && (
                 <motion.div key="gallery" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                   <GallerySection photos={photos} memorialId={memorialId} isOwner={isOwner} />
-                </motion.div>
-              )}
-
-              {activeTab === 'Reel' && (
-                <motion.div key="reel" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-
-                  {/* ── Desktop: inline player in a card ──────────────────── */}
-                  <div className="reel-desktop-wrap">
-                    <Card variant="ink" style={{ padding: 0, overflow: 'hidden' }}>
-                      {/* Card header — mirrors VoiceSection style */}
-                      <div style={{ padding: '18px 24px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        borderBottom: '1px solid rgba(241,236,225,.06)' }}>
-                        <Label onInk>Life Reel — {memorial.name?.split(' ')[0]}</Label>
-                        <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.22em', textTransform: 'uppercase',
-                          color: 'rgba(241,236,225,.3)' }}>
-                          {photos.length} {photos.length === 1 ? 'frame' : 'frames'}
-                        </span>
-                      </div>
-                      <Suspense fallback={<div style={{ aspectRatio:'16/9', background:'#080808' }} />}>
-                        <LifeReel photos={photos} memorial={memorial} />
-                      </Suspense>
-                    </Card>
-                  </div>
-
-                  {/* ── Mobile: teaser card + "See Reel" button ───────────── */}
-                  <div className="reel-mobile-wrap">
-                    <button onClick={() => setShowReelFull(true)} style={{
-                      width: '100%', border: 'none', cursor: 'pointer', padding: 0,
-                      borderRadius: 26, overflow: 'hidden', position: 'relative',
-                      aspectRatio: '16/9', background: C.ink, display: 'block',
-                      boxShadow: '0 14px 40px rgba(21,18,14,.28)',
-                    }}>
-                      {/* Blurred first photo as background */}
-                      {photos[0] && (
-                        <img src={photos[0].url} alt=""
-                          style={{ position:'absolute', inset:0, width:'100%', height:'100%',
-                            objectFit:'cover', filter:'blur(8px) saturate(.8)', opacity:.45, transform:'scale(1.06)' }} />
-                      )}
-                      {/* Overlay gradient */}
-                      <div style={{ position:'absolute', inset:0, background:'linear-gradient(to bottom, rgba(21,18,14,.3), rgba(21,18,14,.7))' }} />
-                      {/* Content */}
-                      <div style={{ position:'relative', zIndex:2, display:'flex', flexDirection:'column',
-                        alignItems:'center', justifyContent:'center', height:'100%', gap:14 }}>
-                        {/* Saffron play disc */}
-                        <div style={{ width:68, height:68, borderRadius:'50%',
-                          background:'linear-gradient(155deg,#ffd166 0%,#f3b21a 45%,#d99206 100%)',
-                          display:'flex', alignItems:'center', justifyContent:'center',
-                          boxShadow:'0 12px 32px -4px rgba(243,178,26,.55), 0 4px 16px rgba(0,0,0,.45)' }}>
-                          <svg width="22" height="22" viewBox="0 0 24 24" fill="#15120e">
-                            <polygon points="5,3 19,12 5,21" />
-                          </svg>
-                        </div>
-                        <div style={{ textAlign:'center' }}>
-                          <p style={{ fontFamily:DISP, fontWeight:700, fontSize:18, color:'#fff', margin:0 }}>
-                            See {memorial.name?.split(' ')[0]}'s Reel
-                          </p>
-                          <p style={{ fontFamily:MONO, fontSize:10, letterSpacing:'.22em', textTransform:'uppercase',
-                            color:'rgba(241,236,225,.45)', marginTop:4 }}>
-                            {photos.length} {photos.length === 1 ? 'moment' : 'moments'} · tap to play
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  </div>
-
                 </motion.div>
               )}
 
