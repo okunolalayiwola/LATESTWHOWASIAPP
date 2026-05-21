@@ -569,37 +569,116 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* ── RECENT MEMORIALS ──────────────────────────────────────────────── */}
-        {memorials.length > 0 && (
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[0.6rem] font-bold tracking-[0.22em] uppercase text-cream-dim">Your memorials</p>
-              <Link to="/dashboard" className="text-[0.65rem] text-gold/60 hover:text-gold transition-colors">
-                View all →
-              </Link>
-            </div>
-            <div className="space-y-2">
-              {memorials.slice(0, 3).map(m => (
-                <Link key={m.id} to={`/memorial/${m.id}`}
-                  className="metal-card rounded-2xl p-4 flex items-center gap-3 hover:opacity-90 transition-opacity">
-                  <div className="w-10 h-10 rounded-xl flex-shrink-0 overflow-hidden"
-                    style={{ background: 'linear-gradient(135deg, rgba(255,215,0,0.15), rgba(56,189,248,0.10))' }}>
-                    {m.photo
-                      ? <img src={m.photo} alt="" className="w-full h-full object-cover" />
-                      : <div className="w-full h-full flex items-center justify-center font-display text-sm font-bold text-gold/60">
-                          {m.name?.charAt(0)}
-                        </div>}
+        {/* ── YOUR LIVING LEGACY (self-memorial) ──────────────────────────── */}
+        {/* Split memorials: the one isSelf===true is the user's own legacy,
+            the rest are memorials they created for others. */}
+        {(() => {
+          const selfMemorial    = memorials.find(m => m.isSelf === true)
+          const createdMemorials = memorials.filter(m => m.isSelf !== true)
+          return (
+            <>
+              {/* Self-memorial card OR call-to-action to create one */}
+              <div>
+                <p className="text-[0.6rem] font-bold tracking-[0.22em] uppercase text-cream-dim mb-3">
+                  Your living legacy
+                </p>
+                {selfMemorial ? (
+                  <Link to={`/memorial/${selfMemorial.id}`}
+                    className="block rounded-2xl p-5 relative overflow-hidden"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(255,215,0,0.12) 0%, rgba(56,189,248,0.08) 100%)',
+                      border: '1px solid rgba(255,215,0,0.30)',
+                      boxShadow: '0 6px 28px rgba(255,215,0,0.10), 0 1px 0 rgba(255,255,255,0.06) inset',
+                    }}>
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-2xl flex-shrink-0 overflow-hidden"
+                        style={{ border: '1.5px solid rgba(255,215,0,0.40)' }}>
+                        {selfMemorial.photo
+                          ? <img src={selfMemorial.photo} alt="" className="w-full h-full object-cover" />
+                          : <div className="w-full h-full flex items-center justify-center font-display text-xl font-bold"
+                              style={{ background: 'rgba(255,215,0,0.15)', color: '#FFD700' }}>
+                              {selfMemorial.name?.charAt(0)}
+                            </div>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[0.55rem] font-bold tracking-[0.22em] uppercase mb-1"
+                          style={{ color: '#FFD700' }}>
+                          ✦ Your memorial
+                        </p>
+                        <p className="text-base font-bold text-white truncate">{selfMemorial.name}</p>
+                        <p className="text-xs text-white/45 mt-0.5">
+                          {selfMemorial.viewCount || 0} {(selfMemorial.viewCount || 0) === 1 ? 'view' : 'views'}
+                          {' · '}
+                          {selfMemorial.tributes?.length || 0} tribute{(selfMemorial.tributes?.length || 0) !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      <svg className="w-5 h-5 flex-shrink-0" style={{ color: '#FFD700' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                      </svg>
+                    </div>
+                  </Link>
+                ) : (
+                  <Link to="/create?self=1"
+                    className="block rounded-2xl p-5 relative overflow-hidden transition-all hover:opacity-95"
+                    style={{
+                      background: 'rgba(20,20,34,0.85)',
+                      border: '1.5px dashed rgba(255,215,0,0.30)',
+                    }}>
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-2xl flex-shrink-0 flex items-center justify-center"
+                        style={{ background: 'rgba(255,215,0,0.10)', color: '#FFD700', fontSize: 22 }}>
+                        ✦
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-white mb-0.5">Build your living legacy</p>
+                        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                          Preserve your own voice, story, letters and will for family to read in time.
+                        </p>
+                      </div>
+                      <svg className="w-5 h-5 flex-shrink-0" style={{ color: 'rgba(255,215,0,0.7)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                      </svg>
+                    </div>
+                  </Link>
+                )}
+              </div>
+
+              {/* Memorials created for others */}
+              {createdMemorials.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-[0.6rem] font-bold tracking-[0.22em] uppercase text-cream-dim">
+                      Memorials you created
+                    </p>
+                    <Link to="/dashboard" className="text-[0.65rem] text-gold/60 hover:text-gold transition-colors">
+                      View all →
+                    </Link>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-white truncate">{m.name}</p>
-                    <p className="text-xs text-white/35">{m.tributes?.length || 0} tributes · {m.viewCount || 0} views</p>
+                  <div className="space-y-2">
+                    {createdMemorials.slice(0, 3).map(m => (
+                      <Link key={m.id} to={`/memorial/${m.id}`}
+                        className="metal-card rounded-2xl p-4 flex items-center gap-3 hover:opacity-90 transition-opacity">
+                        <div className="w-10 h-10 rounded-xl flex-shrink-0 overflow-hidden"
+                          style={{ background: 'linear-gradient(135deg, rgba(255,215,0,0.15), rgba(56,189,248,0.10))' }}>
+                          {m.photo
+                            ? <img src={m.photo} alt="" className="w-full h-full object-cover" />
+                            : <div className="w-full h-full flex items-center justify-center font-display text-sm font-bold text-gold/60">
+                                {m.name?.charAt(0)}
+                              </div>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-white truncate">{m.name}</p>
+                          <p className="text-xs text-white/35">{m.tributes?.length || 0} tributes · {m.viewCount || 0} views</p>
+                        </div>
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${m.alive !== false ? 'bg-mint' : 'bg-gold/60'}`} />
+                      </Link>
+                    ))}
                   </div>
-                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${m.alive !== false ? 'bg-mint' : 'bg-gold/60'}`} />
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
+                </div>
+              )}
+            </>
+          )
+        })()}
 
         {/* ── NOTIFICATIONS ────────────────────────────────────────────────── */}
         <div>

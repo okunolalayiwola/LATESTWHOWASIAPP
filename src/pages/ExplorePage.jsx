@@ -1,6 +1,10 @@
 // src/pages/ExplorePage.jsx
-// Filter tabs: All (global) | My Memorials | Family | Friends
-// "All" = everyone's public memorials; the rest = logged-in user's own, filtered by relation group.
+// Filter tabs: All | My Profile | Created | Family | Friends
+//   • All        — global public memorials (anyone can browse)
+//   • My Profile — the user's OWN living legacy (isSelf: true)
+//   • Created    — memorials the user created for OTHERS (createdBy = me, !isSelf)
+//   • Family     — subset of Created where relation is family
+//   • Friends    — subset of Created where relation is 'friends'
 
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
@@ -15,10 +19,11 @@ import EmptyState from '../components/ui/EmptyState'
 // ─── Filter definitions ───────────────────────────────────────────────────────
 
 const MAIN_FILTERS = [
-  { id: 'all',     label: 'All',          icon: '◉', desc: 'Global public memorials' },
-  { id: 'mine',    label: 'My Memorials', icon: '★', desc: 'Memorials you created' },
-  { id: 'family',  label: 'Family',       icon: '♡', desc: 'Your family memorials' },
-  { id: 'friends', label: 'Friends',      icon: '☺', desc: 'Your friend memorials' },
+  { id: 'all',     label: 'All',        icon: '◉', desc: 'Global public memorials' },
+  { id: 'self',    label: 'My Profile', icon: '✦', desc: 'Your own living legacy' },
+  { id: 'created', label: 'Created',    icon: '★', desc: 'Memorials you built for others' },
+  { id: 'family',  label: 'Family',     icon: '♡', desc: 'Your family memorials' },
+  { id: 'friends', label: 'Friends',    icon: '☺', desc: 'Your friend memorials' },
 ]
 
 const FAMILY_CATS = new Set(['partner','children','siblings','parents','extended','grandparents'])
@@ -238,21 +243,29 @@ export default function ExplorePage() {
   const filtered = useMemo(() => {
     let list = [...memorials]
 
+    // Helper — is this memorial owned by the current user?
+    const ownedByMe = (m) => user && (m.createdBy === user.id || m.creatorId === user.id)
+
     // ── Filter by tab ─────────────────────────────────────────────────────
-    if (activeFilter === 'mine') {
+    if (activeFilter === 'self') {
       if (!user) return []
-      list = list.filter(m => m.createdBy === user.id || m.creatorId === user.id)
+      // The user's own living legacy — isSelf === true
+      list = list.filter(m => ownedByMe(m) && m.isSelf === true)
+    } else if (activeFilter === 'created') {
+      if (!user) return []
+      // Memorials the user built for OTHERS — exclude the self-memorial
+      list = list.filter(m => ownedByMe(m) && m.isSelf !== true)
     } else if (activeFilter === 'family') {
       if (!user) return []
       list = list.filter(m => {
-        const isOwn = m.createdBy === user.id || m.creatorId === user.id
-        return isOwn && FAMILY_CATS.has(getRelationFilterCategory(m.relation))
+        if (!ownedByMe(m) || m.isSelf === true) return false
+        return FAMILY_CATS.has(getRelationFilterCategory(m.relation))
       })
     } else if (activeFilter === 'friends') {
       if (!user) return []
       list = list.filter(m => {
-        const isOwn = m.createdBy === user.id || m.creatorId === user.id
-        return isOwn && getRelationFilterCategory(m.relation) === 'friends'
+        if (!ownedByMe(m) || m.isSelf === true) return false
+        return getRelationFilterCategory(m.relation) === 'friends'
       })
     }
     // 'all' → no additional filtering
@@ -490,10 +503,16 @@ export default function ExplorePage() {
 
         ) : filtered.length === 0 ? (
           <div className="py-20 flex flex-col items-center text-center">
-            <div className="text-5xl mb-5 opacity-15">◎</div>
+            <div className="text-5xl mb-5 opacity-15">
+              {MAIN_FILTERS.find(f => f.id === activeFilter)?.icon || '◎'}
+            </div>
             <p className="text-white/40 text-sm mb-3">
               {search
                 ? 'No memorials match your search.'
+                : activeFilter === 'self'
+                  ? `You haven't created your own legacy yet.`
+                : activeFilter === 'created'
+                  ? `You haven't created any memorials for others yet.`
                 : activeFilter !== 'all'
                   ? `No ${MAIN_FILTERS.find(f => f.id === activeFilter)?.label.toLowerCase()} memorials yet.`
                   : 'No memorials found.'
@@ -514,7 +533,19 @@ export default function ExplorePage() {
                   View all memorials
                 </button>
               )}
-              {activeFilter !== 'mine' && (
+              {/* CTA — adapts to which tab is empty */}
+              {activeFilter === 'self' && (
+                <Link to="/create?self=1"
+                  className="text-xs font-semibold px-4 py-2 rounded-lg"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(255,215,0,0.18) 0%, rgba(56,189,248,0.14) 100%)',
+                    color: '#FFD700',
+                    border: '1px solid rgba(255,215,0,0.35)',
+                  }}>
+                  ✦ Build your living legacy
+                </Link>
+              )}
+              {(activeFilter === 'created' || activeFilter === 'family' || activeFilter === 'friends') && (
                 <Link to="/create"
                   className="text-xs font-semibold px-4 py-2 rounded-lg"
                   style={{

@@ -1,12 +1,18 @@
 // src/pages/CreateMemorialPage.jsx
 // Multi-step memorial creation flow.
-// Step 1: Who are they?       — name, photo, relation, born, died, status
-// Step 2: Their story         — bio, cover photo, voice recording, theme color
-// Step 3: Privacy & publish   — visibility, final review
+// Two paths, distinct copy throughout:
+//   • SELF (?self=1)   — second-person ("Your portrait", "When were you born?")
+//                        Name pre-fills from profile.displayName.
+//                        relation = 'self', isSelf = true.
+//   • OTHER (default)  — pronoun-aware third-person built from `pronouns`
+//                        ("His portrait", "When was she born?", "Their story").
+//                        Pronoun picker appears in Step 1.
+//
+// Step 1: Person   — name, photo, pronouns (other only), relation, born, died, country
+// Step 2: Story    — bio, photos, voice recording, theme color
+// Step 3: Publish  — visibility, final review
 //
 // Writes to InstantDB memorials collection via db.transact().
-// Supports ?self=1 query param — when set, the memorial is marked as
-// the creator's own living legacy (isSelf=true, relation='self').
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
@@ -40,10 +46,132 @@ async function readExifDate(file) {
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
+// Pronoun options for "creating for someone else" mode
+const PRONOUN_OPTIONS = [
+  { id: 'she',  label: 'She / her',   sub: 'Feminine'   },
+  { id: 'he',   label: 'He / him',    sub: 'Masculine'  },
+  { id: 'they', label: 'They / them', sub: 'Neutral'    },
+]
+
+/**
+ * getCopy(isSelf, pronouns)
+ * Single source of truth for every label, placeholder, and helper line in the
+ * Create flow. Pass `isSelf` from the URL and `pronouns` from the form.
+ * Returns an object the steps and main page consume directly.
+ */
+function getCopy(isSelf, pronouns) {
+  if (isSelf) {
+    return {
+      mode:              'self',
+      stepDescs: {
+        person:          'About you',
+        story:           'Your life and story',
+        publish:         'Privacy & publish',
+      },
+      stepTitles: {
+        person:          (<>Who are <span className="text-gradient-gold">you?</span></>),
+        story:           (<>Your <span className="text-gradient-gold">story</span></>),
+        publish:         (<>Ready to <span className="text-gradient-gold">publish?</span></>),
+      },
+      heroIntro:         "You're creating your own living legacy — your story, your voice, preserved for those who'll read it in time.",
+      portraitLabel:     'Your portrait',
+      portraitHelp:      'This is your portrait — the face of your living legacy.',
+      portraitChange:    'Change photo',
+      portraitUpload:    'Upload your photo',
+      nameLabel:         'Your full name',
+      namePlaceholder:   'e.g. Your full name',
+      pronounsLabel:     null,                    // no pronoun picker in self mode
+      relationLabel:     null,
+      statusLabel:       'Status',
+      statusPassedLabel: 'I have passed',
+      statusLivingLabel: "I'm still living",
+      birthLabel:        'Your birth year',
+      birthPlaceholder:  '1935',
+      deathLabel:        'Year of passing',
+      deathPlaceholder:  '',
+      countryLabel:      'Your country',
+      countryHelp:       'Shown as a flag on your memorial card.',
+      countryPlaceholder:'Select your country…',
+      subtitleLabel:     'One-line description of yourself',
+      subtitlePlaceholder: 'e.g. A teacher, mother, light to all who know me',
+      bioLabel:          'Your life story',
+      bioPlaceholder:    'Write about yourself. Your personality, your passions, the memories you want preserved…',
+      locationLabel:     'Your hometown',
+      locationPlaceholder:'e.g. Lagos, Nigeria',
+      voiceLabel:        'Record your voice',
+      voiceHelp:         'Visitors will hear you speak on your memorial page.',
+      visibilityLabel:   'Who can see your memorial?',
+      tributesLabel:     'Allow tributes from others',
+      tributesHelp:      'Let people who visit your memorial leave messages and tributes.',
+      previewVerb:       'You',
+      ctaPublish:        'Publish your legacy ✦',
+      successText:       'Your living legacy has been created ✦',
+    }
+  }
+
+  // ── Pronoun-aware "other" path ─────────────────────────────────────────────
+  const p     = pronouns === 'she' ? 'she' : pronouns === 'he' ? 'he' : 'they'
+  const obj   = p === 'she' ? 'her'  : p === 'he' ? 'him' : 'them'
+  const poss  = p === 'she' ? 'her'  : p === 'he' ? 'his' : 'their'
+  const wasWere = p === 'they' ? 'were' : 'was'
+  const isAre   = p === 'they' ? 'are' : 'is'
+  const haveHas = p === 'they' ? 'have' : 'has'
+  const Cap = s => s.charAt(0).toUpperCase() + s.slice(1)
+
+  return {
+    mode:              'other',
+    pronouns:          p,
+    stepDescs: {
+      person:          `About ${obj}`,
+      story:           `${Cap(poss)} life and story`,
+      publish:         'Privacy & publish',
+    },
+    stepTitles: {
+      person:          (<>Who {wasWere} <span className="text-gradient-gold">{p}?</span></>),
+      story:           (<>{Cap(poss)} <span className="text-gradient-gold">story</span></>),
+      publish:         (<>Ready to <span className="text-gradient-gold">publish?</span></>),
+    },
+    heroIntro:         `You're creating a memorial for someone else. Your own account profile stays separate — this memorial honours ${obj}.`,
+    portraitLabel:     `${Cap(poss)} portrait`,
+    portraitHelp:      `The portrait of the person this memorial honours — not your own profile photo.`,
+    portraitChange:    'Change photo',
+    portraitUpload:    `Upload ${poss} photo`,
+    nameLabel:         `${Cap(poss)} full name`,
+    namePlaceholder:   'e.g. Grace Okonkwo',
+    pronounsLabel:     `${Cap(poss)} pronouns`,
+    pronounsHelp:      `How the memorial refers to ${obj} throughout the app.`,
+    relationLabel:     `Your relation to ${obj}`,
+    statusLabel:       'Status',
+    statusPassedLabel: `${Cap(p)} ${haveHas} passed`,
+    statusLivingLabel: `${Cap(p)} ${isAre} still living`,
+    birthLabel:        'Birth year',
+    birthPlaceholder:  '1935',
+    deathLabel:        'Year of passing',
+    deathPlaceholder:  '2020',
+    countryLabel:      `${Cap(poss)} country`,
+    countryHelp:       `Where ${p} ${isAre} based — shown as a country flag on ${poss} card.`,
+    countryPlaceholder:'Select country…',
+    subtitleLabel:     `One-line description of ${obj}`,
+    subtitlePlaceholder: `e.g. A teacher, mother, and light to all who knew ${obj}`,
+    bioLabel:          `${Cap(poss)} life story`,
+    bioPlaceholder:    (name) => `Write about ${name || obj}. ${Cap(poss)} personality, ${poss} passions, the memories ${p} left behind…`,
+    locationLabel:     `${Cap(poss)} hometown`,
+    locationPlaceholder:'e.g. Lagos, Nigeria',
+    voiceLabel:        `Record ${poss} voice`,
+    voiceHelp:         `Visitors will hear ${obj} speak on the memorial page.`,
+    visibilityLabel:   `Who can see this memorial?`,
+    tributesLabel:     'Allow tributes',
+    tributesHelp:      `Let others leave tributes and memories for ${obj}.`,
+    previewVerb:       Cap(p),
+    ctaPublish:        'Publish memorial ✦',
+    successText:       'memorial has been created ✦',
+  }
+}
+
 const STEPS = [
-  { label: 'Person',  desc: 'Who are they?'       },
-  { label: 'Story',   desc: 'Their life and story' },
-  { label: 'Publish', desc: 'Privacy & publish'    },
+  { key: 'person',  label: 'Person'  },
+  { key: 'story',   label: 'Story'   },
+  { key: 'publish', label: 'Publish' },
 ]
 
 // Theme colours — stored as hex in memorial.themeHex
@@ -346,7 +474,7 @@ function CountryPickerModal({ current, onSave, onClose }) {
   )
 }
 
-function StepPerson({ form, setForm, isSelf }) {
+function StepPerson({ form, setForm, isSelf, copy }) {
   const set  = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
   const setB = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -386,10 +514,39 @@ function StepPerson({ form, setForm, isSelf }) {
       transition={{ duration: 0.28, ease: 'easeOut' }}
       className="space-y-5"
     >
-      {/* Avatar / Photo */}
+      {/* ── Mode banner ─────────────────────────────────────────────────────── */}
+      <div className="rounded-2xl p-3.5 flex items-center gap-3"
+        style={{
+          background: isSelf
+            ? 'linear-gradient(135deg, rgba(255,215,0,0.10) 0%, rgba(56,189,248,0.08) 100%)'
+            : 'rgba(255,255,255,0.04)',
+          border: `1px solid ${isSelf ? 'rgba(255,215,0,0.30)' : 'rgba(255,255,255,0.10)'}`,
+        }}>
+        <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+          style={{
+            background: isSelf ? 'rgba(255,215,0,0.18)' : 'rgba(255,255,255,0.06)',
+            color: isSelf ? '#FFD700' : 'rgba(255,255,255,0.5)',
+            fontSize: 16,
+          }}>
+          {isSelf ? '✦' : '♡'}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-bold uppercase tracking-[0.18em]"
+            style={{ color: isSelf ? '#FFD700' : 'rgba(255,255,255,0.65)' }}>
+            {isSelf ? 'Myself — living legacy' : 'Someone else — to honour them'}
+          </p>
+          <p className="text-[0.6rem] mt-0.5" style={{ color: 'rgba(255,255,255,0.40)' }}>
+            {isSelf
+              ? 'This memorial IS you.'
+              : "You're the creator. This memorial honours a different person."}
+          </p>
+        </div>
+      </div>
+
+      {/* ── Avatar / Photo ──────────────────────────────────────────────────── */}
       <div>
         <label className="block text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim mb-2">
-          {form.name ? `${form.name}'s portrait` : 'Their portrait photo'}
+          {copy.portraitLabel}
         </label>
         <div className="flex items-center gap-4">
           <div
@@ -407,36 +564,72 @@ function StepPerson({ form, setForm, isSelf }) {
               onClick={() => avatarRef.current.click()}
               className="text-xs text-white/60 hover:text-white transition-colors font-semibold"
             >
-              {avatarPreview ? 'Change photo' : 'Upload photo'}
+              {avatarPreview ? copy.portraitChange : copy.portraitUpload}
             </button>
-            <p className="text-[0.55rem] text-white/30 mt-1">
-              {isSelf
-                ? 'This is your portrait — the face of your living legacy.'
-                : 'The portrait of the person this memorial honours — not your own profile photo.'}
-            </p>
+            <p className="text-[0.55rem] text-white/30 mt-1">{copy.portraitHelp}</p>
           </div>
         </div>
         <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={handleAvatar} />
       </div>
 
 
+      {/* ── Name ────────────────────────────────────────────────────────────── */}
       <div>
         <label className="block text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim mb-2">
-          Full name *
+          {copy.nameLabel} *
         </label>
         <input
           autoFocus
           className={inputCls}
           value={form.name}
           onChange={set('name')}
-          placeholder={isSelf ? "e.g. Your full name" : "e.g. Grace Okonkwo"}
+          placeholder={copy.namePlaceholder}
         />
+        {isSelf && form.name && (
+          <p className="text-[0.55rem] text-white/30 mt-1.5 flex items-center gap-1">
+            <span style={{ color: '#FFD700' }}>✦</span>
+            Matched to your profile — your name will sync across your account.
+          </p>
+        )}
       </div>
 
+      {/* ── Pronouns (other mode only) ──────────────────────────────────────── */}
       {!isSelf && (
         <div>
           <label className="block text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim mb-2">
-            Your relation to them
+            {copy.pronounsLabel}
+          </label>
+          <div className="grid grid-cols-3 gap-2">
+            {PRONOUN_OPTIONS.map(opt => {
+              const active = form.pronouns === opt.id
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setB('pronouns', opt.id)}
+                  className={`flex flex-col items-center justify-center py-3 rounded-2xl text-sm transition-all ${
+                    active
+                      ? 'bg-gradient-to-br from-gold/20 to-coral/20 border border-gold/40 text-white'
+                      : 'bg-white/5 border border-white/10 text-white/55 hover:text-white/85 hover:border-white/20'
+                  }`}
+                >
+                  <span className="font-semibold text-xs">{opt.label}</span>
+                  <span className="text-[0.55rem] text-white/35 mt-0.5">{opt.sub}</span>
+                </button>
+              )
+            })}
+          </div>
+          {copy.pronounsHelp && (
+            <p className="text-[0.55rem] text-white/30 mt-1.5">{copy.pronounsHelp}</p>
+          )}
+        </div>
+      )}
+
+      {/* ── Relation (other mode only) ──────────────────────────────────────── */}
+      {!isSelf && (
+        <div>
+          <label className="block text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim mb-2">
+            {copy.relationLabel}
           </label>
           <button
             type="button"
@@ -473,12 +666,16 @@ function StepPerson({ form, setForm, isSelf }) {
         )}
       </AnimatePresence>
 
+      {/* ── Status ──────────────────────────────────────────────────────────── */}
       <div>
         <label className="block text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim mb-2">
-          Status
+          {copy.statusLabel}
         </label>
         <div className="flex gap-2">
-          {[{ v: false, label: 'Passed away', emoji: '☽' }, { v: true, label: 'Still living', emoji: '✿' }].map(opt => (
+          {[
+            { v: false, label: copy.statusPassedLabel, emoji: '☽' },
+            { v: true,  label: copy.statusLivingLabel, emoji: '✿' },
+          ].map(opt => (
             <button
               key={String(opt.v)}
               onClick={() => setB('alive', opt.v)}
@@ -495,32 +692,31 @@ function StepPerson({ form, setForm, isSelf }) {
         </div>
       </div>
 
+      {/* ── Birth / Death year ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim mb-2">
-            Birth year
+            {copy.birthLabel}
           </label>
-          <input className={inputCls} type="number" value={form.birthYear} onChange={set('birthYear')} placeholder="1935" />
+          <input className={inputCls} type="number" value={form.birthYear} onChange={set('birthYear')} placeholder={copy.birthPlaceholder} />
         </div>
         {!form.alive && (
           <div>
             <label className="block text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim mb-2">
-              Year passed
+              {copy.deathLabel}
             </label>
-            <input className={inputCls} type="number" value={form.deathYear} onChange={set('deathYear')} placeholder="2020" />
+            <input className={inputCls} type="number" value={form.deathYear} onChange={set('deathYear')} placeholder={copy.deathPlaceholder} />
           </div>
         )}
       </div>
 
-      {/* Country */}
+      {/* ── Country ─────────────────────────────────────────────────────────── */}
       <div>
         <label className="block text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim mb-1">
-          {isSelf ? 'Your country' : form.alive === false ? 'Country they were based in' : 'Country they are based in'}
+          {copy.countryLabel}
         </label>
         <p className="text-[0.55rem] text-white/28 mb-2 leading-relaxed">
-          {isSelf
-            ? 'Shown as a flag on your memorial card.'
-            : 'Where this person lives or lived — shown as a country flag on their card.'}
+          {copy.countryHelp}
         </p>
         <button
           type="button"
@@ -537,7 +733,7 @@ function StepPerson({ form, setForm, isSelf }) {
               <span className="flex-1 text-left">{form.countryName}</span>
             </>
           ) : (
-            <span className="flex-1 text-left">Select country…</span>
+            <span className="flex-1 text-left">{copy.countryPlaceholder}</span>
           )}
           <svg className="w-4 h-4 text-white/30 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -555,16 +751,17 @@ function StepPerson({ form, setForm, isSelf }) {
         )}
       </AnimatePresence>
 
+      {/* ── Subtitle ────────────────────────────────────────────────────────── */}
       {form.birthYear && (
         <div>
           <label className="block text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim mb-2">
-            One-line description
+            {copy.subtitleLabel}
           </label>
           <input
             className={inputCls}
             value={form.subtitle}
             onChange={set('subtitle')}
-            placeholder="e.g. A teacher, mother, and light to all who knew her"
+            placeholder={copy.subtitlePlaceholder}
             maxLength={120}
           />
           <p className="text-[0.6rem] text-white/20 mt-1 text-right">{form.subtitle.length}/120</p>
@@ -609,7 +806,7 @@ function LifePhotoItem({ photo, onRemove, onDateChange }) {
   )
 }
 
-function StepStory({ form, setForm, lifePhotos, setLifePhotos }) {
+function StepStory({ form, setForm, lifePhotos, setLifePhotos, copy }) {
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef()
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
@@ -735,13 +932,13 @@ function StepStory({ form, setForm, lifePhotos, setLifePhotos }) {
       {/* ── Bio ──────────────────────────────────────────────────────────── */}
       <div>
         <label className="block text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim mb-2">
-          Life story
+          {copy.bioLabel}
         </label>
         <textarea
           value={form.bio}
           onChange={set('bio')}
           rows={5}
-          placeholder={`Write about ${form.name || 'this person'}. Their personality, passions, the memories they left behind...`}
+          placeholder={typeof copy.bioPlaceholder === 'function' ? copy.bioPlaceholder(form.name) : copy.bioPlaceholder}
           className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-gold/40 resize-none transition-colors"
         />
         <p className="text-[0.6rem] text-white/20 mt-1 text-right">{form.bio.length} characters</p>
@@ -750,12 +947,12 @@ function StepStory({ form, setForm, lifePhotos, setLifePhotos }) {
       {/* ── Location ─────────────────────────────────────────────────────── */}
       <div>
         <label className="block text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim mb-2">
-          Location / hometown
+          {copy.locationLabel}
         </label>
         <input
           value={form.location}
           onChange={set('location')}
-          placeholder="e.g. Lagos, Nigeria"
+          placeholder={copy.locationPlaceholder}
           className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-gold/40 transition-colors"
         />
       </div>
@@ -763,7 +960,7 @@ function StepStory({ form, setForm, lifePhotos, setLifePhotos }) {
   )
 }
 
-function StepPublish({ form, setForm, isSelf }) {
+function StepPublish({ form, setForm, isSelf, copy }) {
   const years = form.birthYear && form.deathYear
     ? `${form.birthYear} — ${form.deathYear}`
     : form.birthYear
@@ -814,7 +1011,7 @@ function StepPublish({ form, setForm, isSelf }) {
       {/* Visibility */}
       <div>
         <label className="block text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim mb-3">
-          Who can see this memorial?
+          {copy.visibilityLabel}
         </label>
         <div className="space-y-2">
           {VISIBILITY_OPTIONS.map(opt => (
@@ -846,8 +1043,8 @@ function StepPublish({ form, setForm, isSelf }) {
         onClick={() => setForm(f => ({ ...f, allowTributes: !f.allowTributes }))}
       >
         <div>
-          <div className="text-sm font-semibold text-white">Allow tributes</div>
-          <div className="text-xs text-white/40 mt-0.5">Let others leave tributes and memories</div>
+          <div className="text-sm font-semibold text-white">{copy.tributesLabel}</div>
+          <div className="text-xs text-white/40 mt-0.5">{copy.tributesHelp}</div>
         </div>
         <div className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${
           form.allowTributes ? 'bg-gold' : 'bg-white/10'
@@ -865,6 +1062,7 @@ function StepPublish({ form, setForm, isSelf }) {
 
 const initForm = () => ({
   name:          '',
+  pronouns:      'they',   // 'he' | 'she' | 'they' — only meaningful when !isSelf
   relation:      '',
   subtitle:      '',
   alive:         false,
@@ -888,25 +1086,17 @@ export default function CreateMemorialPage() {
   const { toast }  = useToast()
   const { user }   = db.useAuth()
 
-  // Load creator's profile — used to pre-fill country as a smart default only.
-  // The creator can change it; the saved countryCode is the person's own country,
-  // not necessarily the creator's.
+  // Load creator's profile — used to:
+  //   • pre-fill country as a smart default for both modes
+  //   • pre-fill name + photo from profile in SELF mode (so the memorial syncs
+  //     with the user's account identity)
   const { data: profileData } = db.useQuery(
     user ? { profiles: { $: { where: { userId: user.id } } } } : null
   )
-  const creatorCountryCode = profileData?.profiles?.[0]?.countryCode || ''
-
-  // Pre-fill country from creator's profile once it loads, but only if the user
-  // hasn't already selected a country (functional update avoids stale closure).
-  useEffect(() => {
-    if (!creatorCountryCode) return
-    setForm(f => {
-      if (f.countryCode) return f          // user already picked — don't overwrite
-      const country = findCountry(creatorCountryCode)
-      if (!country) return f
-      return { ...f, countryCode: country.code, countryName: country.name }
-    })
-  }, [creatorCountryCode])
+  const profile             = profileData?.profiles?.[0]
+  const creatorCountryCode  = profile?.countryCode || ''
+  const creatorDisplayName  = profile?.displayName || ''
+  const creatorPhoto        = profile?.photoUrl || ''
 
   // Guest users (signed in with signInAsGuest — no email) must create a real
   // account before they can publish a memorial.
@@ -920,12 +1110,47 @@ export default function CreateMemorialPage() {
   const [saving,     setSaving]     = useState(false)
   const [showGuestGate, setShowGuestGate] = useState(false)
 
+  // Adaptive copy — single source of truth for every label/placeholder/helper.
+  const copy = useMemo(() => getCopy(isSelf, form.pronouns), [isSelf, form.pronouns])
+
+  // ── Pre-fill country from profile (both modes) ──────────────────────────────
+  useEffect(() => {
+    if (!creatorCountryCode) return
+    setForm(f => {
+      if (f.countryCode) return f          // user already picked — don't overwrite
+      const country = findCountry(creatorCountryCode)
+      if (!country) return f
+      return { ...f, countryCode: country.code, countryName: country.name }
+    })
+  }, [creatorCountryCode])
+
+  // ── Pre-fill name + photo from profile (SELF mode only) ─────────────────────
+  // The memorial in self mode IS the user's living legacy — the name on it
+  // should match the user's account name. Pre-fill once on load; don't
+  // overwrite if the user has already edited the field.
+  useEffect(() => {
+    if (!isSelf) return
+    setForm(f => {
+      const next = { ...f }
+      let changed = false
+      if (!f.name && creatorDisplayName) { next.name = creatorDisplayName; changed = true }
+      if (!f.photoUrl && creatorPhoto)   { next.photoUrl = creatorPhoto;    changed = true }
+      return changed ? next : f
+    })
+  }, [isSelf, creatorDisplayName, creatorPhoto])
+
   const MIN_PHOTOS = 5
 
   function validateStep() {
-    if (step === 0 && !form.name.trim()) {
-      toast.warning('Please enter a name')
-      return false
+    if (step === 0) {
+      if (!form.name.trim()) {
+        toast.warning(isSelf ? 'Please enter your name' : 'Please enter their name')
+        return false
+      }
+      if (!isSelf && !form.pronouns) {
+        toast.warning('Please select pronouns')
+        return false
+      }
     }
     if (step === 1) {
       // Hard block — must have at least 5 uploaded (not just previewed) photos
@@ -1011,11 +1236,17 @@ export default function CreateMemorialPage() {
           updatedAt:         Date.now(),
           isSelf:            isSelf || undefined,
           countryCode:       form.countryCode || undefined,
+          // pronouns is only meaningful for "other" memorials — self uses
+          // the creator's own profile data and addresses them in 2nd person.
+          pronouns:          isSelf ? undefined : (form.pronouns || 'they'),
         }),
         ...photoTxs,
       ])
 
-      toast.success(`${form.name}'s memorial has been created ✦`)
+      toast.success(isSelf
+        ? copy.successText
+        : `${form.name}'s ${copy.successText}`
+      )
       navigate(`/memorial/${memId}`)
     } catch (err) {
       toast.error('Something went wrong. Please try again.')
@@ -1068,7 +1299,7 @@ export default function CreateMemorialPage() {
 
         <div className="text-center">
           <p className="text-[0.6rem] font-bold tracking-[0.2em] uppercase text-cream-dim">
-            {STEPS[step].desc}
+            {copy.stepDescs[STEPS[step].key]}
           </p>
           <p className="text-xs text-white/30 mt-0.5">Step {step + 1} of {STEPS.length}</p>
         </div>
@@ -1088,25 +1319,19 @@ export default function CreateMemorialPage() {
       {/* ── Step label ─────────────────────────────────────────────────────── */}
       <div className="px-5 mb-6">
         <h1 className="font-display text-[clamp(1.8rem,5vw,2.4rem)] font-bold leading-tight">
-          {step === 0 && <>Who are <span className="text-gradient-gold">they?</span></>}
-          {step === 1 && <>Their <span className="text-gradient-gold">story</span></>}
-          {step === 2 && <>Ready to <span className="text-gradient-gold">publish?</span></>}
+          {copy.stepTitles[STEPS[step].key]}
         </h1>
         {step === 0 && (
-          <p className="text-xs text-white/35 mt-1">
-            {isSelf
-              ? "You're creating your own living legacy — a memorial for yourself. Your story, your voice, preserved forever."
-              : "You're creating a memorial for someone else. Your own account profile is managed separately in the Profile tab."}
-          </p>
+          <p className="text-xs text-white/35 mt-1">{copy.heroIntro}</p>
         )}
       </div>
 
       {/* ── Step content ───────────────────────────────────────────────────── */}
       <div className="px-5">
         <AnimatePresence mode="wait">
-          {step === 0 && <StepPerson  key="p" form={form} setForm={setForm} isSelf={isSelf} />}
-          {step === 1 && <StepStory   key="s" form={form} setForm={setForm} lifePhotos={lifePhotos} setLifePhotos={setLifePhotos} />}
-          {step === 2 && <StepPublish key="c" form={form} setForm={setForm} isSelf={isSelf} />}
+          {step === 0 && <StepPerson  key="p" form={form} setForm={setForm} isSelf={isSelf} copy={copy} />}
+          {step === 1 && <StepStory   key="s" form={form} setForm={setForm} lifePhotos={lifePhotos} setLifePhotos={setLifePhotos} copy={copy} />}
+          {step === 2 && <StepPublish key="c" form={form} setForm={setForm} isSelf={isSelf} copy={copy} />}
         </AnimatePresence>
       </div>
 
@@ -1122,9 +1347,9 @@ export default function CreateMemorialPage() {
             {saving
               ? <span className="flex items-center justify-center gap-2">
                   <div className="w-4 h-4 border-2 border-black/20 border-t-black/70 rounded-full animate-spin" />
-                  Creating memorial…
+                  {isSelf ? 'Creating your legacy…' : 'Creating memorial…'}
                 </span>
-              : step < STEPS.length - 1 ? 'Continue →' : 'Publish memorial ✦'
+              : step < STEPS.length - 1 ? 'Continue →' : copy.ctaPublish
             }
           </motion.button>
         </div>

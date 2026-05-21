@@ -45,6 +45,7 @@ const _schema = i.schema({
       viewCount:          i.number().optional(),
       isSelf:             i.boolean().optional(),  // true = this memorial IS the creator
       countryCode:        i.string().optional(),  // creator's country at creation time (for flag)
+      pronouns:           i.string().optional(),  // 'he' | 'she' | 'they' — drives form copy + UI pronoun usage
     }),
 
     tributes: i.entity({
