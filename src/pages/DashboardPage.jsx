@@ -11,12 +11,15 @@
 // Requires the fonts (add to index.html <head> if not already):
 // <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,300;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { db } from '../lib/instant'
 import { usePullToRefresh } from '../hooks'
 import { useActivityFeed } from '../hooks/useActivityFeed'
+import FamilyMessagesSection from '../components/shared/FamilyMessagesSection'
+import { countryFlag } from '../lib/countries'
+import { getRelationFilterCategory, normalizeRelation } from '../lib/relations'
 
 // ════════════════════════════════════════════════════════════════════════════
 // Scoped pastel styles (kept in-file so this is a single drop-in).
@@ -350,11 +353,8 @@ function StatCard({ variant, value, label, sub, icon }) {
 function MemorialRow({ memorial }) {
   const tributes = memorial.tributes || []
   const photos   = memorial.photos   || []
-  const candles  = tributes.filter(t => t.type === 'candle')
-  const memories = tributes.filter(t => t.type === 'memory')
-  const plain    = tributes.filter(t => !t.type || t.type === 'tribute')
   const isAlive  = memorial.alive !== false
-  const total    = tributes.length || 1
+  const flag     = memorial.countryCode ? countryFlag(memorial.countryCode) : ''
 
   return (
     <Link to={`/memorial/${memorial.id}`} className="row">
@@ -369,6 +369,11 @@ function MemorialRow({ memorial }) {
             <span className={`led ${isAlive ? 'alive' : 'archived'}`} />
             <b>{memorial.name}</b>
             {memorial.relation && <span className="rel">{memorial.relation}</span>}
+            {flag && (
+              <span style={{ fontSize:15, lineHeight:1, flexShrink:0 }} title={memorial.countryCode}>
+                {flag}
+              </span>
+            )}
           </div>
           <div className="yr">
             {[memorial.years, memorial.location].filter(Boolean).join('  ·  ') || '—'}
@@ -383,11 +388,46 @@ function MemorialRow({ memorial }) {
       </div>
       {tributes.length > 0 && (
         <div className="bar">
-          <i className="gold" style={{ width:`${(plain.length/total)*100}%` }} />
-          <i className="sky"  style={{ width:`${(candles.length/total)*100}%` }} />
-          <i className="lav"  style={{ width:`${(memories.length/total)*100}%` }} />
+          <i className="gold" style={{ width:'100%' }} />
         </div>
       )}
+    </Link>
+  )
+}
+
+// General memorial card (worldwide, no relation filter)
+function GeneralCard({ memorial }) {
+  const tributes = memorial.tributes || []
+  const isAlive  = memorial.alive !== false
+  const flag     = memorial.countryCode ? countryFlag(memorial.countryCode) : ''
+
+  return (
+    <Link to={`/memorial/${memorial.id}`} className="row">
+      <div className="main">
+        <div className={`avatar ${isAlive ? 'alive' : 'gold'}`}>
+          {memorial.photo
+            ? <img src={memorial.photo} alt="" />
+            : (memorial.name?.charAt(0) || '?').toLowerCase()}
+        </div>
+        <div className="info">
+          <div className="nm">
+            <span className={`led ${isAlive ? 'alive' : 'archived'}`} />
+            <b>{memorial.name}</b>
+            {flag && (
+              <span style={{ fontSize:15, lineHeight:1, flexShrink:0 }} title={memorial.countryCode}>
+                {flag}
+              </span>
+            )}
+          </div>
+          <div className="yr">
+            {[memorial.years, memorial.location].filter(Boolean).join('  ·  ') || '—'}
+          </div>
+        </div>
+        <div className="mini">
+          <div className="c"><b className="gold">{tributes.length}</b><span>tributes</span></div>
+          <div className="c"><b className="sky">{memorial.viewCount || 0}</b><span>views</span></div>
+        </div>
+      </div>
     </Link>
   )
 }
@@ -453,6 +493,8 @@ export default function DashboardPage() {
   const { user, isLoading: authLoading } = db.useAuth()
   const [activeTab,       setActiveTab]       = useState('overview')
   const [showVaultPicker, setShowVaultPicker] = useState(false)
+  // Relation filter for My Memorials
+  const [relFilter,       setRelFilter]       = useState('all')
 
   // Redirect unauthenticated users to auth page
   useEffect(() => {
@@ -461,32 +503,73 @@ export default function DashboardPage() {
 
   const { isLoading, data } = db.useQuery(
     user ? {
-      memorials:     { $: { where: { creatorId: user.id }, limit: 50 }, tributes: {}, photos: {} },
+      // Use createdBy — set on every memorial since day one.
+      // creatorId is also set but was introduced later; using createdBy ensures
+      // older memorials are never missed.
+      memorials:     { $: { where: { createdBy: user.id }, limit: 50 }, tributes: {}, photos: {} },
       profiles:      { $: { where: { userId: user.id } } },
       familyMembers: { $: { where: { ownerId: user.id } } },
       invites:       { $: { where: { familyOwnerId: user.id } } },
       letters:       { $: { where: { createdBy: user.id } } },
-      // OPTIONAL: if you add the `activities` entity (see schema patch),
-      // uncomment the next line to merge explicit calendar/reminder events.
-      // activities:  { $: { where: { ownerId: user.id } } },
+      // Approved connections where I am the family member (not the owner)
+      familyConnections: { $: { where: { fromUserId: user.id, status: 'approved' } } },
     } : null
   )
+
+  // ── Reactive family messages across all connected memorials ───────────────
+  const memorialsRaw   = data?.memorials || []
+  const ownIds         = memorialsRaw.map(m => m.id)
+  const connectedIds   = (data?.familyConnections || []).map(c => c.toMemorialId)
+  const allMemIds      = useMemo(() => [...new Set([...ownIds, ...connectedIds])], [ownIds.join(), connectedIds.join()])
+
+  const msgsQ = db.useQuery(
+    allMemIds.length ? {
+      familyMessages: { $: { where: { memorialId: { $in: allMemIds } } } },
+    } : null
+  )
+
+  const allFamilyMessages = msgsQ?.data?.familyMessages || []
+  const unreadMsgCount    = allFamilyMessages.filter(m => {
+    const readBy = Array.isArray(m.readBy) ? m.readBy : []
+    return m.fromUserId !== user?.id && !readBy.includes(user?.id)
+  }).length
 
   const { pullProgress, refreshing, onTouchStart, onTouchMove, onTouchEnd }
     = usePullToRefresh(async () => { await new Promise(r => setTimeout(r, 800)) })
 
 
   // Sort memorials newest-first so [0] is always the most recent
-  const memorials     = (data?.memorials || []).slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+  const memorials     = memorialsRaw.slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
   const profile       = data?.profiles?.[0]
   const familyMembers = data?.familyMembers || []
   const invites       = data?.invites       || []
   const letters       = data?.letters       || []
   const activities    = data?.activities    || []
 
+  // ── Relation filter categories for My Memorials ───────────────────────────
+  const REL_FILTERS = [
+    { id: 'all',          label: 'All',          emoji: '◎' },
+    { id: 'partner',      label: 'Partners',     emoji: '💍' },
+    { id: 'children',     label: 'Children',     emoji: '🌱' },
+    { id: 'siblings',     label: 'Siblings',     emoji: '🤝' },
+    { id: 'parents',      label: 'Parents',      emoji: '✿' },
+    { id: 'grandparents', label: 'Grandparents', emoji: '♡' },
+    { id: 'friends',      label: 'Friends',      emoji: '☽' },
+    { id: 'extended',     label: 'Extended',     emoji: '🌿' },
+  ]
+
+  // Filtered user memorials by selected relation category
+  const filteredMemorials = useMemo(() => {
+    if (relFilter === 'all') return memorials
+    return memorials.filter(m => {
+      if (!m.relation) return false
+      const cat = getRelationFilterCategory(m.relation)
+        || getRelationFilterCategory(normalizeRelation(m.relation)?.value || '')
+      return cat === relFilter
+    })
+  }, [memorials, relFilter])
+
   const totalTributes = memorials.reduce((s, m) => s + (m.tributes?.length || 0), 0)
-  const totalCandles  = memorials.reduce((s, m) => s + (m.tributes?.filter(t=>t.type==='candle').length || 0), 0)
-  const totalMemories = memorials.reduce((s, m) => s + (m.tributes?.filter(t=>t.type==='memory').length || 0), 0)
   const totalViews    = memorials.reduce((s, m) => s + (m.viewCount || 0), 0)
   const totalPhotos   = memorials.reduce((s, m) => s + (m.photos?.length || 0), 0)
   const publicCount   = memorials.filter(m => m.visibility === 'public').length
@@ -508,7 +591,12 @@ export default function DashboardPage() {
     )
   }
 
-  const displayName = profile?.displayName || user?.email?.split('@')[0] || 'there'
+  // Use first name for the personal greeting; fall back to full displayName
+  // then email prefix then generic greeting
+  const displayName = profile?.firstName
+    || (profile?.displayName ? profile.displayName.split(' ')[0] : null)
+    || user?.email?.split('@')[0]
+    || 'there'
 
   // Vault button handler — direct if one memorial, picker if many, create if none
   function openVault(e) {
@@ -519,9 +607,10 @@ export default function DashboardPage() {
   }
 
   const TABS = [
-    { id:'overview', label:'Overview', badge: memorials.length },
-    { id:'activity', label:'Activity', badge: feed.counts.activity },
-    { id:'upcoming', label:'Upcoming', badge: feed.counts.upcoming },
+    { id:'overview',  label:'Overview',  badge: memorials.length },
+    { id:'activity',  label:'Activity',  badge: feed.counts.activity },
+    { id:'upcoming',  label:'Upcoming',  badge: feed.counts.upcoming },
+    { id:'messages',  label:'✦ Messages', badge: unreadMsgCount, urgent: unreadMsgCount > 0 },
   ]
 
   if (isLoading) {
@@ -566,10 +655,29 @@ export default function DashboardPage() {
                 {publicCount > 0 && ` (${publicCount} public, ${privateCount} private)`}.
               </p>
             </div>
-            <Link to="/create" className="btn-new">
-              <span className="disc">+</span>
-              New Memorial
-            </Link>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              {/* Notification bell — unread family messages */}
+              {unreadMsgCount > 0 && (
+                <button
+                  onClick={() => setActiveTab('messages')}
+                  style={{ position:'relative', width:44, height:44, borderRadius:'50%',
+                    background:'var(--card-bg)', border:'1px solid var(--card-line)',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    cursor:'pointer', fontSize:20, boxShadow:'var(--shadow-card)', flexShrink:0 }}>
+                  🔔
+                  <span style={{ position:'absolute', top:2, right:2, width:18, height:18,
+                    borderRadius:'50%', background:'#dc3232', color:'#fff',
+                    fontSize:10, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center',
+                    border:'2px solid var(--card-bg)' }}>
+                    {unreadMsgCount > 9 ? '9+' : unreadMsgCount}
+                  </span>
+                </button>
+              )}
+              <Link to="/create" className="btn-new">
+                <span className="disc">+</span>
+                New Memorial
+              </Link>
+            </div>
           </div>
 
           {/* ── Stats ────────────────────────────────────────────────────── */}
@@ -577,7 +685,7 @@ export default function DashboardPage() {
             <StatCard variant="memorials" value={memorials.length} label="Memorials"
               sub={`${publicCount} public · ${privateCount} private`} icon="🪦" />
             <StatCard variant="tributes" value={totalTributes} label="Tributes"
-              sub={`${totalCandles} candles · ${totalMemories} memories`} icon="💐" />
+              sub="Messages of love &amp; memory" icon="💐" />
             <StatCard variant="views" value={totalViews} label="Views"
               sub="Across all memorials" icon="👁️" />
             <StatCard variant="photos" value={totalPhotos} label="Photos"
@@ -592,7 +700,13 @@ export default function DashboardPage() {
                 onClick={() => setActiveTab(t.id)}>
                 {activeTab === t.id && <motion.span layoutId="pill" className="pill" />}
                 {t.label}
-                {t.badge > 0 && <span className="badge">{t.badge}</span>}
+                {t.badge > 0 && (
+                  <span className="badge" style={t.urgent ? {
+                    background: 'rgba(220,50,50,.85)', color: '#fff',
+                  } : {}}>
+                    {t.badge}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -604,26 +718,189 @@ export default function DashboardPage() {
                 initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}
                 exit={{ opacity:0, y:-12 }} transition={{ duration:.25 }}>
 
-                {memorials.length === 0 ? (
-                  <div className="empty">
-                    <div className="eic">🪦</div>
-                    <h4>No memorials yet</h4>
-                    <p>Create your first memorial to start preserving a legacy.</p>
-                    <Link to="/create" className="cta">+ Create Memorial</Link>
+                {/* ── Reels strip ────────────────────────────────────────── */}
+                <div style={{
+                  background: 'var(--card-bg)', border: '1px solid var(--card-line)',
+                  borderRadius: 'var(--r-xl)', padding: '18px 20px 16px',
+                  boxShadow: 'var(--shadow-card)', marginBottom: 20,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{
+                        width: 32, height: 32, borderRadius: 10,
+                        background: 'var(--lavender)', display: 'flex', alignItems: 'center',
+                        justifyContent: 'center', fontSize: 16,
+                      }}>▶</div>
+                      <div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--card-text)', letterSpacing: '-.01em' }}>Reels</div>
+                        <div style={{ fontSize: 11, color: 'var(--card-text-2)', marginTop: 1 }}>
+                          {memorials.length > 0 ? `${memorials.length} memorial reel${memorials.length !== 1 ? 's' : ''}` : 'Discover living memories'}
+                        </div>
+                      </div>
+                    </div>
+                    <Link to="/reels" style={{
+                      fontSize: 12, fontWeight: 700, color: 'var(--butter-2)',
+                      textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4,
+                    }}>
+                      Browse all <span>→</span>
+                    </Link>
                   </div>
-                ) : (
-                  memorials.map(m => <MemorialRow key={m.id} memorial={m} />)
-                )}
+
+                  {memorials.length === 0 ? (
+                    <Link to="/reels" style={{
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '12px 16px', borderRadius: 'var(--r-md)',
+                      background: 'rgba(247,241,227,.05)', border: '1px dashed rgba(247,241,227,.12)',
+                      textDecoration: 'none',
+                    }}>
+                      <div style={{ fontSize: 28 }}>🎞️</div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--card-text)' }}>Discover memorial reels</div>
+                        <div style={{ fontSize: 11, color: 'var(--card-text-2)', marginTop: 2 }}>Watch stories from around the world</div>
+                      </div>
+                      <div style={{ marginLeft: 'auto', fontSize: 18, color: 'var(--card-text-3)' }}>›</div>
+                    </Link>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}>
+                      {memorials.map(m => (
+                        <Link
+                          key={m.id}
+                          to={`/memorial/${m.id}`}
+                          style={{ textDecoration: 'none', flexShrink: 0 }}
+                          title={m.name}
+                        >
+                          <div style={{ position: 'relative', width: 80, height: 108, borderRadius: 14, overflow: 'hidden',
+                            border: '1px solid rgba(247,241,227,.10)', background: 'rgba(247,241,227,.06)' }}>
+                            {/* Thumbnail */}
+                            {m.photo ? (
+                              <img src={m.photo} alt={m.name}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }} />
+                            ) : (
+                              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center',
+                                justifyContent: 'center', fontSize: 28, background: 'var(--card-bg-2)' }}>
+                                {(m.name?.charAt(0) || '?').toLowerCase()}
+                              </div>
+                            )}
+                            {/* Dark scrim */}
+                            <div style={{ position: 'absolute', inset: 0,
+                              background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.15) 50%, transparent 100%)' }} />
+                            {/* Play button */}
+                            <div style={{ position: 'absolute', top: '50%', left: '50%',
+                              transform: 'translate(-50%, -60%)',
+                              width: 28, height: 28, borderRadius: '50%',
+                              background: 'rgba(255,255,255,0.88)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.35)' }}>
+                              <span style={{ fontSize: 10, marginLeft: 2, color: '#14110d' }}>▶</span>
+                            </div>
+                            {/* Name */}
+                            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0,
+                              padding: '4px 6px 6px',
+                              fontSize: 9.5, fontWeight: 700, color: '#fff',
+                              letterSpacing: '.01em', textAlign: 'center',
+                              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {m.name?.split(' ')[0]}
+                            </div>
+                          </div>
+                        </Link>
+                      ))}
+                      {/* Discover more */}
+                      <Link to="/reels" style={{ textDecoration: 'none', flexShrink: 0 }}>
+                        <div style={{ width: 80, height: 108, borderRadius: 14, overflow: 'hidden',
+                          border: '1px dashed rgba(247,241,227,.18)', background: 'rgba(247,241,227,.04)',
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                          <span style={{ fontSize: 20, opacity: 0.5 }}>🌍</span>
+                          <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--card-text-3)',
+                            textAlign: 'center', lineHeight: 1.3, padding: '0 6px' }}>
+                            Explore<br/>more
+                          </span>
+                        </div>
+                      </Link>
+                    </div>
+                  )}
+                </div>
+
+                {/* ── Relation filter chips ──────────────────────────────── */}
+                {memorials.length > 0 && (
+                      <div style={{
+                        display:'flex', gap:8, overflowX:'auto', paddingBottom:4,
+                        marginBottom:16, scrollbarWidth:'none',
+                      }}>
+                        {REL_FILTERS.map(f => (
+                          <button
+                            key={f.id}
+                            onClick={() => setRelFilter(f.id)}
+                            style={{
+                              flexShrink:0, height:36, padding:'0 16px',
+                              border: relFilter === f.id
+                                ? '1.5px solid rgba(255,233,129,.6)'
+                                : '1px solid var(--card-line)',
+                              borderRadius:999, cursor:'pointer',
+                              fontFamily:'inherit', fontSize:12.5, fontWeight:700,
+                              display:'flex', alignItems:'center', gap:6,
+                              background: relFilter === f.id
+                                ? 'rgba(255,233,129,.14)'
+                                : 'var(--card-bg)',
+                              color: relFilter === f.id ? 'var(--butter)' : 'var(--card-text-2)',
+                              transition:'all .15s',
+                              boxShadow: relFilter === f.id
+                                ? '0 2px 10px rgba(255,233,129,.15)'
+                                : 'var(--shadow-card)',
+                            }}
+                          >
+                            <span>{f.emoji}</span> {f.label}
+                            {f.id !== 'all' && memorials.filter(m => {
+                              const cat = getRelationFilterCategory(m.relation)
+                                || getRelationFilterCategory(normalizeRelation(m.relation)?.value || '')
+                              return cat === f.id
+                            }).length > 0 && (
+                              <span style={{
+                                fontSize:10, fontWeight:800,
+                                background:'rgba(255,233,129,.25)', color:'var(--butter)',
+                                borderRadius:999, padding:'1px 6px',
+                              }}>
+                                {memorials.filter(m => {
+                                  const cat = getRelationFilterCategory(m.relation)
+                                    || getRelationFilterCategory(normalizeRelation(m.relation)?.value || '')
+                                  return cat === f.id
+                                }).length}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {filteredMemorials.length === 0 ? (
+                      memorials.length === 0 ? (
+                        <div className="empty">
+                          <div className="eic">🪦</div>
+                          <h4>No memorials yet</h4>
+                          <p>Create your first memorial to start preserving a legacy.</p>
+                          <Link to="/create" className="cta">+ Create Memorial</Link>
+                        </div>
+                      ) : (
+                        <div className="empty">
+                          <div className="eic" style={{ background:'var(--lavender)' }}>✦</div>
+                          <h4>None in this category</h4>
+                          <p>You haven't created any {REL_FILTERS.find(f=>f.id===relFilter)?.label.toLowerCase()} memorials yet.</p>
+                          <button onClick={() => setRelFilter('all')} className="cta" style={{ border:'none', cursor:'pointer' }}>
+                            Show all
+                          </button>
+                        </div>
+                      )
+                    ) : (
+                      filteredMemorials.map(m => <MemorialRow key={m.id} memorial={m} />)
+                    )}
 
                 {/* Quick actions */}
-                <div className="qa">
+                <div className="qa" style={{ marginTop: memorials.length === 0 ? 0 : 18 }}>
                   <a href="#" onClick={openVault}>
                     <div className="qic butter">🔒</div>
                     <div className="qt">Legacy Vault</div>
-                    <div className="qs">{memorials.length > 1 ? `${memorials.length} vaults available` : 'Secure letters, wills & documents'}</div>
+                    <div className="qs">{memorials.length > 1 ? `${memorials.length} vaults` : 'Secure letters, wills & docs'}</div>
                     <span className="arr">→</span>
                   </a>
-
                   <Link to="/family-tree">
                     <div className="qic rose">👨‍👩‍👧</div>
                     <div className="qt">Family Tree</div>
@@ -639,10 +916,11 @@ export default function DashboardPage() {
                   <Link to="/premium" className="premium">
                     <div className="qic lav">✦</div>
                     <div className="qt">Go Premium</div>
-                    <div className="qs">Unlock AI voice & more</div>
+                    <div className="qs">Unlock voice memory & more</div>
                     <span className="arr">→</span>
                   </Link>
                 </div>
+
               </motion.div>
             )}
 
@@ -660,7 +938,7 @@ export default function DashboardPage() {
                   <div className="empty">
                     <div className="eic">📭</div>
                     <h4>No activity yet</h4>
-                    <p>Activity will appear here as tributes, candles, and memories are added.</p>
+                    <p>Activity will appear here as tributes and memories are shared.</p>
                   </div>
                 ) : (
                   feed.past.map((ev, i) => <EventCard key={i} ev={ev} navigate={navigate} />)
@@ -693,6 +971,49 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   feed.upcoming.map((ev, i) => <EventCard key={i} ev={ev} navigate={navigate} />)
+                )}
+              </motion.div>
+            )}
+
+            {activeTab === 'messages' && (
+              <motion.div key="messages"
+                initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}
+                exit={{ opacity:0, y:-12 }} transition={{ duration:.25 }}>
+
+                <div className="feedhead" style={{ marginBottom:0 }}>
+                  <h2>Family Messages</h2>
+                  <span className="cnt">
+                    {unreadMsgCount > 0
+                      ? <b style={{ color:'#dc3232' }}>{unreadMsgCount} unread</b>
+                      : <span style={{ fontSize:14 }}>all caught up</span>}
+                  </span>
+                </div>
+
+                <p style={{ fontSize:13, color:'var(--muted)', margin:'6px 0 20px', lineHeight:1.5 }}>
+                  Private messages shared within your approved family circles. Only connected family members can see these.
+                </p>
+
+                {allMemIds.length === 0 ? (
+                  <div className="empty">
+                    <div className="eic">✉️</div>
+                    <h4>No family connections yet</h4>
+                    <p>Family messages appear once you've connected with family members via invite codes.</p>
+                    <Link to="/family-tree" className="cta">View family tree</Link>
+                  </div>
+                ) : (
+                  /* Show messages grouped by memorial */
+                  <div style={{
+                    background:'var(--card-bg)', border:'1px solid var(--card-line)',
+                    borderRadius:24, padding:24,
+                    boxShadow:'var(--shadow-card)',
+                    minHeight:480, display:'flex', flexDirection:'column',
+                  }}>
+                    <FamilyMessagesSection
+                      memorialId={allMemIds.length === 1 ? allMemIds[0] : undefined}
+                      user={user}
+                      userProfile={data?.profiles?.[0]}
+                    />
+                  </div>
                 )}
               </motion.div>
             )}

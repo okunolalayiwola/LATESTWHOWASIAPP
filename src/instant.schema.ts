@@ -16,12 +16,14 @@ const _schema = i.schema({
       years:              i.string().optional(),
       bio:                i.string().optional(),
       description:        i.string().optional(),
-      color:              i.string().optional(),
+      color:              i.string().optional(),   // legacy Tailwind class (kept for compat)
+      themeHex:           i.string().optional(),   // "#92400e" — primary accent hex color
       tributeCount:       i.number().optional(),
       candleCount:        i.number().optional(),
       visibility:         i.string().optional(),
       dob:                i.string().optional(),
       dod:                i.string().optional(),
+      dodYear:            i.string().optional(),   // year of death (family-set)
       createdAt:          i.number(),
       createdBy:          i.string(),
       creatorId:          i.string().optional(),
@@ -42,37 +44,44 @@ const _schema = i.schema({
       elevenLabsVoiceId:  i.string().optional(),
       viewCount:          i.number().optional(),
       isSelf:             i.boolean().optional(),  // true = this memorial IS the creator
+      countryCode:        i.string().optional(),  // creator's country at creation time (for flag)
     }),
 
     tributes: i.entity({
-      author:      i.string(),
-      type:        i.string(),
-      content:     i.string(),
-      color:       i.string().optional(),
-      createdAt:   i.number(),
-      text:        i.string().optional(),
-      authorName:  i.string().optional(),
-      authorId:    i.string().optional(),
-      authorPhoto: i.string().optional(),
-      likes:       i.number().optional(),
-      reactions:   i.json().optional(),
+      author:          i.string(),
+      type:            i.string(),
+      content:         i.string(),
+      color:           i.string().optional(),
+      createdAt:       i.number(),
+      text:            i.string().optional(),
+      authorName:      i.string().optional(),
+      authorId:        i.string().optional(),
+      authorPhoto:     i.string().optional(),
+      likes:           i.number().optional(),
+      reactions:       i.json().optional(),
+      photoUrl:        i.string().optional(),  // optional image attached to tribute
+      photoCaption:    i.string().optional(),  // caption for the attached image
     }),
 
     profiles: i.entity({
-      userId:           i.string(),
-      displayName:      i.string().optional(),
-      photoUrl:         i.string().optional(),
-      onboarded:        i.boolean().optional(),
-      createdAt:        i.number().optional(),
-      plan:             i.string().optional(),
-      stripeCustomerId: i.string().optional(),
-      subscribedAt:     i.number().optional(),
-      familyOwnerId:    i.string().optional(),  // set when this user joins a family
-      joinedFamilyAt:   i.number().optional(),
+      userId:              i.string(),
+      firstName:           i.string().optional(),   // given name — used for greetings & recognition
+      lastName:            i.string().optional(),   // family name
+      displayName:         i.string().optional(),   // firstName + lastName (full name)
+      country:             i.string().optional(),   // country name e.g. 'United Kingdom'
+      countryCode:         i.string().optional(),   // ISO 3166-1 alpha-2 e.g. 'GB'
+      photoUrl:            i.string().optional(),
+      onboarded:           i.boolean().optional(),
+      createdAt:           i.number().optional(),
+      plan:                i.string().optional(),
+      stripeCustomerId:    i.string().optional(),
+      subscribedAt:        i.number().optional(),
+      familyOwnerId:       i.string().optional(),   // set when this user joins a family
+      joinedFamilyAt:      i.number().optional(),
       notifyAnniversaries: i.boolean().optional(),
       notifyTributes:      i.boolean().optional(),
       notifyFamily:        i.boolean().optional(),
-      intent:             i.string().optional(),   // 'self' | 'other' (onboarding answer)
+      intent:              i.string().optional(),   // 'self' | 'other'
     }),
 
     photos: i.entity({
@@ -138,6 +147,45 @@ const _schema = i.schema({
       unlockEvent: i.string().optional(),
       isLocked:    i.boolean().optional(),
       createdBy:   i.string().optional(),
+      createdAt:   i.number(),
+    }),
+
+    // ── Family Connections (request → approve → appear in tree) ──────────────
+    familyConnections: i.entity({
+      fromUserId:    i.string().indexed(),   // person claiming the relationship
+      fromName:      i.string(),             // their display name
+      fromEmail:     i.string().optional(),  // their email
+      fromPhoto:     i.string().optional(),  // their profile photo
+      toMemorialId:  i.string().indexed(),   // which memorial they're connecting to
+      toUserId:      i.string().indexed(),   // memorial owner's userId
+      relation:      i.string(),             // canonical relation value
+      status:        i.string().indexed(),   // 'pending' | 'approved' | 'rejected'
+      verifyToken:   i.string().unique().indexed(), // one-time token for email link
+      requestedAt:   i.number(),
+      approvedAt:    i.number().optional(),
+      approvalNote:  i.string().optional(),
+    }),
+
+    // ── Family Messages (private, approved-members only) ──────────────────────
+    familyMessages: i.entity({
+      memorialId:  i.string().indexed(),
+      fromUserId:  i.string(),
+      fromName:    i.string(),
+      fromPhoto:   i.string().optional(),
+      content:     i.string(),
+      photoUrl:    i.string().optional(),
+      createdAt:   i.number(),
+      readBy:      i.json().optional(),   // array of userIds who have read it
+    }),
+
+    // ── Tribute Comments (family members commenting under tributes) ───────────
+    tributeComments: i.entity({
+      tributeId:   i.string().indexed(),
+      memorialId:  i.string().indexed(),
+      authorId:    i.string(),
+      authorName:  i.string(),
+      authorPhoto: i.string().optional(),
+      content:     i.string(),
       createdAt:   i.number(),
     }),
 

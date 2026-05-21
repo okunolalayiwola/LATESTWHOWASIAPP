@@ -22,7 +22,7 @@ const PLANS = [
     emoji: '◎',
     features: [
       'Create 1 memorial',
-      'Basic tributes & candles',
+      'Tributes & memory sharing',
       'Photo gallery (5 photos)',
       'Standard support',
     ],
@@ -37,9 +37,9 @@ const PLANS = [
     emoji: '✦',
     features: [
       'Unlimited memorials',
-      'AI voice cloning (ElevenLabs)',
+      'Voice memory capture',
       'Unlimited photo gallery',
-      'AI conversation with loved ones',
+      'Living voice conversation',
       'Priority support',
       'Ad-free experience',
     ],
@@ -68,8 +68,8 @@ const PLANS = [
 const FEATURES_COMPARE = [
   { label: 'Memorials', free: '1', premium: 'Unlimited', legacy: 'Unlimited' },
   { label: 'Photo gallery', free: '5 photos', premium: 'Unlimited', legacy: 'Unlimited' },
-  { label: 'AI voice cloning', free: '—', premium: '✓', legacy: '✓' },
-  { label: 'AI conversation', free: '—', premium: '✓', legacy: '✓' },
+  { label: 'Voice memory capture', free: '—', premium: '✓', legacy: '✓' },
+  { label: 'Living voice conversation', free: '—', premium: '✓', legacy: '✓' },
   { label: 'Legacy letters', free: '1', premium: '10', legacy: 'Unlimited' },
   { label: 'Family tree analytics', free: '—', premium: '—', legacy: '✓' },
   { label: 'Custom domain', free: '—', premium: '—', legacy: '✓' },
@@ -243,7 +243,7 @@ export default function PremiumPage() {
         <div className="space-y-3">
           {[
             { q: 'Can I cancel anytime?', a: 'Yes. You can downgrade or cancel at any time from Settings. Your memorials remain accessible.' },
-            { q: 'What happens to AI voices if I downgrade?', a: 'Existing voice clones remain playable, but you cannot create new ones on the Free plan.' },
+            { q: 'What happens to voice memories if I downgrade?', a: 'Existing voice memories remain playable, but you cannot capture new voices on the Free plan.' },
             { q: 'Is my data private?', a: 'Absolutely. Memorials have privacy controls (public, family-only, private). We never share your data.' },
             { q: 'Can I gift Premium to someone?', a: 'Not yet, but this feature is coming soon.' },
           ].map((faq, i) => (

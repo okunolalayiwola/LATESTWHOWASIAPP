@@ -24,9 +24,18 @@ const RING_ALPHA     = [0, 1.0, 0.75, 0.48]      // globalAlpha per ring
 const RING_STROKE    = ['','rgba(74,170,74,.18)','rgba(78,205,196,.14)','rgba(200,160,30,.11)']
 
 const imgCache = {}
+// onLoad callbacks registered by active orb instances so they can force a repaint
+const imgLoadCbs = new Set()
+
 function loadImg(url, key) {
   if (!url) return null
-  if (!imgCache[key]) { const i = new Image(); i.src = url; imgCache[key] = i }
+  if (!imgCache[key]) {
+    const i = new Image()
+    i.crossOrigin = 'anonymous'
+    i.onload = () => imgLoadCbs.forEach(cb => cb())
+    i.src = url
+    imgCache[key] = i
+  }
   return imgCache[key]
 }
 
@@ -194,14 +203,17 @@ export default function FamilyTreeOrb({ members = [], onSelectMember, centerMemb
           ctx.arc(p.x + R * Math.cos(da), p.y + R * Math.sin(da), 3, 0, Math.PI * 2)
           ctx.fillStyle = c.s; ctx.fill()
 
-          // ── Initials — always rendered sharp ──────────────────────────
-          ctx.save()
-          ctx.globalAlpha = RING_ALPHA[ri]
-          ctx.font = `600 ${Math.round(R * 0.48)}px 'Inter',-apple-system,sans-serif`
-          ctx.fillStyle = sel ? 'rgba(255,255,255,0.92)' : c.t
-          ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-          ctx.fillText((m.avatar || m.name?.slice(0, 2) || '?').toUpperCase(), p.x, p.y)
-          ctx.restore()
+          // ── Initials — only when no photo has loaded ──────────────────
+          const hasPhoto = img?.complete && img.naturalWidth > 0
+          if (!hasPhoto) {
+            ctx.save()
+            ctx.globalAlpha = RING_ALPHA[ri]
+            ctx.font = `600 ${Math.round(R * 0.48)}px 'Inter',-apple-system,sans-serif`
+            ctx.fillStyle = sel ? 'rgba(255,255,255,0.92)' : c.t
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+            ctx.fillText((m.avatar || m.name?.slice(0, 2) || '?').toUpperCase(), p.x, p.y)
+            ctx.restore()
+          }
 
           // ── First name label (ring 1 only) ─────────────────────────────
           if (m._ring === 1) {
@@ -255,17 +267,24 @@ export default function FamilyTreeOrb({ members = [], onSelectMember, centerMemb
         ctx.beginPath(); ctx.arc(CX, CY, CENTER_R, 0, Math.PI * 2)
         ctx.strokeStyle = `${c.g}0.55)`; ctx.lineWidth = 1.4; ctx.stroke()
 
-        // Initials
-        ctx.font = `700 18px 'Cormorant Garamond',Georgia,serif`
-        ctx.fillStyle = `${c.g}0.82)`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-        ctx.fillText((center.avatar || center.name?.slice(0, 2) || 'ME').toUpperCase(), CX, CY)
+        // Initials — only when no photo loaded
+        const centerHasPhoto = img?.complete && img.naturalWidth > 0
+        if (!centerHasPhoto) {
+          ctx.font = `700 18px 'Cormorant Garamond',Georgia,serif`
+          ctx.fillStyle = `${c.g}0.82)`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+          ctx.fillText((center.avatar || center.name?.slice(0, 2) || 'ME').toUpperCase(), CX, CY)
+        }
       }
 
       rafRef.current = requestAnimationFrame(frame)
     }
 
+    // Force a repaint whenever any image loads so photos snap in instantly
+    const onImgLoad = () => { cancelAnimationFrame(rafRef.current); rafRef.current = requestAnimationFrame(frame) }
+    imgLoadCbs.add(onImgLoad)
+
     rafRef.current = requestAnimationFrame(frame)
-    return () => cancelAnimationFrame(rafRef.current)
+    return () => { cancelAnimationFrame(rafRef.current); imgLoadCbs.delete(onImgLoad) }
   }, [])
 
   // ── Input ──────────────────────────────────────────────────────────────────

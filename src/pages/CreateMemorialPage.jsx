@@ -8,16 +8,35 @@
 // Supports ?self=1 query param — when set, the memorial is marked as
 // the creator's own living legacy (isSelf=true, relation='self').
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { id } from '@instantdb/react'
+import ExifReader from 'exifreader'
 import { db } from '../lib/instant'
 import { uploadImage, uploadAudio } from '../lib/storage'
 import { cloneVoice } from '../lib/elevenlabs'
 import { useToast } from '../contexts/ToastContext'
 import RelationPicker from '../components/ui/RelationPicker'
 import { getRelationLabel } from '../lib/relations'
+import { COUNTRIES, countryFlag, findCountry } from '../lib/countries'
+
+// ─── EXIF date helper ─────────────────────────────────────────────────────────
+async function readExifDate(file) {
+  try {
+    const buf  = await file.arrayBuffer()
+    const tags = ExifReader.load(buf, { expanded: true })
+    const raw  = tags?.exif?.DateTimeOriginal?.description
+               || tags?.exif?.DateTime?.description
+    if (!raw) return null
+    // EXIF format: "2018:07:14 10:30:00"
+    const [datePart, timePart] = raw.split(' ')
+    if (!datePart) return null
+    const iso = datePart.replace(/:/g, '-') + 'T' + (timePart || '00:00:00')
+    const d   = new Date(iso)
+    return isNaN(d.getTime()) ? null : Math.floor(d.getTime() / 1000)  // Unix seconds
+  } catch { return null }
+}
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -27,13 +46,14 @@ const STEPS = [
   { label: 'Publish', desc: 'Privacy & publish'    },
 ]
 
+// Theme colours — stored as hex in memorial.themeHex
 const COLORS = [
-  { value: 'from-stone-700 to-stone-900',    hex: '#57534e' },
-  { value: 'from-amber-800 to-stone-900',    hex: '#92400e' },
-  { value: 'from-blue-900 to-slate-900',     hex: '#1e3a5f' },
-  { value: 'from-emerald-900 to-stone-900',  hex: '#064e3b' },
-  { value: 'from-purple-900 to-slate-900',   hex: '#3b0764' },
-  { value: 'from-rose-900 to-stone-900',     hex: '#881337' },
+  { hex: '#57534e', label: 'Stone'   },
+  { hex: '#92400e', label: 'Amber'   },
+  { hex: '#1e3a5f', label: 'Ocean'   },
+  { hex: '#064e3b', label: 'Forest'  },
+  { hex: '#3b0764', label: 'Violet'  },
+  { hex: '#881337', label: 'Crimson' },
 ]
 
 const VISIBILITY_OPTIONS = [
@@ -236,6 +256,96 @@ function VoiceRecorder({ form, setForm }) {
 
 // ─── Step components ──────────────────────────────────────────────────────────
 
+// Country picker modal — reused in StepPerson
+function CountryPickerModal({ current, onSave, onClose }) {
+  const [search,   setSearch]   = useState('')
+  const [selected, setSelected] = useState(current || '')
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return COUNTRIES
+    return COUNTRIES.filter(c => c.name.toLowerCase().includes(q))
+  }, [search])
+
+  function handleConfirm() {
+    if (!selected) return
+    const country = findCountry(selected)
+    if (!country) return
+    onSave(country.code, country.name)
+    onClose()
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      style={{ background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(6px)' }}
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        className="w-full max-w-md glass-strong rounded-t-3xl border border-white/10 flex flex-col"
+        style={{ maxHeight: '80vh' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="p-5 border-b border-white/10 flex-shrink-0">
+          <div className="w-8 h-1 bg-white/20 rounded-full mx-auto mb-4" />
+          <h3 className="font-display text-lg font-bold text-white text-center mb-3">Select country</h3>
+          <input
+            autoFocus
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search countries…"
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-gold/40"
+          />
+        </div>
+
+        {/* Selected preview */}
+        {selected && (
+          <div className="px-5 py-3 border-b border-white/5 flex-shrink-0 flex items-center gap-3 bg-gold/5">
+            <span className="text-2xl leading-none">{countryFlag(selected)}</span>
+            <span className="text-sm text-white font-medium flex-1">{findCountry(selected)?.name}</span>
+            <button onClick={() => setSelected('')} className="text-xs text-white/35 hover:text-white/60">Change</button>
+          </div>
+        )}
+
+        {/* List */}
+        <div className="overflow-y-auto flex-1">
+          {filtered.map(c => (
+            <button
+              key={c.code}
+              onClick={() => setSelected(c.code)}
+              className={`w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors text-left ${
+                selected === c.code
+                  ? 'bg-gold/15 text-white'
+                  : 'text-white/65 hover:bg-white/5 hover:text-white'
+              }`}
+            >
+              <span className="text-lg w-8 flex-shrink-0 leading-none">{countryFlag(c.code)}</span>
+              <span className="truncate">{c.name}</span>
+              {selected === c.code && <span className="ml-auto text-gold text-xs">✓</span>}
+            </button>
+          ))}
+        </div>
+
+        {/* Confirm */}
+        <div className="p-5 flex-shrink-0 border-t border-white/10">
+          <button
+            onClick={handleConfirm}
+            disabled={!selected}
+            className="w-full py-3.5 rounded-2xl text-sm font-bold text-black metal-btn disabled:opacity-40"
+          >
+            Confirm country ✦
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
 function StepPerson({ form, setForm, isSelf }) {
   const set  = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
   const setB = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -250,6 +360,9 @@ function StepPerson({ form, setForm, isSelf }) {
   // Relation picker
   const [showRelationPicker, setShowRelationPicker] = useState(false)
   const [relationError, setRelationError] = useState('')
+
+  // Country picker
+  const [showCountryPicker, setShowCountryPicker] = useState(false)
 
   async function handleAvatar(e) {
     const file = e.target.files[0]
@@ -399,6 +512,49 @@ function StepPerson({ form, setForm, isSelf }) {
         )}
       </div>
 
+      {/* Country */}
+      <div>
+        <label className="block text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim mb-1">
+          {isSelf ? 'Your country' : form.alive === false ? 'Country they were based in' : 'Country they are based in'}
+        </label>
+        <p className="text-[0.55rem] text-white/28 mb-2 leading-relaxed">
+          {isSelf
+            ? 'Shown as a flag on your memorial card.'
+            : 'Where this person lives or lived — shown as a country flag on their card.'}
+        </p>
+        <button
+          type="button"
+          onClick={() => setShowCountryPicker(true)}
+          className={`w-full flex items-center gap-3 rounded-2xl px-4 py-3.5 text-sm transition-colors ${
+            form.countryCode
+              ? 'bg-white/5 border border-gold/40 text-white'
+              : 'bg-white/5 border border-white/10 text-white/40 hover:text-white/60 hover:border-white/20'
+          }`}
+        >
+          {form.countryCode ? (
+            <>
+              <span className="text-xl leading-none">{countryFlag(form.countryCode)}</span>
+              <span className="flex-1 text-left">{form.countryName}</span>
+            </>
+          ) : (
+            <span className="flex-1 text-left">Select country…</span>
+          )}
+          <svg className="w-4 h-4 text-white/30 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {showCountryPicker && (
+          <CountryPickerModal
+            current={form.countryCode}
+            onSave={(code, name) => setForm(f => ({ ...f, countryCode: code, countryName: name }))}
+            onClose={() => setShowCountryPicker(false)}
+          />
+        )}
+      </AnimatePresence>
+
       {form.birthYear && (
         <div>
           <label className="block text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim mb-2">
@@ -418,27 +574,81 @@ function StepPerson({ form, setForm, isSelf }) {
   )
 }
 
-function StepStory({ form, setForm }) {
-  const [uploading,   setUploading]   = useState(false)
-  const [uploadPct,   setUploadPct]   = useState(0)
-  const [photoPreview, setPhotoPreview] = useState(form.photoUrl || null)
-  const fileRef = useRef()
+// ─── Life Photo item component ───────────────────────────────────────────────
+function LifePhotoItem({ photo, onRemove, onDateChange }) {
+  return (
+    <div className="relative group rounded-xl overflow-hidden" style={{ aspectRatio:'1' }}>
+      <img src={photo.preview} alt="" className="w-full h-full object-cover" />
+      {/* Date badge */}
+      <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1">
+        {photo.takenAt ? (
+          <p className="text-[0.55rem] text-white/70 text-center truncate">
+            {new Date(photo.takenAt * 1000).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}
+          </p>
+        ) : (
+          <input
+            type="date"
+            onChange={e => onDateChange(photo.id, e.target.value)}
+            className="w-full text-[0.55rem] text-white bg-transparent border-none outline-none text-center"
+            placeholder="Add date"
+          />
+        )}
+      </div>
+      {/* Uploading overlay */}
+      {photo.uploading && (
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+          <div className="w-5 h-5 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+        </div>
+      )}
+      {/* Remove */}
+      <button
+        onClick={() => onRemove(photo.id)}
+        className="absolute top-1 right-1 w-6 h-6 bg-black/60 rounded-full text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+      >✕</button>
+    </div>
+  )
+}
 
+function StepStory({ form, setForm, lifePhotos, setLifePhotos }) {
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef()
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
 
-  async function handlePhoto(e) {
-    const file = e.target.files[0]
-    if (!file) return
-    setPhotoPreview(URL.createObjectURL(file))
+  const MIN_PHOTOS = 5
+  const photoCount = lifePhotos.length
+  const remaining  = Math.max(0, MIN_PHOTOS - photoCount)
+
+  async function handlePhotos(e) {
+    const files = Array.from(e.target.files)
+    if (!files.length) return
     setUploading(true)
-    try {
-      const url = await uploadImage(file, setUploadPct, 'memorials')
-      setForm(f => ({ ...f, photoUrl: url }))
-    } catch {
-      // If upload fails, use preview-only (can be re-uploaded later)
-    } finally {
-      setUploading(false); setUploadPct(0)
+
+    for (const file of files) {
+      const photoId  = Math.random().toString(36).slice(2)
+      const preview  = URL.createObjectURL(file)
+      const takenAt  = await readExifDate(file)
+
+      // Add as pending
+      setLifePhotos(prev => [...prev, { id: photoId, preview, takenAt, uploading: true, url: null }])
+
+      try {
+        const url = await uploadImage(file, () => {}, 'memorials')
+        setLifePhotos(prev => prev.map(p => p.id === photoId ? { ...p, url, uploading: false } : p))
+      } catch {
+        setLifePhotos(prev => prev.filter(p => p.id !== photoId))
+      }
     }
+    setUploading(false)
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  function removePhoto(photoId) {
+    setLifePhotos(prev => prev.filter(p => p.id !== photoId))
+  }
+
+  function updatePhotoDate(photoId, dateStr) {
+    const ts = dateStr ? Math.floor(new Date(dateStr).getTime() / 1000) : null
+    setLifePhotos(prev => prev.map(p => p.id === photoId ? { ...p, takenAt: ts } : p))
   }
 
   return (
@@ -446,62 +656,83 @@ function StepStory({ form, setForm }) {
       key="step-story"
       initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
       transition={{ duration: 0.28, ease: 'easeOut' }}
-      className="space-y-5"
+      className="space-y-6"
     >
-      {/* Cover photo */}
+
+      {/* ── Life Photos — required min 5 ────────────────────────────────── */}
       <div>
-        <label className="block text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim mb-2">
-          Cover photo
-        </label>
-        <div
-          onClick={() => fileRef.current.click()}
-          className={`relative w-full h-36 rounded-2xl border border-dashed border-white/15 flex flex-col items-center justify-center cursor-pointer hover:border-gold/30 transition-all overflow-hidden group`}
-        >
-          {photoPreview ? (
-            <>
-              <img src={photoPreview} alt="" className="absolute inset-0 w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <span className="text-xs text-white font-semibold">Change photo</span>
-              </div>
-            </>
-          ) : (
-            <>
-              <span className="text-2xl opacity-20 mb-2">✦</span>
-              <span className="text-xs text-white/30">{uploading ? `Uploading ${uploadPct}%` : 'Upload a cover photo'}</span>
-            </>
-          )}
-          {uploading && (
-            <div className="absolute bottom-0 left-0 h-1 bg-gold transition-all" style={{ width: `${uploadPct}%` }} />
-          )}
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim">
+            Life photos
+          </label>
+          <span className={`text-[0.6rem] font-bold tracking-wider uppercase ${photoCount >= MIN_PHOTOS ? 'text-emerald-400' : 'text-amber-400'}`}>
+            {photoCount}/{MIN_PHOTOS} {photoCount < MIN_PHOTOS ? `— add ${remaining} more` : '✓ Ready'}
+          </span>
         </div>
-        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
+
+        {/* Progress bar */}
+        <div className="h-1 bg-white/10 rounded-full overflow-hidden mb-3">
+          <div
+            className="h-full transition-all rounded-full"
+            style={{
+              width: `${Math.min(100, (photoCount / MIN_PHOTOS) * 100)}%`,
+              background: photoCount >= MIN_PHOTOS ? '#34d399' : '#f59e0b',
+            }}
+          />
+        </div>
+
+        {/* Grid + upload slot */}
+        <div className="grid grid-cols-3 gap-2">
+          {lifePhotos.map(photo => (
+            <LifePhotoItem
+              key={photo.id}
+              photo={photo}
+              onRemove={removePhoto}
+              onDateChange={updatePhotoDate}
+            />
+          ))}
+          {/* Upload slot */}
+          <button
+            onClick={() => fileRef.current?.click()}
+            className="aspect-square rounded-xl border-2 border-dashed border-white/15 flex flex-col items-center justify-center cursor-pointer hover:border-gold/40 transition-all text-white/25 hover:text-white/50"
+          >
+            <span className="text-xl mb-1">+</span>
+            <span className="text-[0.55rem] text-center leading-tight">Add<br/>photos</span>
+          </button>
+        </div>
+
+        <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotos} />
+
+        <p className="text-[0.6rem] text-white/25 mt-2 leading-relaxed">
+          Dates are read automatically from photo metadata. If no date is found, tap the photo to add one. The Life Reel arranges photos in chronological order.
+        </p>
       </div>
 
-      {/* Theme color (if no photo) */}
-      {!photoPreview && (
-        <div>
-          <label className="block text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim mb-2">
-            Theme colour
-          </label>
-          <div className="flex gap-2 flex-wrap">
-            {COLORS.map(c => (
-              <button
-                key={c.value}
-                onClick={() => setForm(f => ({ ...f, color: c.value }))}
-                style={{ background: c.hex }}
-                className={`w-9 h-9 rounded-full border-2 transition-all ${
-                  form.color === c.value ? 'border-gold scale-110' : 'border-transparent hover:scale-105'
-                }`}
-              />
-            ))}
-          </div>
+      {/* ── Theme colour ─────────────────────────────────────────────────── */}
+      <div>
+        <label className="block text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim mb-2">
+          Memorial theme colour
+        </label>
+        <div className="flex gap-2 flex-wrap">
+          {COLORS.map(c => (
+            <button
+              key={c.hex}
+              onClick={() => setForm(f => ({ ...f, themeHex: c.hex }))}
+              style={{ background: c.hex }}
+              title={c.label}
+              className={`w-10 h-10 rounded-full border-2 transition-all ${
+                form.themeHex === c.hex ? 'border-gold scale-110 shadow-lg shadow-gold/30' : 'border-transparent hover:scale-105'
+              }`}
+            />
+          ))}
         </div>
-      )}
+        <p className="text-[0.6rem] text-white/25 mt-1">This colour sets the accent theme throughout the memorial page.</p>
+      </div>
 
-      {/* Voice recording */}
+      {/* ── Voice recording ──────────────────────────────────────────────── */}
       <VoiceRecorder form={form} setForm={setForm} />
 
-      {/* Bio */}
+      {/* ── Bio ──────────────────────────────────────────────────────────── */}
       <div>
         <label className="block text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim mb-2">
           Life story
@@ -516,7 +747,7 @@ function StepStory({ form, setForm }) {
         <p className="text-[0.6rem] text-white/20 mt-1 text-right">{form.bio.length} characters</p>
       </div>
 
-      {/* Location */}
+      {/* ── Location ─────────────────────────────────────────────────────── */}
       <div>
         <label className="block text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim mb-2">
           Location / hometown
@@ -547,7 +778,8 @@ function StepPublish({ form, setForm, isSelf }) {
       className="space-y-5"
     >
       {/* Preview card */}
-      <div className={`relative h-36 rounded-2xl overflow-hidden bg-gradient-to-br ${form.color || 'from-stone-800 to-stone-950'}`}>
+      <div className="relative h-36 rounded-2xl overflow-hidden"
+        style={{ background: form.themeHex ? `linear-gradient(135deg, ${form.themeHex}cc, ${form.themeHex}66)` : 'linear-gradient(135deg, #57534ecc, #292524cc)' }}>
         {form.photoUrl && (
           <img src={form.photoUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
         )}
@@ -640,7 +872,9 @@ const initForm = () => ({
   deathYear:     '',
   bio:           '',
   location:      '',
-  color:         COLORS[0].value,
+  countryCode:   '',
+  countryName:   '',
+  themeHex:      COLORS[0].hex,
   photoUrl:      null,
   voiceUrl:      null,
   voiceDuration: null,
@@ -654,21 +888,52 @@ export default function CreateMemorialPage() {
   const { toast }  = useToast()
   const { user }   = db.useAuth()
 
+  // Load creator's profile — used to pre-fill country as a smart default only.
+  // The creator can change it; the saved countryCode is the person's own country,
+  // not necessarily the creator's.
+  const { data: profileData } = db.useQuery(
+    user ? { profiles: { $: { where: { userId: user.id } } } } : null
+  )
+  const creatorCountryCode = profileData?.profiles?.[0]?.countryCode || ''
+
+  // Pre-fill country from creator's profile once it loads, but only if the user
+  // hasn't already selected a country (functional update avoids stale closure).
+  useEffect(() => {
+    if (!creatorCountryCode) return
+    setForm(f => {
+      if (f.countryCode) return f          // user already picked — don't overwrite
+      const country = findCountry(creatorCountryCode)
+      if (!country) return f
+      return { ...f, countryCode: country.code, countryName: country.name }
+    })
+  }, [creatorCountryCode])
+
   // Guest users (signed in with signInAsGuest — no email) must create a real
   // account before they can publish a memorial.
   const isGuest = !!(user && !user.email)
 
   const isSelf = searchParams.get('self') === '1'
 
-  const [step,   setStep]   = useState(0)
-  const [form,   setForm]   = useState(initForm)
-  const [saving, setSaving] = useState(false)
+  const [step,       setStep]       = useState(0)
+  const [form,       setForm]       = useState(initForm)
+  const [lifePhotos, setLifePhotos] = useState([])   // { id, preview, url, takenAt, uploading }
+  const [saving,     setSaving]     = useState(false)
   const [showGuestGate, setShowGuestGate] = useState(false)
+
+  const MIN_PHOTOS = 5
 
   function validateStep() {
     if (step === 0 && !form.name.trim()) {
       toast.warning('Please enter a name')
       return false
+    }
+    if (step === 1) {
+      // Hard block — must have at least 5 uploaded (not just previewed) photos
+      const uploaded = lifePhotos.filter(p => p.url && !p.uploading)
+      if (uploaded.length < MIN_PHOTOS) {
+        toast.warning(`Please upload at least ${MIN_PHOTOS} life photos (${uploaded.length}/${MIN_PHOTOS} done)`)
+        return false
+      }
     }
     return true
   }
@@ -687,25 +952,40 @@ export default function CreateMemorialPage() {
     if (isGuest) { setShowGuestGate(true); return }
     setSaving(true)
     try {
-      const memId     = id()
-      const years     = form.birthYear
+      const memId = id()
+      const years = form.birthYear
         ? form.deathYear
           ? `${form.birthYear} — ${form.deathYear}`
           : `Born ${form.birthYear}`
         : ''
 
-      // Clone voice via ElevenLabs if a voice recording was uploaded
+      // Capture voice via ElevenLabs if a voice recording was uploaded
       let elevenLabsVoiceId = null
       if (form.voiceUrl) {
         try {
           elevenLabsVoiceId = await cloneVoice(form.voiceUrl, form.name.trim())
           if (elevenLabsVoiceId) {
-            toast.success('Voice cloned for AI speech ✦')
+            toast.success('Voice memory captured ✦')
           }
         } catch {
           // Non-blocking — fall back to Web Speech API
         }
       }
+
+      // Build photo transactions — each uploaded photo links to the memorial
+      const photoTxs = lifePhotos
+        .filter(p => p.url)
+        .map(p => {
+          const photoId = id()
+          return db.tx.photos[photoId]
+            .update({
+              url:       p.url,
+              takenAt:   p.takenAt || null,
+              createdAt: Date.now(),
+              source:    'upload',
+            })
+            .link({ memorial: memId })
+        })
 
       await db.transact([
         db.tx.memorials[memId].update({
@@ -718,7 +998,7 @@ export default function CreateMemorialPage() {
           birthYear:         form.birthYear ? String(form.birthYear) : undefined,
           deathYear:         !form.alive && form.deathYear ? String(form.deathYear) : undefined,
           years,
-          color:             form.color,
+          themeHex:          form.themeHex || COLORS[0].hex,
           photo:             form.photoUrl,
           visibility:        form.visibility,
           allowTributes:     form.allowTributes,
@@ -729,8 +1009,10 @@ export default function CreateMemorialPage() {
           createdBy:         user.id,
           createdAt:         Date.now(),
           updatedAt:         Date.now(),
-          isSelf:            isSelf || undefined,  // true when this memorial IS the creator
+          isSelf:            isSelf || undefined,
+          countryCode:       form.countryCode || undefined,
         }),
+        ...photoTxs,
       ])
 
       toast.success(`${form.name}'s memorial has been created ✦`)
@@ -823,7 +1105,7 @@ export default function CreateMemorialPage() {
       <div className="px-5">
         <AnimatePresence mode="wait">
           {step === 0 && <StepPerson  key="p" form={form} setForm={setForm} isSelf={isSelf} />}
-          {step === 1 && <StepStory   key="s" form={form} setForm={setForm} />}
+          {step === 1 && <StepStory   key="s" form={form} setForm={setForm} lifePhotos={lifePhotos} setLifePhotos={setLifePhotos} />}
           {step === 2 && <StepPublish key="c" form={form} setForm={setForm} isSelf={isSelf} />}
         </AnimatePresence>
       </div>

@@ -22,7 +22,7 @@ export default function InviteModal({ user, onClose }) {
   const [error,   setError]   = useState('')
 
   const inviteLink = code
-    ? `${window.location.origin}/family-tree?invite=${code}`
+    ? `${window.location.origin}/join?code=${code}`
     : null
 
   const qrUrl = code
@@ -114,24 +114,26 @@ export default function InviteModal({ user, onClose }) {
           </>
         ) : (
           <>
-            {/* QR code */}
-            <div className="flex justify-center mb-5">
-              <div className="w-44 h-44 rounded-2xl overflow-hidden bg-[#111] flex items-center justify-center">
-                <img src={qrUrl} alt="Invite QR code" className="w-full h-full object-contain"
-                  onError={e => { e.target.style.display = 'none' }} />
-              </div>
-            </div>
-
-            {/* Code badge */}
-            <div className="text-center mb-5">
-              <div className="inline-flex items-center gap-3 glass border border-white/10 rounded-2xl px-6 py-3">
-                <span className="font-display text-2xl font-bold text-white tracking-[0.2em]">{code}</span>
+            {/* Code badge — ABOVE the QR so it's always visible together */}
+            <div className="text-center mb-4">
+              <p className="text-[0.55rem] text-white/30 tracking-[0.28em] uppercase mb-2">Your invite code</p>
+              <div className="inline-flex items-center gap-3 glass border border-gold/20 rounded-2xl px-6 py-3.5 mb-1">
+                <span className="font-mono text-3xl font-bold text-white tracking-[0.3em]">{code}</span>
                 <button onClick={() => copy(code, 'code')}
                   className={`text-xs transition-colors ${copied && copyType==='code' ? 'text-gold' : 'text-white/30 hover:text-white/60'}`}>
                   {copied && copyType==='code' ? '✓' : '⎘'}
                 </button>
               </div>
-              <p className="text-[0.6rem] text-white/25 mt-2 tracking-widest uppercase">Expires in 7 days · Single use</p>
+              <p className="text-[0.6rem] text-white/25 tracking-widest uppercase">Enter this code · or scan below</p>
+            </div>
+
+            {/* QR code — code is baked into the scan destination */}
+            <div className="flex flex-col items-center mb-5">
+              <div className="w-52 h-52 rounded-2xl overflow-hidden bg-white p-2 flex items-center justify-center shadow-lg">
+                <img src={qrUrl} alt="Invite QR code" className="w-full h-full object-contain"
+                  onError={e => { e.target.style.display = 'none' }} />
+              </div>
+              <p className="text-[0.55rem] text-white/20 mt-2 tracking-wider uppercase">Scan to join family</p>
             </div>
 
             {/* Link field */}

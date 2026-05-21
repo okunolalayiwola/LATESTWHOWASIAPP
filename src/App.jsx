@@ -34,10 +34,14 @@ const FamilyTreePage       = lazy(() => import('./pages/FamilyTreePage'))
 const SettingsPage         = lazy(() => import('./pages/SettingsPage'))
 const PremiumPage          = lazy(() => import('./pages/PremiumPage'))
 
+const ReelsPage            = lazy(() => import('./pages/ReelsPage'))
 const FacebookCallbackPage = lazy(() => import('./pages/FacebookCallbackPage'))
 
 const PrivacyPolicyPage    = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.PrivacyPolicyPage })))
 const TermsPage            = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.TermsPage })))
+
+const FamilyVerifyPage     = lazy(() => import('./pages/FamilyVerifyPage'))
+const JoinPage             = lazy(() => import('./pages/JoinPage'))
 
 // ─── Loaders ──────────────────────────────────────────────────────────────────
 
@@ -77,7 +81,7 @@ function OnboardingGuard({ children }) {
   )
 
   // Routes that are always accessible — no onboarding check
-  const SKIP = ['/', '/auth', '/onboarding', '/privacy', '/terms', '/explore', '/premium']
+  const SKIP = ['/', '/auth', '/onboarding', '/privacy', '/terms', '/explore', '/reels', '/premium', '/join']
   const shouldSkip = SKIP.includes(location.pathname)
     || location.pathname.startsWith('/memorial')
     || location.pathname.startsWith('/connect')
@@ -89,13 +93,16 @@ function OnboardingGuard({ children }) {
     if (user) {
       if (!data) return  // wait for profile query
       const profile = data.profiles?.[0]
-      if (profile?.onboarded === true) {
-        // Fully onboarded — stamp the localStorage flag so the guest check
-        // below never fires again on this device
+      // Consider onboarded if: explicit flag OR has a name (handles users who
+      // completed onboarding before the flag was introduced)
+      const isOnboarded = profile?.onboarded === true
+        || !!(profile?.firstName || profile?.displayName)
+      if (isOnboarded) {
+        // Stamp the localStorage flag so the guest check below never fires again
         localStorage.setItem('wwi_has_visited', '1')
         return
       }
-      // Logged in but onboarding not completed
+      // Logged in but hasn't completed onboarding yet
       navigate('/onboarding', { replace: true })
       return
     }
@@ -190,6 +197,7 @@ function AppInner() {
               <Route path="/memorial/:id/letters"      element={<LegacyLettersPage />} />
               <Route path="/memorial/:id/import"       element={<SocialImportPage />}  />
 
+              <Route path="/reels"       element={<ReelsPage />}          />
               <Route path="/create"      element={<CreateMemorialPage />} />
               <Route path="/dashboard"   element={<DashboardPage />}      />
               <Route path="/profile"     element={<ProfilePage />}        />
@@ -198,6 +206,8 @@ function AppInner() {
               <Route path="/premium"     element={<PremiumPage />}        />
 
               <Route path="/connect/facebook/callback" element={<FacebookCallbackPage />} />
+              <Route path="/join"                      element={<JoinPage />}             />
+              <Route path="/connect/family/verify/:token" element={<FamilyVerifyPage />} />
 
               <Route path="/privacy"     element={<PrivacyPolicyPage />}  />
               <Route path="/terms"       element={<TermsPage />}          />

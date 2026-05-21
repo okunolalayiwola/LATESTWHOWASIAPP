@@ -1,3 +1,12 @@
+// src/pages/AuthPage.jsx
+// Sign-in / create-account page.
+//
+// After successful sign-in:
+//   • Returning user (profile with displayName exists) → /dashboard immediately
+//   • New user (no profile yet) → /onboarding
+//
+// This prevents returning users from being shown the onboarding questions again.
+
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -5,21 +14,43 @@ import { db } from '../lib/instant'
 
 export default function AuthPage() {
   const navigate = useNavigate()
-  const [email, setEmail] = useState('')
-  const [code, setCode] = useState('')
-  const [step, setStep] = useState('email') // 'email' | 'code'
-  const [error, setError] = useState('')
+  const [email,   setEmail]   = useState('')
+  const [code,    setCode]    = useState('')
+  const [step,    setStep]    = useState('email') // 'email' | 'code'
+  const [error,   setError]   = useState('')
   const [loading, setLoading] = useState(false)
+
+  // After auth, check if this user has already been onboarded
+  async function routeAfterSignIn(userId) {
+    try {
+      const { data } = await db.queryOnce({
+        profiles: { $: { where: { userId } } }
+      })
+      const profile = data?.profiles?.[0]
+      const isOnboarded = profile?.onboarded === true || !!(profile?.firstName || profile?.displayName)
+      if (isOnboarded) {
+        // Mark as visited so the guard never re-triggers onboarding
+        localStorage.setItem('wwi_has_visited', '1')
+        // Persist onboarded flag in case it was missing
+        if (profile && !profile.onboarded) {
+          try {
+            await db.transact([db.tx.profiles[profile.id].update({ onboarded: true })])
+          } catch {}
+        }
+        navigate('/dashboard', { replace: true })
+      } else {
+        navigate('/onboarding', { replace: true })
+      }
+    } catch {
+      // Fallback: just go to dashboard and let the guard handle it
+      navigate('/dashboard', { replace: true })
+    }
+  }
 
   async function handleSendCode(e) {
     e.preventDefault()
     setError('')
-
-    if (!email.trim()) {
-      setError('Please enter your email address.')
-      return
-    }
-
+    if (!email.trim()) { setError('Please enter your email address.'); return }
     setLoading(true)
     try {
       const result = await db.auth.sendMagicCode({ email: email.trim() })
@@ -35,17 +66,13 @@ export default function AuthPage() {
   async function handleVerifyCode(e) {
     e.preventDefault()
     setError('')
-
-    if (!code.trim()) {
-      setError('Please enter the code sent to your email.')
-      return
-    }
-
+    if (!code.trim()) { setError('Please enter the code sent to your email.'); return }
     setLoading(true)
     try {
       const result = await db.auth.signInWithMagicCode({ email: email.trim(), code: code.trim() })
       if (result?.error) throw new Error(result.error.message || 'Invalid code')
-      navigate('/dashboard')
+      // result.user is the signed-in user
+      await routeAfterSignIn(result.user?.id)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -53,11 +80,7 @@ export default function AuthPage() {
     }
   }
 
-  function handleBack() {
-    setStep('email')
-    setCode('')
-    setError('')
-  }
+  function handleBack() { setStep('email'); setCode(''); setError('') }
 
   return (
     <div className="dark-container relative z-10 min-h-screen flex items-center justify-center px-6 pt-20 pb-20">
@@ -71,12 +94,12 @@ export default function AuthPage() {
         <div className="text-center mb-8">
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-gold to-sky mx-auto mb-4" />
           <h1 className="text-2xl font-display font-bold">
-            {step === 'email' ? 'Welcome back' : 'Check your email'}
+            {step === 'email' ? 'Sign in or create account' : 'Check your email'}
           </h1>
           <p className="text-sm text-white/50 mt-1">
             {step === 'email'
-              ? 'Enter your email to sign in or create an account.'
-              : `We sent a code to ${email}`}
+              ? 'Enter your email — we\'ll recognise you automatically.'
+              : `We sent a 6-digit code to ${email}`}
           </p>
         </div>
 
@@ -94,7 +117,7 @@ export default function AuthPage() {
           )}
         </AnimatePresence>
 
-        {/* Form Card */}
+        {/* Form card */}
         <div className="glass-strong rounded-2xl p-8">
           <AnimatePresence mode="wait">
             {step === 'email' ? (
@@ -128,7 +151,10 @@ export default function AuthPage() {
                   className="w-full bg-gradient-to-r from-gold to-sky text-black font-semibold text-sm tracking-wider py-3 rounded-xl hover:scale-[1.02] transition-transform shadow-lg shadow-gold/20 mb-4 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading
-                    ? <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />Sending code...</span>
+                    ? <span className="flex items-center justify-center gap-2">
+                        <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                        Sending code…
+                      </span>
                     : 'Send magic code'}
                 </button>
 
@@ -188,7 +214,10 @@ export default function AuthPage() {
                   className="w-full bg-gradient-to-r from-gold to-sky text-black font-semibold text-sm tracking-wider py-3 rounded-xl hover:scale-[1.02] transition-transform shadow-lg shadow-gold/20 mb-3 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading
-                    ? <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />Verifying...</span>
+                    ? <span className="flex items-center justify-center gap-2">
+                        <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                        Verifying…
+                      </span>
                     : 'Sign in'}
                 </button>
 
@@ -205,7 +234,9 @@ export default function AuthPage() {
         </div>
 
         <p className="text-center mt-6 text-[0.55rem] text-white/20">
-          By continuing, you agree to our Terms of Service and Privacy Policy.
+          By continuing, you agree to our{' '}
+          <Link to="/terms" className="underline">Terms</Link> and{' '}
+          <Link to="/privacy" className="underline">Privacy Policy</Link>.
         </p>
       </motion.div>
     </div>

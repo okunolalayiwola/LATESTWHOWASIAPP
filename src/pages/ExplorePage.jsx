@@ -1,54 +1,38 @@
-// src/pages/ExplorePage.jsx — relation filter fully connected
-// CHANGE: CATEGORIES now filter memorials by relation group (not just sort order).
-//         The filter useMemo now handles 'parents', 'grandparents', 'siblings',
-//         'friends', 'children', 'partner' by checking memorial.relation.
-//         Legacy free-text relations are normalized before comparison.
+// src/pages/ExplorePage.jsx
+// Global memorial discovery page.
+// "All" tab = all public memorials worldwide (guests + logged-in).
+// Relation tabs (Parents, Siblings…) = logged-in user's OWN public memorials filtered by that relation.
+// Country flags rendered from memorial.countryCode.
 
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { db } from '../lib/instant'
-import { getRelationFilterCategory, normalizeRelation } from '../lib/relations'
+import { getRelationFilterCategory } from '../lib/relations'
+import { countryFlag } from '../lib/countries'
 import exploreBg from '../assets/explore-bg.webp'
 import { SkeletonGrid } from '../components/ui/Skeleton'
 import EmptyState from '../components/ui/EmptyState'
 
+const SORT_OPTIONS = ['Recently Added', 'Most Tributes', 'Featured']
 
-// ─── Filter categories (tabs) ─────────────────────────────────────────────────
-// filterCategory must match what getRelationFilterCategory() returns.
-// null means "show all".
-
-const CATEGORIES = [
+const REL_FILTERS = [
   { id: 'all',          label: 'All',          emoji: '◎' },
+  { id: 'partner',      label: 'Partners',     emoji: '💍' },
+  { id: 'children',     label: 'Children',     emoji: '🌱' },
+  { id: 'siblings',     label: 'Siblings',     emoji: '🤝' },
   { id: 'parents',      label: 'Parents',      emoji: '✿' },
   { id: 'grandparents', label: 'Grandparents', emoji: '♡' },
-  { id: 'siblings',     label: 'Siblings',     emoji: '✦' },
-  { id: 'children',     label: 'Children',     emoji: '🌱' },
-  { id: 'partner',      label: 'Partners',     emoji: '💍' },
   { id: 'friends',      label: 'Friends',      emoji: '☽' },
   { id: 'extended',     label: 'Extended',     emoji: '🌿' },
 ]
 
-const SORT_OPTIONS = ['Recently Added', 'Most Tributes', 'Featured']
-
-// ─── Relation category resolver ───────────────────────────────────────────────
-// Works on both canonical values ('mother') and legacy free-text ('mum', 'Mum').
-
-function resolveFilterCategory(relationValue) {
-  if (!relationValue) return null
-  // Try canonical lookup first
-  const cat = getRelationFilterCategory(relationValue)
-  if (cat) return cat
-  // Try normalizing free text
-  const norm = normalizeRelation(relationValue)
-  if (norm) return getRelationFilterCategory(norm.value)
-  return null
-}
-
 // ─── Memorial card ────────────────────────────────────────────────────────────
 
-function MemorialCard({ memorial, index, connected }) {
+function MemorialCard({ memorial, index }) {
   const tributeCount = memorial.tributes?.length || memorial.tributeCount || 0
+  const flag         = memorial.countryCode ? countryFlag(memorial.countryCode) : ''
+  const relCat       = memorial.relation ? getRelationFilterCategory(memorial.relation) : null
 
   return (
     <motion.div
@@ -73,14 +57,13 @@ function MemorialCard({ memorial, index, connected }) {
           )}
           {/* Gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-          {/* Relation badge — only shown for connected visitors (creator or invite) */}
-          {memorial.relation && connected && (
-            <div className="absolute top-2.5 right-2.5">
-              <span className="text-[0.55rem] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full stat-badge text-white/60">
-                {getRelationFilterCategory(memorial.relation) || 'other'}
-              </span>
-            </div>
+
+          {/* Country flag */}
+          {flag && (
+            <div className="absolute top-2.5 right-2.5 text-xl leading-none"
+              title={memorial.countryCode}>{flag}</div>
           )}
+
           {/* Status dot */}
           <div className="absolute top-2.5 left-2.5">
             <div className={`w-2 h-2 rounded-full ${memorial.alive !== false ? 'bg-mint' : 'bg-gold'}`}
@@ -112,7 +95,10 @@ function MemorialCard({ memorial, index, connected }) {
             {memorial.elevenLabsVoiceId && (
               <span className="text-coral/60">◉ Voice</span>
             )}
-            {memorial.location && (
+            {relCat && (
+              <span className="text-white/25 capitalize">{relCat}</span>
+            )}
+            {memorial.location && !relCat && (
               <span className="text-white/25 truncate">{memorial.location}</span>
             )}
           </div>
@@ -126,63 +112,47 @@ function MemorialCard({ memorial, index, connected }) {
 
 export default function ExplorePage() {
   const [search,       setSearch]       = useState('')
-  const [activeFilter, setActiveFilter] = useState('all')
   const [activeSort,   setActiveSort]   = useState('Recently Added')
-  const [myView,       setMyView]       = useState(false)  // "My Memorials" toggle
+  const [activeFilter, setActiveFilter] = useState('all')
 
-  // Auth — used to determine which memorials the viewer is connected to
   const { user } = db.useAuth()
-
-  // Viewer's profile — familyOwnerId tells us who they were invited by
-  const { data: profileData } = db.useQuery(
-    user ? { profiles: { $: { where: { userId: user.id } } } } : null
-  )
 
   const { isLoading, error, data } = db.useQuery({
     memorials: {
-      $: { limit: 100 },   // fetch all (capped at 100); filter visibility in JS below
+      $: { limit: 100 },
       tributes: {},
     }
   })
 
-  // Keep only public memorials — includes those explicitly marked 'public'
-  // AND those created before the visibility field was added (no value = public intent)
+  // Public memorials only
   const memorials = useMemo(() =>
     (data?.memorials || []).filter(m => !m.visibility || m.visibility === 'public'),
     [data]
   )
 
-  // ── Which memorial creators is this viewer connected to? ──────────────────
-  // Connection comes from two sources:
-  //   1. Viewer created the memorial themselves → always add user.id directly,
-  //      regardless of whether their memorial is currently in the explore results.
-  //   2. Viewer was invited into a family tree → profile.familyOwnerId === memorial.creatorId
-  const connectedCreatorIds = useMemo(() => {
-    const ids = new Set()
-    if (!user) return ids
-    ids.add(user.id)   // always connected to own memorials
-    const familyOwnerId = profileData?.profiles?.[0]?.familyOwnerId
-    if (familyOwnerId) ids.add(familyOwnerId)
-    return ids
-  }, [user, profileData])
-
-  // ── Memorials created by this user ───────────────────────────────────────
-  const myMemorials = useMemo(() =>
-    user ? memorials.filter(m => m.creatorId === user.id) : [],
-    [memorials, user]
-  )
-
-  // ── Featured pick ──────────────────────────────────────────────────────────
+  // Featured pick (most active / has voice)
   const featured = useMemo(() =>
     memorials.find(m => (m.tributes?.length || m.tributeCount || 0) > 3 || m.elevenLabsVoiceId),
     [memorials]
   )
 
-  // ── Filtered + sorted list ─────────────────────────────────────────────────
+  // Filtered + sorted list
+  // • activeFilter === 'all'  → all public memorials (global, anyone)
+  // • activeFilter !== 'all'  → logged-in user's own memorials in that relation category
   const filtered = useMemo(() => {
     let list = [...memorials]
 
-    // ── 1. Text search ──────────────────────────────────────────────────────
+    if (activeFilter !== 'all') {
+      // Relation filter only makes sense for the logged-in user's own memorials
+      if (!user) return []   // guest — no relationships to show
+      list = list.filter(m => {
+        const isOwn = m.createdBy === user.id || m.creatorId === user.id
+        if (!isOwn) return false
+        const cat = getRelationFilterCategory(m.relation)
+        return cat === activeFilter
+      })
+    }
+
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter(m =>
@@ -194,17 +164,6 @@ export default function ExplorePage() {
       )
     }
 
-    // ── 2. Relation category filter ─────────────────────────────────────────
-    // This is the fix: each CATEGORY tab now actually filters by relation group.
-    if (activeFilter !== 'all') {
-      list = list.filter(m => {
-        if (!m.relation) return false
-        const cat = resolveFilterCategory(m.relation)
-        return cat === activeFilter
-      })
-    }
-
-    // ── 3. Sort ─────────────────────────────────────────────────────────────
     if (activeSort === 'Recently Added') {
       list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
     } else if (activeSort === 'Most Tributes') {
@@ -216,41 +175,29 @@ export default function ExplorePage() {
     }
 
     return list
-  }, [memorials, search, activeFilter, activeSort])
+  }, [memorials, activeFilter, search, activeSort, user])
 
-  // ── Count per category for badge display ──────────────────────────────────
-  const categoryCounts = useMemo(() => {
-    const counts = {}
-    memorials.forEach(m => {
-      if (!m.relation) return
-      const cat = resolveFilterCategory(m.relation)
-      if (cat) counts[cat] = (counts[cat] || 0) + 1
-    })
-    return counts
-  }, [memorials])
-
-  // ─── Loading ────────────────────────────────────────────────────────────────
+  // ─── Loading ──────────────────────────────────────────────────────────────────
   if (isLoading) return (
     <div className="relative z-10 min-h-screen pt-20 pb-28">
       <div className="max-w-7xl mx-auto px-5 md:px-8 space-y-6">
         <div className="h-4 w-32 bg-white/5 rounded-full animate-pulse" />
         <div className="h-10 w-72 bg-white/5 rounded-xl animate-pulse" />
-        <div className="h-4 w-56 bg-white/5 rounded-full animate-pulse" />
         <SkeletonGrid count={8} />
       </div>
     </div>
   )
-  // ─── Error ──────────────────────────────────────────────────────────────────
+
   if (error) return (
     <div className="relative z-10 min-h-screen flex items-center justify-center px-6">
       <div className="text-center">
         <div className="text-5xl mb-6 opacity-20">◎</div>
         <p className="text-white/50 text-sm mb-2">Could not load memorials.</p>
-        <p className="text-white/30 text-xs">Please check your connection and try again.</p>
+        <p className="text-white/30 text-xs">Check your connection and try again.</p>
       </div>
     </div>
   )
-  // ─── Empty state ────────────────────────────────────────────────────────────
+
   if (!isLoading && memorials.length === 0) return (
     <div className="relative z-10 min-h-screen pt-20 pb-28">
       <div className="max-w-7xl mx-auto px-5 md:px-8">
@@ -263,14 +210,14 @@ export default function ExplorePage() {
       </div>
     </div>
   )
-  // ─── Render ─────────────────────────────────────────────────────────────────
+
+  // ─── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className="relative z-10 pt-20 pb-28 min-h-screen">
 
-      {/* ── Full-screen background image (no blur, no mask) ──────────────── */}
+      {/* Background */}
       <div className="fixed inset-0 z-0 pointer-events-none">
-        <div
-          className="w-full h-full"
+        <div className="w-full h-full"
           style={{
             backgroundImage: `url(${exploreBg})`,
             backgroundSize: 'cover',
@@ -280,108 +227,100 @@ export default function ExplorePage() {
         />
       </div>
 
-      {/* ── Hero ──────────────────────────────────────────────────────────── */}
-      <div className="px-5 md:px-8 pt-6 pb-5 max-w-7xl mx-auto">
-        <p className="text-[0.65rem] font-bold tracking-[0.22em] uppercase text-cream-dim mb-1">
-          Living memorials
-        </p>
-        <h1 className="font-display text-[clamp(2rem,6vw,3.2rem)] font-bold text-white leading-tight mb-2">
-          Living Memorials
-        </h1>
-        <p className="text-sm text-white/40 max-w-md leading-relaxed mb-5">
-          A growing archive of living memorials — voices, stories, and tributes preserved forever.
-        </p>
-
-        {/* ── All / My Memorials primary toggle ─────────────────────── */}
-        <div className="inline-flex rounded-2xl overflow-hidden border border-white/10"
-          style={{ background: 'rgba(255,255,255,0.04)' }}>
-          <button
-            onClick={() => setMyView(false)}
-            className={`px-5 py-2 text-xs font-bold transition-all ${
-              !myView ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white/60'
-            }`}
-          >
-            ◎ All Memorials
-          </button>
-          <button
-            onClick={() => { if (!user) return; setMyView(true) }}
-            className={`px-5 py-2 text-xs font-bold transition-all ${
-              myView ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white/60'
-            } ${!user ? 'opacity-40 cursor-not-allowed' : ''}`}
-            title={!user ? 'Sign in to see your memorials' : ''}
-          >
-            ✦ My Memorials {user && myMemorials.length > 0 && `(${myMemorials.length})`}
-          </button>
-        </div>
-      </div>
-
-      {/* ── Search ────────────────────────────────────────────────────────── */}
-      <div className="px-5 md:px-8 mb-5 max-w-7xl mx-auto">
-        <div className="relative max-w-md">
-          <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+      {/* ── Search — full-width hero ─────────────────────────────────────────── */}
+      <div className="px-5 md:px-8 pt-8 pb-2 max-w-7xl mx-auto">
+        <div className="relative">
+          <svg className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40"
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round"
+              d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
           </svg>
           <input
+            autoFocus={false}
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search by name, location, or story…"
-            className="w-full inset-field rounded-2xl pl-10 pr-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none"
+            placeholder="Search memorials by name, location, or story…"
+            className="w-full rounded-2xl pl-14 pr-12 text-base text-white placeholder-white/30 focus:outline-none"
+            style={{
+              background: 'rgba(255,255,255,0.07)',
+              border: '1px solid rgba(255,255,255,0.14)',
+              backdropFilter: 'blur(12px)',
+              padding: '18px 48px 18px 52px',
+              boxShadow: '0 4px 32px rgba(0,0,0,0.35), 0 1px 0 rgba(255,255,255,0.06) inset',
+              fontSize: '15px',
+              transition: 'border-color 0.2s, box-shadow 0.2s',
+            }}
+            onFocus={e => {
+              e.target.style.borderColor = 'rgba(255,215,0,0.45)'
+              e.target.style.boxShadow = '0 4px 32px rgba(0,0,0,0.35), 0 0 0 3px rgba(255,215,0,0.10), 0 1px 0 rgba(255,255,255,0.06) inset'
+            }}
+            onBlur={e => {
+              e.target.style.borderColor = 'rgba(255,255,255,0.14)'
+              e.target.style.boxShadow = '0 4px 32px rgba(0,0,0,0.35), 0 1px 0 rgba(255,255,255,0.06) inset'
+            }}
           />
           {search && (
             <button onClick={() => setSearch('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60">
+              className="absolute right-4 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-full text-white/40 hover:text-white/70 hover:bg-white/10 transition-all">
               ✕
             </button>
           )}
         </div>
+        {search && (
+          <p className="text-xs text-white/30 mt-2 ml-1">
+            {filtered.length === 0
+              ? 'No memorials match your search.'
+              : `${filtered.length} memorial${filtered.length !== 1 ? 's' : ''} found`}
+          </p>
+        )}
       </div>
 
-      {/* ── Category filter tabs + sort — hidden in My Memorials view ─────── */}
-      {!myView && (
-        <>
-          <div className="px-5 md:px-8 mb-5 max-w-7xl mx-auto">
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-              {CATEGORIES.map(cat => {
-                const count   = cat.id === 'all' ? memorials.length : (categoryCounts[cat.id] || 0)
-                const isActive = activeFilter === cat.id
-                return (
-                  <motion.button key={cat.id}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setActiveFilter(cat.id)}
-                    className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 transition-all ${
-                      isActive
-                        ? 'metal-btn text-black'
-                        : 'rubber-btn text-white/55 hover:text-white'
-                    }`}>
-                    <span>{cat.emoji}</span>
-                    <span>{cat.label}</span>
-                    {count > 0 && !isActive && (
-                      <span className="text-[0.5rem] bg-white/10 px-1.5 py-0.5 rounded-full text-white/30">{count}</span>
-                    )}
-                  </motion.button>
-                )
-              })}
-            </div>
-          </div>
+      {/* ── Relation filter chips ───────────────────────────────────────────── */}
+      <div className="px-5 md:px-8 mb-4 max-w-7xl mx-auto">
+        <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+          {REL_FILTERS.map(f => (
+            <button
+              key={f.id}
+              onClick={() => { setActiveFilter(f.id); setSearch('') }}
+              className={`flex-shrink-0 flex items-center gap-1.5 text-xs px-3.5 py-2 rounded-full font-semibold transition-all ${
+                activeFilter === f.id
+                  ? 'stat-badge text-white/90'
+                  : 'text-white/35 hover:text-white/60 border border-white/10 hover:border-white/20'
+              }`}
+            >
+              <span>{f.emoji}</span> {f.label}
+            </button>
+          ))}
+        </div>
+        {/* Subtle context label */}
+        {activeFilter !== 'all' && (
+          <p className="text-[0.58rem] text-white/25 mt-2 ml-1">
+            {user
+              ? `Showing your ${REL_FILTERS.find(f => f.id === activeFilter)?.label.toLowerCase()} memorials`
+              : 'Sign in to filter by your relationships'}
+          </p>
+        )}
+      </div>
 
-          {/* ── Sort row ──────────────────────────────────────────────────── */}
-          <div className="px-5 md:px-8 mb-6 max-w-7xl mx-auto flex items-center gap-2">
-            <span className="text-[0.6rem] text-white/25 uppercase tracking-wide">Sort:</span>
-            {SORT_OPTIONS.map(s => (
-              <button key={s} onClick={() => setActiveSort(s)}
-                className={`text-xs px-3 py-1.5 rounded-full transition-all ${
-                  activeSort === s ? 'stat-badge text-white/80 font-semibold' : 'text-white/30 hover:text-white/55'
-                }`}>
-                {s}
-              </button>
-            ))}
-          </div>
-        </>
+      {/* ── Sort ────────────────────────────────────────────────────────────── */}
+      {activeFilter === 'all' && (
+        <div className="px-5 md:px-8 mb-6 max-w-7xl mx-auto flex items-center gap-2">
+          <span className="text-[0.6rem] text-white/25 uppercase tracking-wide">Sort:</span>
+          {SORT_OPTIONS.map(s => (
+            <button key={s} onClick={() => setActiveSort(s)}
+              className={`text-xs px-3 py-1.5 rounded-full transition-all ${
+                activeSort === s ? 'stat-badge text-white/80 font-semibold' : 'text-white/30 hover:text-white/55'
+              }`}>
+              {s}
+            </button>
+          ))}
+        </div>
       )}
+      {activeFilter !== 'all' && <div className="mb-6" />}
 
-      {/* ── Featured card (only in All view, no filter, no search) ─────────── */}
-      {!myView && !search && activeFilter === 'all' && featured && (
+      {/* ── Featured card (All tab, no search active) ────────────────────────── */}
+      {activeFilter === 'all' && !search && featured && (
         <div className="px-5 md:px-8 mb-8 max-w-7xl mx-auto">
           <Link to={`/memorial/${featured.id}`}
             className="block metal-card rounded-3xl overflow-hidden hover:opacity-90 transition-opacity">
@@ -394,6 +333,9 @@ export default function ExplorePage() {
                   </div>
               }
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+              {featured.countryCode && (
+                <div className="absolute top-4 right-4 text-2xl">{countryFlag(featured.countryCode)}</div>
+              )}
               <div className="absolute bottom-0 left-0 right-0 p-6">
                 <p className="text-[0.55rem] font-bold tracking-[0.22em] uppercase text-gold/70 mb-1">✦ Featured</p>
                 <h2 className="font-display text-2xl md:text-3xl font-bold text-white mb-1">{featured.name}</h2>
@@ -404,77 +346,51 @@ export default function ExplorePage() {
         </div>
       )}
 
-      {/* ── Grid ──────────────────────────────────────────────────────────── */}
+      {/* ── Grid ────────────────────────────────────────────────────────────── */}
       <div className="px-5 md:px-8 max-w-7xl mx-auto">
 
-        {/* ── MY MEMORIALS view ─────────────────────────────────────── */}
-        {myView ? (
-          myMemorials.length === 0 ? (
-            <div className="text-center py-20">
-              <div className="text-5xl opacity-15 mb-5">✦</div>
-              <p className="text-white/40 text-sm mb-2">You haven't created any memorials yet.</p>
-              <Link to="/create"
-                className="inline-block mt-3 text-xs text-gold/70 hover:text-gold border border-gold/30 px-5 py-2 rounded-full transition-colors">
-                + Create your first memorial
-              </Link>
-            </div>
-          ) : (
-            <>
-              <p className="text-xs text-white/30 mb-4">
-                {myMemorials.length} memorial{myMemorials.length !== 1 ? 's' : ''} created by you
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                <AnimatePresence mode="popLayout">
-                  {myMemorials.map((memorial, i) => (
-                    <MemorialCard
-                      key={memorial.id}
-                      memorial={memorial}
-                      index={i}
-                      connected={true}
-                    />
-                  ))}
-                </AnimatePresence>
-              </div>
-            </>
-          )
+        {/* Guest prompt when a relation filter is selected */}
+        {activeFilter !== 'all' && !user ? (
+          <div className="text-center py-20">
+            <div className="text-5xl opacity-15 mb-5">✦</div>
+            <p className="text-white/50 text-sm mb-2">Sign in to see your {REL_FILTERS.find(f => f.id === activeFilter)?.label.toLowerCase()} memorials</p>
+            <Link to="/auth" className="text-xs text-gold/70 hover:text-gold underline mt-2 inline-block">
+              Sign in →
+            </Link>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-20">
+            <div className="text-5xl opacity-15 mb-5">◎</div>
+            <p className="text-white/40 text-sm mb-2">
+              {activeFilter !== 'all'
+                ? `No ${REL_FILTERS.find(f => f.id === activeFilter)?.label.toLowerCase()} memorials yet.`
+                : 'No memorials found.'}
+            </p>
+            {search && (
+              <button onClick={() => setSearch('')}
+                className="text-xs text-gold/60 hover:text-gold underline mt-2">
+                Clear search
+              </button>
+            )}
+            {activeFilter !== 'all' && !search && (
+              <button onClick={() => setActiveFilter('all')}
+                className="text-xs text-gold/60 hover:text-gold underline mt-2 block mx-auto">
+                View all memorials
+              </button>
+            )}
+          </div>
         ) : (
-          /* ── ALL MEMORIALS view ─────────────────────────────────── */
-          <>
-            {/* Results count */}
-            {(search || activeFilter !== 'all') && (
-              <p className="text-xs text-white/30 mb-4">
-                {filtered.length === 0
-                  ? 'No memorials match this filter.'
-                  : `${filtered.length} memorial${filtered.length !== 1 ? 's' : ''} found`}
-              </p>
-            )}
-
-            {filtered.length === 0 ? (
-              <div className="text-center py-20">
-                <div className="text-5xl opacity-15 mb-5">◎</div>
-                <p className="text-white/40 text-sm mb-2">No memorials in this category yet.</p>
-                {activeFilter !== 'all' && (
-                  <button onClick={() => setActiveFilter('all')}
-                    className="text-xs text-gold/60 hover:text-gold underline mt-2">
-                    View all memorials
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                <AnimatePresence mode="popLayout">
-                  {filtered.map((memorial, i) => (
-                    <MemorialCard
-                      key={memorial.id}
-                      memorial={memorial}
-                      index={i}
-                      connected={connectedCreatorIds.has(memorial.creatorId)}
-                    />
-                  ))}
-                </AnimatePresence>
-              </div>
-            )}
-          </>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <AnimatePresence mode="popLayout">
+              {filtered.map((memorial, i) => (
+                <MemorialCard
+                  key={memorial.id}
+                  memorial={memorial}
+                  index={i}
+                />
+              ))}
+            </AnimatePresence>
+          </div>
         )}
       </div>
     </div>

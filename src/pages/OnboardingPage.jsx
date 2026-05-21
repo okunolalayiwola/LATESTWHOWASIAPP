@@ -1,21 +1,23 @@
 // src/pages/OnboardingPage.jsx
-// Every new visitor goes through this flow before using the app.
 //
 // Steps:
-//   0 — Get started  (sign in with email  OR  continue as guest)
-//       → skipped automatically when the user is already logged in
-//   1 — Your name
-//   2 — Who for  (self / other)
-//   3 — First action  (create / explore)
+//   0 — Auth gate  (skipped when already signed in)
+//   1 — Your name  (first name + last name — two fields)
+//   2 — Who for    (self / other)
+//   3 — First action (create / explore)
 //
-// After step 0 the localStorage flag `wwi_has_visited` is set so the
-// OnboardingGuard in App.jsx stops redirecting the visitor here.
+// Returning users (profile with firstName OR displayName already set) are
+// detected on mount and immediately redirected to /dashboard without going
+// through the steps again.
+//
+// After step 0 the localStorage flag `wwi_has_visited` is set.
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { id } from '@instantdb/react'
 import { db } from '../lib/instant'
+import { COUNTRIES, countryFlag } from '../lib/countries'
 import authBg from '../assets/auth-bg.webp'
 
 const LS_KEY = 'wwi_onboarding_draft'
@@ -25,64 +27,99 @@ function loadDraft()      { try { return JSON.parse(localStorage.getItem(LS_KEY)
 function clearDraft()     { try { localStorage.removeItem(LS_KEY) } catch {} }
 
 export default function OnboardingPage() {
-  const navigate      = useNavigate()
-  const { user }      = db.useAuth()
+  const navigate = useNavigate()
+  const { user } = db.useAuth()
 
-  // step 0 = auth gate (skipped when already signed in)
-  const [step,        setStep]        = useState(null)   // null = not yet determined
-  const [name,        setName]        = useState('')
+  const [step,        setStep]        = useState(null)   // null = determining
+  const [firstName,   setFirstName]   = useState('')
+  const [lastName,    setLastName]    = useState('')
+  const [countryCode, setCountryCode] = useState('')     // ISO 2-letter
+  const [countryName, setCountryName] = useState('')
+  const [countrySearch, setCountrySearch] = useState('')
   const [intent,      setIntent]      = useState('')     // 'self' | 'other'
   const [action,      setAction]      = useState('create')
   const [saving,      setSaving]      = useState(false)
   const [error,       setError]       = useState('')
+  const [checking,    setChecking]    = useState(false)  // checking existing profile
 
-  // inline auth state (used on step 0)
+  // Filtered country list for search
+  const filteredCountries = useMemo(() => {
+    const q = countrySearch.trim().toLowerCase()
+    if (!q) return COUNTRIES
+    return COUNTRIES.filter(c => c.name.toLowerCase().includes(q))
+  }, [countrySearch])
+
+  // Inline auth state (step 0)
   const [authMode,    setAuthMode]    = useState('choice')  // 'choice' | 'email' | 'code'
   const [authEmail,   setAuthEmail]   = useState('')
   const [authCode,    setAuthCode]    = useState('')
   const [authLoading, setAuthLoading] = useState(false)
   const [authError,   setAuthError]   = useState('')
 
-  // ── Determine starting step on mount ──────────────────────────────────────
+  // ── Determine starting step ──────────────────────────────────────────────────
   useEffect(() => {
-    if (step !== null) return   // already set
-    const draft = loadDraft()
-    if (user) {
-      // Already logged in — skip auth step
-      setStep(1)
-      if (draft?.name)   setName(draft.name)
-      if (draft?.intent) setIntent(draft.intent)
-      if (draft?.action) setAction(draft.action)
-    } else {
-      // Not logged in — start at auth step
+    if (step !== null) return
+    if (!user) {
+      // Not logged in — show auth gate
       setStep(0)
+      return
     }
-  }, [user, step])
+    // Logged in — check if they already have a profile
+    setChecking(true)
+    db.queryOnce({ profiles: { $: { where: { userId: user.id } } } })
+      .then(({ data }) => {
+        const profile = data?.profiles?.[0]
+        const hasName = !!(profile?.firstName || profile?.displayName)
+        if (hasName) {
+          // Returning user — skip all steps, go straight to dashboard
+          localStorage.setItem('wwi_has_visited', '1')
+          if (profile && !profile.onboarded) {
+            db.transact([db.tx.profiles[profile.id].update({ onboarded: true })]).catch(() => {})
+          }
+          navigate('/dashboard', { replace: true })
+        } else {
+          // New user already logged in — start at name step
+          const draft = loadDraft()
+          if (draft?.firstName) setFirstName(draft.firstName)
+          if (draft?.lastName)  setLastName(draft.lastName)
+          if (draft?.intent)    setIntent(draft.intent)
+          if (draft?.action)    setAction(draft.action)
+          setStep(1)
+        }
+      })
+      .catch(() => setStep(1))
+      .finally(() => setChecking(false))
+  }, [user, step, navigate])
 
   // When user signs in mid-onboarding (step 0 → 1)
   useEffect(() => {
     if (user && step === 0) {
       localStorage.setItem('wwi_has_visited', '1')
-      setStep(1)
+      setStep(null)  // re-run the profile check above
     }
   }, [user, step])
 
   // Autosave draft
   useEffect(() => {
-    if (step && step > 0) saveDraft({ name, step, intent, action })
-  }, [name, step, intent, action])
+    if (step && step > 0) saveDraft({ firstName, lastName, step, intent, action })
+  }, [firstName, lastName, step, intent, action])
 
-  // ── Save progress to InstantDB ─────────────────────────────────────────────
+  // ── Save profile to InstantDB ────────────────────────────────────────────────
   async function saveProgressToDB(partial = {}) {
     if (!user) return
     try {
       const { data } = await db.queryOnce({ profiles: { $: { where: { userId: user.id } } } })
       const existing  = data?.profiles?.[0]
       const profileId = existing?.id || id()
+      const fullName  = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ')
       await db.transact([
         db.tx.profiles[profileId].update({
           userId:      user.id,
-          displayName: name.trim() || partial.displayName,
+          firstName:   firstName.trim()  || partial.firstName,
+          lastName:    lastName.trim()   || partial.lastName,
+          displayName: fullName          || partial.displayName,
+          country:     countryName       || partial.country,
+          countryCode: countryCode       || partial.countryCode,
           onboarded:   false,
           createdAt:   existing?.createdAt || Date.now(),
           ...partial,
@@ -91,12 +128,11 @@ export default function OnboardingPage() {
     } catch {}
   }
 
-  // ── Auth step handlers ─────────────────────────────────────────────────────
+  // ── Auth handlers ─────────────────────────────────────────────────────────────
   async function handleGuestSignIn() {
     setAuthLoading(true); setAuthError('')
     try {
       await db.auth.signInAsGuest()
-      // useEffect above will fire and advance to step 1
     } catch (err) {
       setAuthError(err.message || 'Could not continue as guest. Please try again.')
     } finally {
@@ -124,7 +160,7 @@ export default function OnboardingPage() {
     setAuthLoading(true); setAuthError('')
     try {
       await db.auth.signInWithMagicCode({ email: authEmail.trim(), code: authCode.trim() })
-      // useEffect above will fire and advance to step 1
+      // useEffect above will detect user signed in and check their profile
     } catch (err) {
       setAuthError(err.message || 'Invalid code. Try again.')
     } finally {
@@ -132,26 +168,36 @@ export default function OnboardingPage() {
     }
   }
 
-  // ── Step navigation ────────────────────────────────────────────────────────
+  // ── Step navigation ──────────────────────────────────────────────────────────
+  // Steps (for logged-in user): 1=Name, 2=Country, 3=Who for, 4=First action
   async function handleNext() {
     setError('')
 
     if (step === 1) {
-      if (!name.trim()) { setError('Please enter your name to continue.'); return }
+      if (!firstName.trim()) { setError('Please enter your first name to continue.'); return }
       setSaving(true)
-      await saveProgressToDB({ displayName: name.trim() })
+      await saveProgressToDB()
       setSaving(false)
       setStep(2)
       return
     }
 
     if (step === 2) {
-      if (!intent) { setError('Please choose one to continue.'); return }
+      if (!countryCode) { setError('Please select your country to continue.'); return }
+      setSaving(true)
+      await saveProgressToDB()
+      setSaving(false)
       setStep(3)
       return
     }
 
     if (step === 3) {
+      if (!intent) { setError('Please choose one to continue.'); return }
+      setStep(4)
+      return
+    }
+
+    if (step === 4) {
       await completeOnboarding()
     }
   }
@@ -163,12 +209,17 @@ export default function OnboardingPage() {
         const { data } = await db.queryOnce({ profiles: { $: { where: { userId: user.id } } } })
         const existing  = data?.profiles?.[0]
         const profileId = existing?.id || id()
+        const fullName  = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ')
         await db.transact([
           db.tx.profiles[profileId].update({
             userId:      user.id,
-            displayName: name.trim() || user.email?.split('@')[0] || 'Friend',
+            firstName:   firstName.trim()  || existing?.firstName  || 'Friend',
+            lastName:    lastName.trim()   || existing?.lastName   || '',
+            displayName: fullName          || existing?.displayName || firstName.trim() || 'Friend',
+            country:     countryName       || existing?.country     || '',
+            countryCode: countryCode       || existing?.countryCode || '',
             onboarded:   true,
-            plan:        'free',
+            plan:        existing?.plan || 'free',
             intent:      intent || 'other',
             createdAt:   existing?.createdAt || Date.now(),
           })
@@ -190,11 +241,17 @@ export default function OnboardingPage() {
 
   function handleBack() { setStep(s => Math.max(user ? 1 : 0, s - 1)) }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
-  if (step === null) return null   // still determining start step
-
-  const TOTAL_STEPS = user ? 3 : 4  // 0 is the auth step (hidden for logged-in users)
-  const displayStep = user ? step - 1 : step   // 0-indexed for dot indicator
+  // ── Render ───────────────────────────────────────────────────────────────────
+  if (step === null || checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#000' }}>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+          <p className="text-brand text-xl">WHO WAS I</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6 relative overflow-hidden" style={{ background: '#000' }}>
@@ -212,27 +269,28 @@ export default function OnboardingPage() {
           <p className="text-xs text-white/60 mt-1 tracking-widest uppercase">Living Memorials</p>
         </div>
 
-        {/* Step dots — only shown after auth step */}
+        {/* Step dots — 4 steps after auth */}
         {step > 0 && (
           <div className="flex items-center gap-2 mb-8 justify-center">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <div className={`transition-all rounded-full ${
-                  i === displayStep - (user ? 1 : 1)
-                    ? 'w-8 h-2 bg-gold'
-                    : i < displayStep - (user ? 1 : 1)
-                      ? 'w-4 h-2 bg-gold/40'
-                      : 'w-4 h-2 bg-white/10'
-                }`} />
-                {i < 2 && <div className="w-3 h-px bg-white/10" />}
-              </div>
-            ))}
+            {Array.from({ length: 4 }).map((_, i) => {
+              const cur = step - 1  // 0-indexed (step 1 → dot 0)
+              return (
+                <div key={i} className="flex items-center gap-2">
+                  <div className={`transition-all rounded-full ${
+                    i === cur ? 'w-8 h-2 bg-gold'
+                    : i < cur ? 'w-4 h-2 bg-gold/40'
+                    : 'w-4 h-2 bg-white/10'
+                  }`} />
+                  {i < 3 && <div className="w-3 h-px bg-white/10" />}
+                </div>
+              )
+            })}
           </div>
         )}
 
         <AnimatePresence mode="wait">
 
-          {/* ── STEP 0: Auth gate ─────────────────────────────────────── */}
+          {/* ── STEP 0: Auth gate ──────────────────────────────────────────── */}
           {step === 0 && (
             <motion.div key="s0" initial={{ opacity:0, x:24 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-24 }}>
 
@@ -242,9 +300,7 @@ export default function OnboardingPage() {
                   <p className="text-sm text-white/60 mb-8 leading-relaxed">
                     Create an account to save and manage your memorials, or browse as a guest first.
                   </p>
-
                   {authError && <p className="text-xs text-red-400 mb-4 text-center">{authError}</p>}
-
                   <div className="space-y-3">
                     <button
                       onClick={() => { setAuthMode('email'); setAuthError('') }}
@@ -252,7 +308,6 @@ export default function OnboardingPage() {
                     >
                       ✦ Sign in / Create account
                     </button>
-
                     <button
                       onClick={handleGuestSignIn}
                       disabled={authLoading}
@@ -261,7 +316,6 @@ export default function OnboardingPage() {
                       {authLoading ? 'Loading…' : 'Continue as guest →'}
                     </button>
                   </div>
-
                   <p className="text-center text-[0.6rem] text-white/25 mt-6 leading-relaxed">
                     Guests can browse and explore. You'll be asked to create an account when you start building a memorial.
                   </p>
@@ -328,30 +382,109 @@ export default function OnboardingPage() {
             </motion.div>
           )}
 
-          {/* ── STEP 1: Your name ────────────────────────────────────── */}
+          {/* ── STEP 1: Name (first + last) ─────────────────────────────── */}
           {step === 1 && (
             <motion.div key="s1" initial={{ opacity:0, x:24 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-24 }}>
               <h1 className="font-display text-3xl font-bold text-white mb-2">What's your name?</h1>
               <p className="text-sm text-white/60 mb-8 leading-relaxed">
-                This is how you'll appear on memorials and tributes.
+                This is how you'll appear on memorials and tributes. We'll use your first name to greet you.
               </p>
-              <input
-                type="text"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleNext()}
-                placeholder="Your full name"
-                autoFocus
-                className="w-full bg-zinc-900/90 border border-white/10 rounded-2xl px-5 py-4 text-base text-white placeholder-white/25 focus:outline-none focus:border-gold/40 mb-2"
-              />
-              {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[0.65rem] font-semibold tracking-wider uppercase text-white/40 mb-1.5 block">
+                    First name
+                  </label>
+                  <input
+                    type="text"
+                    value={firstName}
+                    onChange={e => setFirstName(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleNext()}
+                    placeholder="e.g. Ada"
+                    autoFocus
+                    autoComplete="given-name"
+                    className="w-full bg-zinc-900/90 border border-white/10 rounded-2xl px-5 py-4 text-base text-white placeholder-white/25 focus:outline-none focus:border-gold/40"
+                  />
+                </div>
+                <div>
+                  <label className="text-[0.65rem] font-semibold tracking-wider uppercase text-white/40 mb-1.5 block">
+                    Last name <span className="text-white/25 normal-case tracking-normal">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={lastName}
+                    onChange={e => setLastName(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleNext()}
+                    placeholder="e.g. Lovelace"
+                    autoComplete="family-name"
+                    className="w-full bg-zinc-900/90 border border-white/10 rounded-2xl px-5 py-4 text-base text-white placeholder-white/25 focus:outline-none focus:border-gold/40"
+                  />
+                </div>
+              </div>
+              {error && <p className="text-xs text-red-400 mt-3">{error}</p>}
             </motion.div>
           )}
 
-          {/* ── STEP 2: Who for ──────────────────────────────────────── */}
+          {/* ── STEP 2: Country ─────────────────────────────────────────── */}
           {step === 2 && (
             <motion.div key="s2" initial={{ opacity:0, x:24 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-24 }}>
-              <h1 className="font-display text-3xl font-bold text-white mb-2">Who are you here for?</h1>
+              <h1 className="font-display text-3xl font-bold text-white mb-2">
+                Where are you based{firstName ? `, ${firstName}` : ''}?
+              </h1>
+              <p className="text-sm text-white/60 mb-6 leading-relaxed">
+                Your country appears as a flag on your memorials so visitors know where they're from.
+              </p>
+
+              {/* Search */}
+              <input
+                type="text"
+                value={countrySearch}
+                onChange={e => setCountrySearch(e.target.value)}
+                placeholder="Search countries…"
+                autoFocus
+                className="w-full bg-zinc-900/90 border border-white/10 rounded-2xl px-5 py-3.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-gold/40 mb-3"
+              />
+
+              {/* Selected display */}
+              {countryCode && (
+                <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-zinc-800 border border-gold/30 mb-3">
+                  <span className="text-2xl">{countryFlag(countryCode)}</span>
+                  <span className="text-sm font-semibold text-white">{countryName}</span>
+                  <button
+                    onClick={() => { setCountryCode(''); setCountryName(''); setCountrySearch('') }}
+                    className="ml-auto text-xs text-white/40 hover:text-white/70 transition-colors"
+                  >✕ Change</button>
+                </div>
+              )}
+
+              {/* Country list */}
+              {!countryCode && (
+                <div className="max-h-56 overflow-y-auto rounded-2xl bg-zinc-900/90 border border-white/10 divide-y divide-white/5">
+                  {filteredCountries.length === 0 && (
+                    <p className="px-5 py-4 text-sm text-white/30 text-center">No countries found</p>
+                  )}
+                  {filteredCountries.map(c => (
+                    <button
+                      key={c.code}
+                      onClick={() => { setCountryCode(c.code); setCountryName(c.name); setCountrySearch('') }}
+                      className="w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-white/5 transition-colors"
+                    >
+                      <span className="text-xl flex-shrink-0">{countryFlag(c.code)}</span>
+                      <span className="text-sm text-white/80">{c.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {error && <p className="text-xs text-red-400 mt-3">{error}</p>}
+            </motion.div>
+          )}
+
+          {/* ── STEP 3: Who for ─────────────────────────────────────────── */}
+          {step === 3 && (
+            <motion.div key="s3" initial={{ opacity:0, x:24 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-24 }}>
+              <h1 className="font-display text-3xl font-bold text-white mb-2">
+                Hi {firstName || 'there'} — who are you here for?
+              </h1>
               <p className="text-sm text-white/60 mb-7 leading-relaxed">
                 This shapes how your vault and legacy tools work.
               </p>
@@ -381,11 +514,11 @@ export default function OnboardingPage() {
             </motion.div>
           )}
 
-          {/* ── STEP 3: First action ─────────────────────────────────── */}
-          {step === 3 && (
+          {/* ── STEP 4: First action ─────────────────────────────────────── */}
+          {step === 4 && (
             <motion.div key="s3" initial={{ opacity:0, x:24 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-24 }}>
               <h1 className="font-display text-3xl font-bold text-white mb-2">
-                Welcome{name ? `, ${name.split(' ')[0]}` : ''} ✦
+                Welcome{firstName ? `, ${firstName}` : ''} ✦
               </h1>
               <p className="text-sm text-white/60 mb-7 leading-relaxed">What would you like to do first?</p>
               <div className="space-y-3">
@@ -414,7 +547,7 @@ export default function OnboardingPage() {
 
         </AnimatePresence>
 
-        {/* CTA buttons — only shown after auth step */}
+        {/* CTA — only after auth step */}
         {step > 0 && (
           <div className="mt-8 space-y-3">
             <motion.button
@@ -428,7 +561,7 @@ export default function OnboardingPage() {
                     <div className="w-4 h-4 border-2 border-black/20 border-t-black/70 rounded-full animate-spin" />
                     Saving…
                   </span>
-                : step < 3 ? 'Continue →' : "Let's go ✦"
+                : step < 4 ? 'Continue →' : "Let's go ✦"
               }
             </motion.button>
 

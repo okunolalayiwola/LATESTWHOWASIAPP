@@ -429,6 +429,7 @@ export default function LifeReel({
   memorial  = {},
   musicUrl  = null,
   onEnd     = null,   // called when the reel plays through every slide once
+  fill      = false,  // true = fill parent container (used in mobile fullscreen overlay)
 }) {
   const { name, years, subtitle, alive } = memorial || {}
 
@@ -507,8 +508,13 @@ export default function LifeReel({
   return (
     <div
       ref={containerRef}
-      className="relative w-full overflow-hidden rounded-2xl select-none"
-      style={{
+      className={fill ? 'select-none' : 'relative w-full overflow-hidden rounded-2xl select-none'}
+      style={fill ? {
+        position:   'absolute',
+        inset:      0,
+        background: '#080808',
+        overflow:   'hidden',
+      } : {
         aspectRatio: '16/9',
         minHeight:   200,
         maxHeight:   fullscreen ? '100vh' : 520,

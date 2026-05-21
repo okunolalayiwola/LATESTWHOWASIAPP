@@ -9,6 +9,8 @@ import { id } from '@instantdb/react'
 import { db } from '../lib/instant'
 import { uploadImage } from '../lib/storage'
 import useSEO from '../hooks/useSEO'
+import InviteCodeBadge from '../components/shared/InviteCodeBadge'
+import FamilyMessagesSection from '../components/shared/FamilyMessagesSection'
 
 // ─── Safe lazy loaders ────────────────────────────────────────────────────────
 function safeLazy(loader) {
@@ -46,10 +48,9 @@ const DISP  = "'Space Grotesk', system-ui, sans-serif"
 const SERIF = "'Fraunces', Georgia, serif"
 const STRIPE = 'repeating-linear-gradient(135deg, transparent 0 9px, rgba(21,18,14,.85) 9px 10px)'
 
+// Only one tribute type — candles and memories removed
 const TRIBUTE_TYPES = [
   { type: 'tribute', emoji: '♡', label: 'Tribute' },
-  { type: 'candle',  emoji: '🕯', label: 'Candle'  },
-  { type: 'memory',  emoji: '◎', label: 'Memory'  },
 ]
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -586,7 +587,7 @@ function VoiceSection({ memorial, onOpenTalk }) {
             <Label onInk>Voice of {firstName}</Label>
             {memorial.elevenLabsVoiceId && (
               <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase',
-                color: C.ink, background: C.saffron, padding: '4px 9px', borderRadius: 999 }}>◆ AI cloned voice</span>
+                color: C.ink, background: C.saffron, padding: '4px 9px', borderRadius: 999 }}>◆ Voice captured</span>
             )}
           </div>
           <h3 style={{ fontFamily: DISP, fontWeight: 700, fontSize: 26, letterSpacing: '-.02em', lineHeight: 1.1, margin: 0, color: C.cream }}>
@@ -597,8 +598,8 @@ function VoiceSection({ memorial, onOpenTalk }) {
           </h3>
           <p style={{ color: 'rgba(241,236,225,.6)', fontSize: 14, lineHeight: 1.55, margin: 0 }}>
             {hasVoice
-              ? `An AI conversation drawing on ${firstName}'s life, voice and memories.`
-              : `An AI conversation drawing on ${firstName}'s life story and tributes.`}
+              ? `A living voice experience drawing on ${firstName}'s life, recorded voice and memories.`
+              : `A living memory experience drawing on ${firstName}'s life story and tributes.`}
           </p>
           <WaveformBars playing={false} />
         </div>
@@ -632,7 +633,7 @@ function VoiceSection({ memorial, onOpenTalk }) {
             </svg>
             <span style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '.18em', textTransform: 'uppercase',
               color: 'rgba(255,255,255,.85)', fontWeight: 600 }}>
-              Talk with {firstName}
+              Hear {firstName}
             </span>
           </motion.button>
         </div>
@@ -681,7 +682,7 @@ function StoryCard({ memorial }) {
 }
 
 // ─── Tribute card ─────────────────────────────────────────────────────────────
-function TributeCard({ tribute, variant = 'light', onLike, onDelete, canDelete }) {
+function TributeCard({ tribute, variant = 'light', onLike, onDelete, canDelete, memorialId, user, userProfile, isFamilyMember }) {
   const [liked,   setLiked]   = useState(false)
   const [confirm, setConfirm] = useState(false)
   const likes = (tribute.likes || 0) + (liked ? 1 : 0)
@@ -714,7 +715,7 @@ function TributeCard({ tribute, variant = 'light', onLike, onDelete, canDelete }
             color: isDark ? C.cream : C.ink }}>{tribute.authorName || 'Anonymous'}</div>
           <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.18em', textTransform: 'uppercase',
             color: isDark ? 'rgba(241,236,225,.4)' : C.muted }}>
-            {tribute.type || 'tribute'} · {timeAgo(tribute.createdAt)}
+            Tribute · {timeAgo(tribute.createdAt)}
           </div>
         </div>
         {canDelete && (
@@ -732,6 +733,14 @@ function TributeCard({ tribute, variant = 'light', onLike, onDelete, canDelete }
         "{tribute.text || tribute.content}"
       </p>
 
+      {/* Attached photo */}
+      {tribute.photoUrl && (
+        <div style={{ borderRadius: 16, overflow: 'hidden', marginTop: 4 }}>
+          <img src={tribute.photoUrl} alt="Tribute photo"
+            style={{ width: '100%', maxHeight: 260, objectFit: 'cover', display: 'block' }} />
+        </div>
+      )}
+
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <button onClick={() => { if (liked) return; setLiked(true); onLike(tribute.id, tribute.likes || 0) }}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px',
@@ -748,12 +757,23 @@ function TributeCard({ tribute, variant = 'light', onLike, onDelete, canDelete }
           <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.18em', color: 'rgba(21,18,14,.55)', textTransform: 'uppercase' }}>featured</span>
         )}
       </div>
+
+      {/* Comments — shown to family members and owner */}
+      {(isFamilyMember || canDelete) && memorialId && (
+        <TributeComments
+          tributeId={tribute.id}
+          memorialId={memorialId}
+          user={user}
+          userProfile={userProfile}
+          isFamilyMember={!!(isFamilyMember || canDelete)}
+        />
+      )}
     </motion.div>
   )
 }
 
 // ─── Tributes section ─────────────────────────────────────────────────────────
-function TributesSection({ tributes, onLike, onDelete, isOwner, currentUserId, preview = false }) {
+function TributesSection({ tributes, onLike, onDelete, isOwner, currentUserId, memorialId, user, userProfile, isFamilyMember, preview = false }) {
   const shown = preview ? tributes.slice(0, 3) : tributes
 
   if (tributes.length === 0) {
@@ -780,7 +800,8 @@ function TributesSection({ tributes, onLike, onDelete, isOwner, currentUserId, p
             const variant = i === 0 ? 'featured' : i % 2 === 0 ? 'light' : 'dark'
             const canDel  = isOwner || (currentUserId && t.authorId === currentUserId)
             return (
-              <TributeCard key={t.id} tribute={t} variant={variant} onLike={onLike} onDelete={onDelete} canDelete={canDel} />
+              <TributeCard key={t.id} tribute={t} variant={variant} onLike={onLike} onDelete={onDelete} canDelete={canDel}
+                memorialId={memorialId} user={user} userProfile={userProfile} isFamilyMember={isFamilyMember || isOwner} />
             )
           })}
         </AnimatePresence>
@@ -898,11 +919,38 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
 
 // ─── Tribute form modal ───────────────────────────────────────────────────────
 function TributeFormModal({ onClose, onSubmit, submitting }) {
-  const [text, setText] = useState('')
-  const [type, setType] = useState('tribute')
-  const textRef = useRef(null)
+  const [text,       setText]       = useState('')
+  const [photoFile,  setPhotoFile]  = useState(null)
+  const [photoPreview, setPhotoPreview] = useState(null)
+  const [uploading,  setUploading]  = useState(false)
+  const textRef  = useRef(null)
+  const photoRef = useRef(null)
 
   useEffect(() => { setTimeout(() => textRef.current?.focus(), 80) }, [])
+
+  async function handlePhotoSelect(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    setPhotoFile(file)
+    setPhotoPreview(URL.createObjectURL(file))
+  }
+
+  function removePhoto() {
+    setPhotoFile(null)
+    setPhotoPreview(null)
+    if (photoRef.current) photoRef.current.value = ''
+  }
+
+  async function handleSubmit() {
+    if (!text.trim() || submitting) return
+    let photoUrl = null
+    if (photoFile) {
+      setUploading(true)
+      try { photoUrl = await uploadImage(photoFile, () => {}, 'tributes') } catch {}
+      setUploading(false)
+    }
+    onSubmit(text, 'tribute', photoUrl)
+  }
 
   return (
     <AnimatePresence>
@@ -915,46 +963,165 @@ function TributeFormModal({ onClose, onSubmit, submitting }) {
           onClick={e => e.stopPropagation()}
           style={{ width: '100%', maxWidth: 520, background: C.paper, borderRadius: '26px 26px 0 0',
             padding: '24px 24px 36px', border: '1px solid rgba(21,18,14,.10)' }}>
+
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-            <h3 style={{ fontFamily: DISP, fontSize: 22, fontWeight: 700, letterSpacing: '-.02em', color: C.ink, margin: 0 }}>Leave a tribute</h3>
+            <div>
+              <h3 style={{ fontFamily: DISP, fontSize: 22, fontWeight: 700, letterSpacing: '-.02em', color: C.ink, margin: 0 }}>Leave a tribute</h3>
+              <p style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: C.muted2, marginTop: 4 }}>Share a memory or kind words</p>
+            </div>
             <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', background: C.cream2,
               border: '1px solid rgba(21,18,14,.10)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: C.muted, fontSize: 14 }}>✕</button>
           </div>
 
-          {/* Type selector */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-            {TRIBUTE_TYPES.map(t => (
-              <button key={t.type} onClick={() => setType(t.type)}
-                style={{ flex: 1, padding: '8px 0', borderRadius: 999, cursor: 'pointer',
-                  fontFamily: MONO, fontSize: 10, letterSpacing: '.16em', textTransform: 'uppercase',
-                  transition: 'all .15s',
-                  background: type === t.type ? C.saffron : C.cream,
-                  border: `1px solid ${type === t.type ? 'rgba(21,18,14,.15)' : 'rgba(21,18,14,.10)'}`,
-                  color: type === t.type ? C.ink : C.muted }}>
-                {t.emoji} {t.label}
-              </button>
-            ))}
-          </div>
-
           <textarea ref={textRef} value={text} onChange={e => setText(e.target.value)}
-            placeholder="Share a memory, light a candle, or leave a tribute…"
+            placeholder="Write your tribute — a favourite memory, a few words of love, something that captures who they were…"
             style={{ width: '100%', background: C.cream, border: '1px solid rgba(21,18,14,.12)',
               borderRadius: 16, padding: '14px 16px', fontFamily: DISP, fontSize: 14,
               color: C.ink, resize: 'none', height: 120, outline: 'none', lineHeight: 1.6,
               boxSizing: 'border-box' }} />
 
-          <button onClick={() => onSubmit(text, type)} disabled={!text.trim() || submitting}
-            style={{ width: '100%', marginTop: 12, padding: '16px 0', borderRadius: 999, border: 'none',
-              cursor: text.trim() ? 'pointer' : 'default', fontFamily: MONO, fontSize: 11,
+          {/* Photo attachment */}
+          {photoPreview ? (
+            <div style={{ marginTop: 12, position: 'relative', borderRadius: 14, overflow: 'hidden', maxHeight: 180 }}>
+              <img src={photoPreview} alt="" style={{ width: '100%', height: 180, objectFit: 'cover', display: 'block' }} />
+              <button onClick={removePhoto}
+                style={{ position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: '50%',
+                  background: 'rgba(21,18,14,.7)', border: 'none', cursor: 'pointer', color: '#fff', fontSize: 13 }}>✕</button>
+            </div>
+          ) : (
+            <button onClick={() => photoRef.current?.click()}
+              style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none',
+                cursor: 'pointer', fontFamily: MONO, fontSize: 10, letterSpacing: '.16em',
+                textTransform: 'uppercase', color: C.muted, padding: '4px 0' }}>
+              <span style={{ fontSize: 16 }}>📷</span> Add a photo
+            </button>
+          )}
+          <input ref={photoRef} type="file" accept="image/*" className="hidden" style={{ display: 'none' }} onChange={handlePhotoSelect} />
+
+          <button onClick={handleSubmit} disabled={!text.trim() || submitting || uploading}
+            style={{ width: '100%', marginTop: 16, padding: '16px 0', borderRadius: 999, border: 'none',
+              cursor: text.trim() && !submitting && !uploading ? 'pointer' : 'default', fontFamily: MONO, fontSize: 11,
               letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 700, transition: 'all .2s',
               background: text.trim() ? C.saffron : C.cream2, color: text.trim() ? C.ink : C.muted2,
               boxShadow: text.trim() ? '0 4px 14px rgba(243,178,26,.25)' : 'none' }}>
-            {submitting ? 'Submitting…' : `◆ Post ${type}`}
+            {uploading ? 'Uploading photo…' : submitting ? 'Submitting…' : '♡  Post Tribute'}
           </button>
         </motion.div>
       </motion.div>
     </AnimatePresence>
+  )
+}
+
+// ─── Tribute comments (family members only) ───────────────────────────────────
+function TributeComments({ tributeId, memorialId, user, userProfile, isFamilyMember }) {
+  const [text,    setText]    = useState('')
+  const [sending, setSending] = useState(false)
+  const [open,    setOpen]    = useState(false)
+
+  const { data } = db.useQuery({
+    tributeComments: { $: { where: { tributeId }, order: { serverCreatedAt: 'asc' } } },
+  })
+  const comments = data?.tributeComments || []
+
+  async function handleComment() {
+    if (!text.trim() || sending || !user) return
+    setSending(true)
+    try {
+      const displayName = userProfile?.displayName || user.email?.split('@')[0] || 'Family member'
+      await db.transact([
+        db.tx.tributeComments[id()].update({
+          tributeId,
+          memorialId,
+          authorId:    user.id,
+          authorName:  displayName,
+          authorPhoto: userProfile?.photoUrl || null,
+          content:     text.trim(),
+          createdAt:   Date.now(),
+        }),
+      ])
+      setText('')
+    } finally { setSending(false) }
+  }
+
+  if (comments.length === 0 && !isFamilyMember) return null
+
+  return (
+    <div style={{ borderTop: '1px solid rgba(21,18,14,.07)', paddingTop: 10, marginTop: 4 }}>
+      {/* Toggle comments */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+          fontFamily: MONO, fontSize: 10, letterSpacing: '.14em', textTransform: 'uppercase',
+          color: C.muted2, display: 'flex', alignItems: 'center', gap: 6 }}
+      >
+        <span style={{ fontSize: 13 }}>💬</span>
+        {comments.length > 0 ? `${comments.length} comment${comments.length !== 1 ? 's' : ''}` : 'Add a comment'}
+        {comments.length > 0 && <span>{open ? ' ▲' : ' ▼'}</span>}
+      </button>
+
+      <AnimatePresence>
+        {(open || comments.length === 0) && isFamilyMember && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+            style={{ overflow: 'hidden' }}>
+            {/* Existing comments */}
+            {comments.map(c => (
+              <div key={c.id} style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'flex-start' }}>
+                <div style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+                  background: `linear-gradient(135deg, ${C.saffron}25, #38bdf820)`,
+                  border: '1px solid rgba(21,18,14,.08)', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.muted,
+                  overflow: 'hidden' }}>
+                  {c.authorPhoto
+                    ? <img src={c.authorPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : (c.authorName?.[0] || '?').toUpperCase()}
+                </div>
+                <div style={{ flex: 1, background: C.cream, borderRadius: '12px 12px 12px 4px',
+                  padding: '8px 12px', border: '1px solid rgba(21,18,14,.07)' }}>
+                  <span style={{ fontFamily: DISP, fontSize: 12, fontWeight: 600, color: C.ink }}>{c.authorName} </span>
+                  <span style={{ fontFamily: DISP, fontSize: 12, color: C.ink2, lineHeight: 1.5 }}>{c.content}</span>
+                  <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '.1em', color: C.muted2, marginTop: 3 }}>
+                    {timeAgo(c.createdAt)}
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* Compose */}
+            {user && isFamilyMember && (
+              <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
+                <div style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+                  background: `linear-gradient(135deg, ${C.saffron}25, #38bdf820)`,
+                  border: '1px solid rgba(21,18,14,.08)', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.muted,
+                  overflow: 'hidden' }}>
+                  {userProfile?.photoUrl
+                    ? <img src={userProfile.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : (userProfile?.displayName?.[0] || user.email?.[0] || '?').toUpperCase()}
+                </div>
+                <input
+                  value={text}
+                  onChange={e => setText(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleComment() }}
+                  placeholder="Write a comment…"
+                  style={{ flex: 1, background: C.cream, border: '1px solid rgba(21,18,14,.10)',
+                    borderRadius: 999, padding: '7px 14px', fontFamily: DISP, fontSize: 12,
+                    color: C.ink, outline: 'none' }}
+                />
+                <button onClick={handleComment} disabled={!text.trim() || sending}
+                  style={{ width: 28, height: 28, borderRadius: '50%', border: 'none',
+                    background: text.trim() ? C.saffron : C.cream2, cursor: text.trim() ? 'pointer' : 'default',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={C.ink} strokeWidth="2.5" strokeLinecap="round">
+                    <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                  </svg>
+                </button>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   )
 }
 
@@ -971,12 +1138,12 @@ function TabBar({ tabs, active, onChange }) {
             style={{ border: 'none', cursor: 'pointer', fontFamily: DISP, fontWeight: 600,
               fontSize: 13.5, padding: '10px 18px', borderRadius: 12,
               background: isActive ? C.ink : 'transparent',
-              color: isActive ? C.saffron : C.ink2, letterSpacing: '.01em', transition: 'all .15s',
+              color: isActive ? 'var(--theme, #f3b21a)' : C.ink2, letterSpacing: '.01em', transition: 'all .15s',
               boxShadow: isActive ? '0 4px 14px rgba(21,18,14,.2)' : 'none',
               display: 'inline-flex', alignItems: 'center', gap: 8 }}>
             {label}
             <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.06em',
-              background: isActive ? C.saffron : 'rgba(21,18,14,.08)',
+              background: isActive ? 'var(--theme, #f3b21a)' : 'rgba(21,18,14,.08)',
               color: isActive ? C.ink : C.muted,
               padding: '2px 7px', borderRadius: 999 }}>
               {String(count).padStart(2, '0')}
@@ -1037,6 +1204,22 @@ function MemorialDetailPageInner() {
     memorialId ? { memorials: { $: { where: { id: memorialId } }, letters: {}, documents: {} } } : null
   )
 
+  // Check if current user is an approved family member for this memorial
+  const familyConnQ = db.useQuery(
+    (user && memorialId) ? {
+      familyConnections: {
+        $: { where: { fromUserId: user.id, toMemorialId: memorialId, status: 'approved' } },
+      },
+    } : null
+  )
+  const isFamilyMember = !!(familyConnQ?.data?.familyConnections?.length)
+
+  // Load current user profile for messages + comments (display name, photo)
+  const profileQ = db.useQuery(
+    user ? { profiles: { $: { where: { userId: user.id } } } } : null
+  )
+  const userProfile = profileQ?.data?.profiles?.[0] || null
+
   const memorial      = data?.memorials?.[0]
   const vaultMemorial = vaultQ?.data?.memorials?.[0]
 
@@ -1092,8 +1275,8 @@ function MemorialDetailPageInner() {
   // ── Derived values (after early returns — NO hooks below this line) ────────
   const photos       = memorial.photos || []
   const tributeCount = tributes.length
-  const candleCount  = tributes.filter(t => t.type === 'candle').length
-  const memoryCount  = tributes.filter(t => t.type === 'memory').length
+  const candleCount  = 0   // removed — kept as 0 for any legacy gauge/stats usage
+  const memoryCount  = 0   // removed — kept as 0 for any legacy gauge/stats usage
   const isOwner      = !!(user && memorial.creatorId === user.id)
   const shareUrl     = `${window.location.origin}/memorial/${memorialId}`
   const letters      = vaultMemorial?.letters || memorial.letters || []
@@ -1102,24 +1285,25 @@ function MemorialDetailPageInner() {
   const hasWill      = documents.length > 0
 
   // ── Handlers ──────────────────────────────────────────────────────────────
-  async function handleSubmitTribute(text, type) {
+  async function handleSubmitTribute(text, type = 'tribute', photoUrl = null) {
     if (!text.trim() || submitting) return
     setSubmitting(true)
     try {
       await db.transact([
         db.tx.tributes[id()].update({
-          content: text.trim(), text: text.trim(), type,
+          content: text.trim(), text: text.trim(), type: 'tribute',
           author: user?.email?.split('@')[0] || 'Anonymous',
           authorName: user?.email?.split('@')[0] || 'Anonymous',
           authorId: user?.id || null, likes: 0, reactions: {},
           createdAt: Date.now(),
+          ...(photoUrl ? { photoUrl } : {}),
         }).link({ memorial: memorialId }),
       ])
       setShowTributeForm(false)
       setActiveTab('Tributes')
       fetch('/api/tribute-notification', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ memorialId, tributeText: text.trim(), tributeType: type, authorName: user?.email?.split('@')[0] || 'Anonymous' }),
+        body: JSON.stringify({ memorialId, tributeText: text.trim(), tributeType: 'tribute', authorName: user?.email?.split('@')[0] || 'Anonymous' }),
       }).catch(() => {})
     } finally { setSubmitting(false) }
   }
@@ -1147,10 +1331,24 @@ function MemorialDetailPageInner() {
     { key: 'Tributes', label: 'Tributes', count: tributeCount },
     { key: 'Gallery',  label: 'Gallery',  count: photos.length },
     { key: 'Reel',     label: 'Reel',     count: photos.length },
+    // Family tab — only shown to owner or approved family members
+    ...((isOwner || isFamilyMember) ? [{ key: 'Family', label: '✦ Family', count: 0 }] : []),
   ]
 
+  // Theme color from memorial — drive CSS custom properties
+  const themeHex     = memorial.themeHex || '#f3b21a'   // fallback to saffron
+  const themeLight   = themeHex + '22'                  // ~13% opacity
+  const themeMedium  = themeHex + '55'                  // ~33% opacity
+
   return (
-    <div style={{ background: C.paper, minHeight: '100vh', paddingTop: 56 }}>
+    <div style={{
+      background:   C.paper,
+      minHeight:    '100vh',
+      paddingTop:   56,
+      '--theme':    themeHex,
+      '--theme-lt': themeLight,
+      '--theme-md': themeMedium,
+    }}>
 
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
       <Hero memorial={memorial} memorialId={memorialId} isOwner={isOwner} navigate={navigate} />
@@ -1166,6 +1364,32 @@ function MemorialDetailPageInner() {
             <ActionsCard onTribute={() => setShowTributeForm(true)} onShare={handleShare} onQR={() => setShowQR(true)} />
             <LifeRecordCard memorial={memorial} />
             <LegacyVaultCard memorialId={memorialId} letterCount={letters.length} sealedCount={sealedCount} hasWill={hasWill} />
+            {/* Invite code badge — shown to owner so they can share it */}
+            {isOwner && user && (
+              <div style={{ background: C.ink, borderRadius: 20, padding: 16 }}>
+                <InviteCodeBadge user={user} compact />
+              </div>
+            )}
+            {/* "Join family circle" prompt — for non-owner logged-in users */}
+            {!isOwner && user && (
+              <Link to={`/join`}
+                style={{
+                  display:'flex', alignItems:'center', gap:12, padding:'14px 16px',
+                  background: C.ink, borderRadius:20, textDecoration:'none',
+                  border:`1px solid rgba(241,236,225,.06)`,
+                }}>
+                <span style={{ fontFamily:'serif', fontSize:20, color:'rgba(243,178,26,.7)' }}>✦</span>
+                <div>
+                  <p style={{ fontFamily:DISP, fontSize:13, fontWeight:600, color:C.cream, margin:0 }}>
+                    Join the family circle
+                  </p>
+                  <p style={{ fontFamily:MONO, fontSize:10, letterSpacing:'.14em', textTransform:'uppercase',
+                    color:'rgba(241,236,225,.35)', marginTop:3 }}>
+                    Use an invite code
+                  </p>
+                </div>
+              </Link>
+            )}
           </aside>
 
           {/* ── Right column ─────────────────────────────────────────────── */}
@@ -1180,7 +1404,8 @@ function MemorialDetailPageInner() {
                   <StoryCard memorial={memorial} />
                   {tributes.length > 0 && (
                     <TributesSection tributes={tributes} onLike={handleLikeTribute} onDelete={handleDeleteTribute}
-                      isOwner={isOwner} currentUserId={user?.id} preview />
+                      isOwner={isOwner} currentUserId={user?.id} memorialId={memorialId}
+                      user={user} userProfile={userProfile} isFamilyMember={isFamilyMember} preview />
                   )}
                   {photos.length > 0 && (
                     <GallerySection photos={photos} memorialId={memorialId} isOwner={isOwner} preview />
@@ -1191,7 +1416,8 @@ function MemorialDetailPageInner() {
               {activeTab === 'Tributes' && (
                 <motion.div key="tributes" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                   <TributesSection tributes={tributes} onLike={handleLikeTribute} onDelete={handleDeleteTribute}
-                    isOwner={isOwner} currentUserId={user?.id} />
+                    isOwner={isOwner} currentUserId={user?.id} memorialId={memorialId}
+                    user={user} userProfile={userProfile} isFamilyMember={isFamilyMember} />
                   {tributes.length === 0 && (
                     <div style={{ textAlign: 'center', marginTop: 24 }}>
                       <button onClick={() => setShowTributeForm(true)}
@@ -1273,6 +1499,125 @@ function MemorialDetailPageInner() {
                     </button>
                   </div>
 
+                </motion.div>
+              )}
+
+              {activeTab === 'Family' && (isOwner || isFamilyMember) && (
+                <motion.div key="family" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                  style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+                  {/* Alive / Deceased toggle for family members */}
+                  {(isOwner || isFamilyMember) && (
+                    <div style={{ background: C.ink, borderRadius: 26, padding: '22px 24px', position: 'relative',
+                      border: '1px solid rgba(241,236,225,.08)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                        <div>
+                          <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.22em', textTransform: 'uppercase',
+                            color: C.saffron }}>◆ Family update</span>
+                          <h3 style={{ fontFamily: DISP, fontWeight: 700, fontSize: 18, color: C.cream, margin: '6px 0 4px' }}>
+                            Status & Date of Passing
+                          </h3>
+                          <p style={{ fontFamily: DISP, fontSize: 13, color: 'rgba(241,236,225,.5)', margin: 0, lineHeight: 1.5 }}>
+                            Approved family members can update {memorial.name?.split(' ')[0]}'s status.
+                          </p>
+                        </div>
+                        {/* Living / Passed badge */}
+                        <div style={{ flexShrink: 0, fontFamily: MONO, fontSize: 11, letterSpacing: '.18em',
+                          textTransform: 'uppercase', padding: '8px 14px', borderRadius: 999,
+                          background: memorial.alive !== false ? 'rgba(94,122,62,.25)' : 'rgba(243,178,26,.15)',
+                          color: memorial.alive !== false ? '#88c069' : C.saffron,
+                          border: `1px solid ${memorial.alive !== false ? 'rgba(94,122,62,.35)' : 'rgba(243,178,26,.25)'}` }}>
+                          {memorial.alive !== false ? '● Living' : '◎ Passed'}
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        {/* Mark as Passed */}
+                        {memorial.alive !== false && (
+                          <button
+                            onClick={async () => {
+                              const dodYear = prompt(`Enter ${memorial.name?.split(' ')[0]}'s year of passing (e.g. 2024):`)
+                              if (!dodYear || !/^\d{4}$/.test(dodYear.trim())) return
+                              try {
+                                await db.transact([
+                                  db.tx.memorials[memorialId].update({
+                                    alive: false,
+                                    dodYear: dodYear.trim(),
+                                    died: dodYear.trim(),
+                                    deathYear: dodYear.trim(),
+                                  }),
+                                ])
+                              } catch { alert('Could not update. Please try again.') }
+                            }}
+                            style={{ padding: '10px 18px', borderRadius: 999, border: '1px solid rgba(200,83,31,.35)',
+                              background: 'rgba(200,83,31,.10)', color: '#e07b5a', cursor: 'pointer',
+                              fontFamily: MONO, fontSize: 10.5, letterSpacing: '.14em', textTransform: 'uppercase' }}
+                          >
+                            Mark as Passed ◎
+                          </button>
+                        )}
+
+                        {/* Mark as Living (reverse) */}
+                        {memorial.alive === false && (
+                          <button
+                            onClick={async () => {
+                              if (!confirm(`Mark ${memorial.name?.split(' ')[0]} as living?`)) return
+                              try {
+                                await db.transact([
+                                  db.tx.memorials[memorialId].update({
+                                    alive: true,
+                                    dodYear: null,
+                                    died: null,
+                                    deathYear: null,
+                                  }),
+                                ])
+                              } catch { alert('Could not update. Please try again.') }
+                            }}
+                            style={{ padding: '10px 18px', borderRadius: 999, border: '1px solid rgba(94,122,62,.35)',
+                              background: 'rgba(94,122,62,.12)', color: '#88c069', cursor: 'pointer',
+                              fontFamily: MONO, fontSize: 10.5, letterSpacing: '.14em', textTransform: 'uppercase' }}
+                          >
+                            Mark as Living ●
+                          </button>
+                        )}
+
+                        {/* Update year of passing */}
+                        {memorial.alive === false && (
+                          <button
+                            onClick={async () => {
+                              const dodYear = prompt(`Update year of passing (currently: ${memorial.dodYear || memorial.deathYear || '?'}):`)
+                              if (!dodYear || !/^\d{4}$/.test(dodYear.trim())) return
+                              try {
+                                await db.transact([
+                                  db.tx.memorials[memorialId].update({
+                                    dodYear: dodYear.trim(),
+                                    died: dodYear.trim(),
+                                    deathYear: dodYear.trim(),
+                                  }),
+                                ])
+                              } catch { alert('Could not update. Please try again.') }
+                            }}
+                            style={{ padding: '10px 18px', borderRadius: 999, border: '1px solid rgba(241,236,225,.12)',
+                              background: 'rgba(241,236,225,.06)', color: 'rgba(241,236,225,.6)', cursor: 'pointer',
+                              fontFamily: MONO, fontSize: 10.5, letterSpacing: '.14em', textTransform: 'uppercase' }}
+                          >
+                            Edit year of passing
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Private family messages */}
+                  <div style={{ background: C.paper, borderRadius: 26, padding: '22px 24px',
+                    border: '1px solid rgba(21,18,14,.08)', minHeight: 480,
+                    display: 'flex', flexDirection: 'column' }}>
+                    <FamilyMessagesSection
+                      memorialId={memorialId}
+                      user={user}
+                      userProfile={userProfile}
+                    />
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -1366,12 +1711,13 @@ function MemorialDetailPageInner() {
               Back
             </button>
 
-            {/* Full-height reel player */}
-            <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <Suspense fallback={<div style={{ width:40, height:40, borderRadius:'50%', border:'2px solid rgba(255,215,0,.3)', borderTopColor:'#FFD700', animation:'spin 0.8s linear infinite' }} />}>
+            {/* Full-viewport reel player — fill=true makes it cover the entire overlay */}
+            <div style={{ position:'relative', width:'100%', height:'100%' }}>
+              <Suspense fallback={<div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', width:40, height:40, borderRadius:'50%', border:'2px solid rgba(255,215,0,.3)', borderTopColor:'#FFD700', animation:'spin 0.8s linear infinite' }} />}>
                 <LifeReel
                   photos={photos}
                   memorial={memorial}
+                  fill
                   onEnd={() => setShowReelFull(false)}
                 />
               </Suspense>
@@ -1380,7 +1726,7 @@ function MemorialDetailPageInner() {
         )}
       </AnimatePresence>
 
-      {/* ── TalkScreen — cinematic AI conversation overlay ─────────────────
+      {/* ── TalkScreen — living voice memory overlay ──────────────────────────
            position:fixed; inset:8px — tiny gap around every edge
            X button and "End session" both call onClose → setShowTalkScreen(false) */}
       <AnimatePresence>

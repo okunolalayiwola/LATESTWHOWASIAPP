@@ -17,7 +17,7 @@ export default function BottomNav() {
   )
   const profile = data?.profiles?.[0]
 
-  const HIDE = ['/', '/auth', '/onboarding']
+  const HIDE = ['/', '/auth', '/onboarding', '/reels']
   if (HIDE.includes(location.pathname)) return null
 
   const active = (to) => location.pathname === to || location.pathname.startsWith(to + '/')
@@ -74,12 +74,12 @@ export default function BottomNav() {
           <span className="text-[0.55rem] font-semibold text-white/30 mt-1">Create</span>
         </div>
 
-        {/* Family */}
-        <Link to="/family-tree" className="flex flex-col items-center flex-1 py-2">
-          <svg className={`w-5 h-5 ${iconCls('/family-tree')}`} fill="none" viewBox="0 0 24 24" strokeWidth={active('/family-tree') ? 2 : 1.6}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/>
+        {/* Reels */}
+        <Link to="/reels" className="flex flex-col items-center flex-1 py-2">
+          <svg className={`w-5 h-5 ${iconCls('/reels')}`} fill="none" viewBox="0 0 24 24" strokeWidth={active('/reels') ? 2 : 1.6}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125h-1.5m2.625-13.125c0-.621-.504-1.125-1.125-1.125H4.5A1.125 1.125 0 003.375 5.625m18.75 0v1.5c0 .621-.504 1.125-1.125 1.125M3.375 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h1.5m-1.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m1.5-3.75C5.496 8.25 6 7.746 6 7.125v-1.5M4.875 8.25C5.496 8.25 6 8.754 6 9.375v1.5m0-5.25v5.25m0-5.25C6 5.004 6.504 4.5 7.125 4.5h9.75c.621 0 1.125.504 1.125 1.125m1.125 2.625h1.5m-1.5 0A1.125 1.125 0 0118 7.125v-1.5m1.125 2.625c-.621 0-1.125.504-1.125 1.125v1.5m2.625-2.625c0-.621-.504-1.125-1.125-1.125H18m1.125 2.625v-1.5c0-.621.504-1.125 1.125-1.125M12 10.875v-1.5m0 1.5c0 .621-.504 1.125-1.125 1.125M12 10.875c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125M13.125 12h1.5m0 0c.621 0 1.125.504 1.125 1.125M13.125 12c-.621 0-1.125.504-1.125 1.125v1.5m2.625-2.625c0-.621.504-1.125 1.125-1.125h1.5m-7.5 0v1.5m0 0c0 .621-.504 1.125-1.125 1.125m1.125-1.125c.621 0 1.125.504 1.125 1.125m0 1.5v-1.5m0 0c0-.621.504-1.125 1.125-1.125" />
           </svg>
-          <span className={labelCls('/family-tree')}>Family</span>
+          <span className={labelCls('/reels')}>Reels</span>
         </Link>
 
         {/* Profile — shows the user's ACTUAL profile photo */}

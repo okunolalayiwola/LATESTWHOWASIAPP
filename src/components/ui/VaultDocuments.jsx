@@ -41,7 +41,7 @@ function extBadge(ext) {
 
 // ─── Single document card (hooks at top — safe in a map via component) ─────────
 
-function DocCard({ doc, onDelete }) {
+function DocCard({ doc, onDelete }) {  // onDelete=null means view-only (family member)
   const [confirm, setConfirm] = useState(false)
   const [open,    setOpen]    = useState(false)
   const cat     = catOf(doc.category)
@@ -81,11 +81,13 @@ function DocCard({ doc, onDelete }) {
               {extBadge(doc.ext)} · {fmtSize(doc.fileSize)} · {new Date(doc.createdAt).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
             </p>
           </div>
-          <button
-            onClick={() => { if (confirm) onDelete(doc.id); else { setConfirm(true); setTimeout(()=>setConfirm(false),3000) } }}
-            className={`text-xs flex-shrink-0 transition-colors ${confirm ? 'text-rose' : 'text-white/15 hover:text-white/40'}`}>
-            {confirm ? 'Delete?' : '✕'}
-          </button>
+          {onDelete && (
+            <button
+              onClick={() => { if (confirm) onDelete(doc.id); else { setConfirm(true); setTimeout(()=>setConfirm(false),3000) } }}
+              className={`text-xs flex-shrink-0 transition-colors ${confirm ? 'text-rose' : 'text-white/15 hover:text-white/40'}`}>
+              {confirm ? 'Delete?' : '✕'}
+            </button>
+          )}
         </div>
 
         {doc.note && <p className="text-xs text-white/45 leading-relaxed mt-2">{doc.note}</p>}
@@ -253,12 +255,15 @@ function UploadForm({ memorialId, onDone, onCancel }) {
 }
 
 // ─── Documents view (drop into VaultContent) ──────────────────────────────────
+// isOwner=true → full upload + delete access
+// isOwner=false → view and download only (family members, external access)
 
-export default function VaultDocuments({ memorialId, documents = [], onBack }) {
+export default function VaultDocuments({ memorialId, documents = [], onBack, isOwner = true }) {
   const [adding, setAdding] = useState(false)
   const sorted = [...documents].sort((a,b) => (b.createdAt||0)-(a.createdAt||0))
 
   async function deleteDoc(docId) {
+    if (!isOwner) return
     await db.transact([db.tx.documents[docId].delete()])
   }
 
@@ -268,39 +273,51 @@ export default function VaultDocuments({ memorialId, documents = [], onBack }) {
         <button onClick={onBack} className="w-8 h-8 rubber-btn rounded-full flex items-center justify-center text-white/50 text-sm flex-shrink-0">←</button>
         <div className="flex-1">
           <p className="text-sm font-semibold text-white">Official Documents</p>
-          <p className="text-[0.6rem] text-white/35">{sorted.length} secured</p>
+          <p className="text-[0.6rem] text-white/35">{sorted.length} secured{!isOwner && ' · view & download only'}</p>
         </div>
-        {!adding && (
+        {isOwner && !adding && (
           <button onClick={() => setAdding(true)} className="metal-btn text-black text-xs font-bold px-4 py-2 rounded-full">+ Add</button>
         )}
       </div>
 
       <div className="px-5 pt-5 space-y-4">
         <AnimatePresence>
-          {adding && (
+          {isOwner && adding && (
             <UploadForm memorialId={memorialId}
               onDone={() => setAdding(false)} onCancel={() => setAdding(false)} />
           )}
         </AnimatePresence>
 
-        {sorted.length === 0 && !adding ? (
+        {sorted.length === 0 ? (
           <div className="text-center py-16">
             <div className="text-5xl opacity-15 mb-4">📂</div>
-            <p className="text-white/35 text-sm mb-2">No documents yet.</p>
-            <p className="text-white/25 text-xs mb-6 max-w-xs mx-auto leading-relaxed">
-              Store wills, deeds, insurance policies, medical directives — anything
-              your family will need. PDF, Word, and images all supported.
-            </p>
-            <button onClick={() => setAdding(true)} className="metal-btn text-black text-sm font-bold px-6 py-3 rounded-full">
-              Add the first document
-            </button>
+            {isOwner ? (
+              <>
+                <p className="text-white/35 text-sm mb-2">No documents yet.</p>
+                <p className="text-white/25 text-xs mb-6 max-w-xs mx-auto leading-relaxed">
+                  Store wills, deeds, insurance policies, medical directives — anything
+                  your family will need. PDF, Word, and images all supported.
+                </p>
+                <button onClick={() => setAdding(true)} className="metal-btn text-black text-sm font-bold px-6 py-3 rounded-full">
+                  Add the first document
+                </button>
+              </>
+            ) : (
+              <p className="text-white/35 text-sm">No documents have been shared yet.</p>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <AnimatePresence mode="popLayout">
-              {sorted.map(d => <DocCard key={d.id} doc={d} onDelete={deleteDoc} />)}
+              {sorted.map(d => <DocCard key={d.id} doc={d} onDelete={isOwner ? deleteDoc : null} />)}
             </AnimatePresence>
           </div>
+        )}
+
+        {!isOwner && sorted.length > 0 && (
+          <p className="text-center text-xs text-white/30 py-2">
+            You can view and download these documents. Only the account owner can add or remove files.
+          </p>
         )}
       </div>
     </div>

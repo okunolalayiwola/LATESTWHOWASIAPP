@@ -5,7 +5,7 @@
 // Auth:   Face ID / Touch ID (WebAuthn) + 6-digit PIN fallback
 // Inside: Will & Estate builder + Legacy Letters & Documents
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { id } from '@instantdb/react'
@@ -457,12 +457,269 @@ function LetterComposer({ memorialId, onClose }) {
   )
 }
 
+// ─── Vault share PIN modal ────────────────────────────────────────────────────
+// Three-step flow:
+//   Step 1 — re-enter vault PIN to confirm identity
+//   Step 2 — select which family members to share with
+//   Step 3 — success confirmation
+
+function VaultShareModal({ memorialId, memorialName, userId, familyConnections, onClose }) {
+  const [step,     setStep]     = useState('pin')     // 'pin' | 'pick' | 'done'
+  const [pin,      setPin]      = useState('')
+  const [pinError, setPinError] = useState('')
+  const [verifying, setVerifying] = useState(false)
+  const [selected, setSelected] = useState(new Set()) // Set of connection IDs
+  const [sending,  setSending]  = useState(false)
+  const [sentCount, setSentCount] = useState(0)
+  const [sendError, setSendError] = useState('')
+
+  async function handleVerifyPin() {
+    if (pin.length !== 6) { setPinError('Please enter all 6 digits.'); return }
+    setVerifying(true); setPinError('')
+    try {
+      const ok = await verifyPIN(memorialId, userId, pin)
+      if (!ok) { setPinError('Incorrect PIN. Please try again.'); setPin('') }
+      else { setStep('pick') }
+    } catch { setPinError('Could not verify PIN. Please try again.') }
+    finally { setVerifying(false) }
+  }
+
+  function toggleRecipient(connId) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(connId)) next.delete(connId)
+      else next.add(connId)
+      return next
+    })
+  }
+
+  async function handleSend() {
+    if (selected.size === 0) { setSendError('Please select at least one family member.'); return }
+    setSending(true); setSendError('')
+    const recipients = familyConnections
+      .filter(c => selected.has(c.id))
+      .map(c => ({ name: c.fromName, email: c.fromEmail }))
+      .filter(r => r.email)
+
+    if (recipients.length === 0) {
+      setSendError('No valid email addresses for the selected members.'); setSending(false); return
+    }
+
+    try {
+      const resp = await fetch('/api/vault-share-pin', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          senderName:   '',        // could pass from profile if available
+          memorialName: memorialName || '',
+          pin,
+          recipients,
+        }),
+      })
+      const json = await resp.json()
+      setSentCount(json.sent || recipients.length)
+      setStep('done')
+    } catch {
+      setSendError('Could not send. Please check your connection and try again.')
+    } finally { setSending(false) }
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      onClick={onClose}
+      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4"
+      style={{ background: 'rgba(8,8,15,0.82)', backdropFilter: 'blur(10px)' }}
+    >
+      <motion.div
+        initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }}
+        transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+        onClick={e => e.stopPropagation()}
+        className="w-full sm:max-w-md metal-card rounded-t-3xl sm:rounded-3xl overflow-hidden"
+        style={{ maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
+      >
+        {/* Header */}
+        <div className="px-6 pt-6 pb-4 flex items-center justify-between flex-shrink-0 border-b border-white/08">
+          <div>
+            <p className="text-[0.55rem] font-bold tracking-[0.22em] uppercase text-gold/60">◆ Legacy Vault</p>
+            <h2 className="font-display text-xl font-bold text-white mt-1">Share Vault Code</h2>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-full rubber-btn flex items-center justify-center text-white/40">✕</button>
+        </div>
+
+        <div className="px-6 py-6 overflow-y-auto flex-1">
+          <AnimatePresence mode="wait">
+
+            {/* ── Step 1: Confirm PIN ──────────────────────────────────── */}
+            {step === 'pin' && (
+              <motion.div key="pin" initial={{ opacity:0,x:20 }} animate={{ opacity:1,x:0 }} exit={{ opacity:0,x:-20 }}
+                className="space-y-5">
+                <div className="glass border border-gold/15 rounded-2xl p-4">
+                  <p className="text-xs text-white/60 leading-relaxed">
+                    Re-enter your vault PIN to confirm it's really you. The PIN will be sent — encrypted in transit — to the family members you choose.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-[0.6rem] font-bold tracking-[0.2em] uppercase text-white/40 mb-3">
+                    Your vault PIN
+                  </label>
+                  {/* Simple 6-digit input */}
+                  <div className="flex gap-2 justify-center">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="w-11 h-14 rounded-xl border flex items-center justify-center text-xl font-bold text-white"
+                        style={{ background: 'rgba(255,255,255,.05)', borderColor: pin[i] ? 'rgba(243,178,26,.6)' : 'rgba(255,255,255,.12)' }}>
+                        {pin[i] ? '●' : ''}
+                      </div>
+                    ))}
+                  </div>
+                  {/* Hidden number input */}
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    value={pin}
+                    onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 6); setPin(v); setPinError('') }}
+                    onKeyDown={e => e.key === 'Enter' && handleVerifyPin()}
+                    autoFocus
+                    className="sr-only"
+                    style={{ position: 'absolute', opacity: 0, height: 1, width: 1 }}
+                    id="vault-share-pin-input"
+                  />
+                  {/* Tap to focus */}
+                  <label htmlFor="vault-share-pin-input"
+                    className="block text-center text-[0.6rem] text-white/30 tracking-wider mt-3 cursor-pointer">
+                    Tap here then type your PIN
+                  </label>
+                </div>
+
+                {pinError && <p className="text-xs text-rose-400 text-center">{pinError}</p>}
+
+                <button
+                  onClick={handleVerifyPin}
+                  disabled={pin.length !== 6 || verifying}
+                  className="w-full py-4 rounded-2xl text-sm font-bold metal-btn text-black disabled:opacity-40">
+                  {verifying ? 'Verifying…' : 'Confirm PIN →'}
+                </button>
+              </motion.div>
+            )}
+
+            {/* ── Step 2: Pick recipients ──────────────────────────────── */}
+            {step === 'pick' && (
+              <motion.div key="pick" initial={{ opacity:0,x:20 }} animate={{ opacity:1,x:0 }} exit={{ opacity:0,x:-20 }}
+                className="space-y-4">
+                <p className="text-sm text-white/55 leading-relaxed">
+                  Choose which family members to send the vault PIN to. Only approved members with a recorded email are shown.
+                </p>
+
+                {familyConnections.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-4xl mb-3 opacity-20">👨‍👩‍👧</p>
+                    <p className="text-sm text-white/40">No approved family members yet.</p>
+                    <p className="text-xs text-white/25 mt-1">Share your invite code to add family members first.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {familyConnections.map(conn => {
+                      const hasEmail = !!conn.fromEmail
+                      const isChecked = selected.has(conn.id)
+                      return (
+                        <button key={conn.id}
+                          onClick={() => hasEmail && toggleRecipient(conn.id)}
+                          disabled={!hasEmail}
+                          className="w-full flex items-center gap-3 p-4 rounded-2xl border transition-all text-left"
+                          style={{
+                            background: isChecked ? 'rgba(243,178,26,.08)' : 'rgba(255,255,255,.03)',
+                            borderColor: isChecked ? 'rgba(243,178,26,.35)' : 'rgba(255,255,255,.08)',
+                            opacity: hasEmail ? 1 : 0.4,
+                          }}>
+                          {/* Avatar */}
+                          <div className="w-10 h-10 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center text-sm font-bold"
+                            style={{ background: 'rgba(243,178,26,.15)', color: 'rgba(243,178,26,.8)', border: '1px solid rgba(243,178,26,.2)' }}>
+                            {conn.fromPhoto
+                              ? <img src={conn.fromPhoto} alt="" className="w-full h-full object-cover" />
+                              : (conn.fromName?.[0] || '?').toUpperCase()}
+                          </div>
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-white truncate">{conn.fromName || 'Family member'}</p>
+                            <p className="text-[0.6rem] text-white/35 truncate">
+                              {conn.relation} · {hasEmail ? conn.fromEmail : 'No email recorded'}
+                            </p>
+                          </div>
+                          {/* Checkbox */}
+                          <div className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs"
+                            style={{
+                              background: isChecked ? '#f3b21a' : 'rgba(255,255,255,.06)',
+                              border: `1px solid ${isChecked ? '#f3b21a' : 'rgba(255,255,255,.12)'}`,
+                              color: isChecked ? '#15120e' : 'transparent',
+                            }}>
+                            {isChecked ? '✓' : ''}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {sendError && <p className="text-xs text-rose-400 text-center">{sendError}</p>}
+
+                <button
+                  onClick={handleSend}
+                  disabled={selected.size === 0 || sending || familyConnections.length === 0}
+                  className="w-full py-4 rounded-2xl text-sm font-bold metal-btn text-black disabled:opacity-40">
+                  {sending ? 'Sending…' : `Send to ${selected.size} ${selected.size === 1 ? 'person' : 'people'} →`}
+                </button>
+                <button onClick={() => { setStep('pin'); setPin(''); setSelected(new Set()) }}
+                  className="w-full py-3 text-xs text-white/30 hover:text-white/50 transition-colors">
+                  ← Change PIN
+                </button>
+              </motion.div>
+            )}
+
+            {/* ── Step 3: Done ─────────────────────────────────────────── */}
+            {step === 'done' && (
+              <motion.div key="done" initial={{ opacity:0, scale:.96 }} animate={{ opacity:1, scale:1 }}
+                className="text-center space-y-5 py-4">
+                <div className="text-5xl">✦</div>
+                <h3 className="font-display text-2xl font-bold text-white">Vault code sent</h3>
+                <p className="text-sm text-white/55 leading-relaxed">
+                  The vault PIN was emailed securely to <strong className="text-white">{sentCount}</strong> family {sentCount === 1 ? 'member' : 'members'}.
+                  They can use it to access the vault on this memorial.
+                </p>
+                <div className="glass border border-white/08 rounded-2xl p-4">
+                  <p className="text-xs text-white/35 leading-relaxed">
+                    ⚠ Remind them to keep the code private and not share it further unless authorised. You can change your PIN at any time from the vault lock screen.
+                  </p>
+                </div>
+                <button onClick={onClose}
+                  className="w-full py-4 rounded-2xl text-sm font-bold metal-btn text-black">
+                  Done ✓
+                </button>
+              </motion.div>
+            )}
+
+          </AnimatePresence>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
 // ─── Vault content (open state) ────────────────────────────────────────────────
 
 function VaultContent({ memorial, memorialId, userId, onLock, letters, wills, documents }) {
   const [view, setView]         = useState('home')   // 'home' | 'will' | 'letters' | 'docs' | 'newLetter' | 'willBuilder'
   const [selectedWill, setSelectedWill] = useState(null)
   const [saving, setSaving]     = useState(false)
+  const [showShare, setShowShare] = useState(false)
+
+  // Approved family connections for this memorial — used in the share-PIN flow
+  const { data: connData } = db.useQuery({
+    familyConnections: { $: { where: { toMemorialId: memorialId, status: 'approved' } } },
+  })
+  const familyConnections = connData?.familyConnections || []
 
   async function saveWill(willData) {
     setSaving(true)
@@ -509,10 +766,17 @@ function VaultContent({ memorial, memorialId, userId, onLock, letters, wills, do
               <p className="font-display text-base font-bold text-white">{memorial?.name}</p>
             </div>
           </div>
-          <button onClick={onLock}
-            className="rubber-btn text-[0.65rem] font-bold tracking-wide uppercase text-white/50 px-4 py-2 rounded-full flex items-center gap-1.5">
-            🔒 Lock
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowShare(true)}
+              className="rubber-btn text-[0.65rem] font-bold tracking-wide uppercase text-gold/70 px-4 py-2 rounded-full flex items-center gap-1.5"
+              title="Share vault code with family">
+              📤 Share code
+            </button>
+            <button onClick={onLock}
+              className="rubber-btn text-[0.65rem] font-bold tracking-wide uppercase text-white/50 px-4 py-2 rounded-full flex items-center gap-1.5">
+              🔒 Lock
+            </button>
+          </div>
         </div>
 
         <div className="px-5 pt-6 space-y-4">
@@ -588,7 +852,35 @@ function VaultContent({ memorial, memorialId, userId, onLock, letters, wills, do
               <span>📎 {documents?.length || 0} document{documents?.length !== 1 ? 's' : ''}</span>
             </div>
           </motion.button>
+
+          {/* Share vault code hint */}
+          <motion.div initial={{ opacity:0,y:10 }} animate={{ opacity:1,y:0 }} transition={{ delay:0.4 }}
+            className="metal-card rounded-2xl px-5 py-4 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold text-white/70">Share vault access</p>
+              <p className="text-[0.65rem] text-white/35 leading-relaxed mt-0.5">
+                Send the vault PIN securely to selected family members via email.
+              </p>
+            </div>
+            <button onClick={() => setShowShare(true)}
+              className="flex-shrink-0 metal-btn text-black text-xs font-bold px-4 py-2 rounded-full">
+              Share →
+            </button>
+          </motion.div>
         </div>
+
+        {/* Share vault PIN modal */}
+        <AnimatePresence>
+          {showShare && (
+            <VaultShareModal
+              memorialId={memorialId}
+              memorialName={memorial?.name}
+              userId={userId}
+              familyConnections={familyConnections}
+              onClose={() => setShowShare(false)}
+            />
+          )}
+        </AnimatePresence>
       </div>
     )
   }

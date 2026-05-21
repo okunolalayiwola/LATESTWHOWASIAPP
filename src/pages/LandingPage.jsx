@@ -13,19 +13,19 @@ const chapters = [
         <span className="t-line text-gradient-warm">forever.</span>
       </>
     ),
-    subtitle: 'Create a beautiful, AI-powered living memorial for the people who shaped your life. Their story lives on.',
+    subtitle: 'Create a beautiful, living memorial for the people who shaped your life. Their story lives on — in their own voice, photos, and words.',
     cta: 'Start a Memorial',
     ctaLink: '/create',
   },
   {
     step: '01',
     title: 'Hear their voice again.',
-    body: 'With AI voice cloning, their presence remains — speaking, laughing, telling their stories. A voice is the closest thing to being with them.',
+    body: 'Upload a voice recording and their presence remains — speaking, laughing, telling their stories. A voice is the closest thing to being with them.',
   },
   {
     step: '02',
     title: 'A community of remembrance.',
-    body: 'Light a candle, leave a flower, share a memory. The Explore section connects you with others celebrating lives well lived.',
+    body: 'Leave a tribute, share a memory. The Explore section connects you with others celebrating lives well lived.',
   },
   {
     step: '03',
@@ -204,14 +204,14 @@ export default function LandingPage() {
               },
               {
                 icon: '♡',
-                title: 'AI Voice & Avatar',
-                desc: 'Clone their voice from recordings. Hear them speak again — their stories, their laugh, their warmth.',
+                title: 'Voice & Living Memory',
+                desc: 'Upload their voice recordings. Hear them speak again — their stories, their laugh, their warmth. A real memory, preserved forever.',
                 color: 'from-sky to-lavender',
               },
               {
                 icon: '✧',
                 title: 'Share & Remember',
-                desc: 'Invite family and friends. Light candles, leave tributes, and build a living legacy together.',
+                desc: 'Invite family and friends. Leave tributes, share memories, and build a living legacy together.',
                 color: 'from-coral to-rose',
               },
             ].map((f, i) => (

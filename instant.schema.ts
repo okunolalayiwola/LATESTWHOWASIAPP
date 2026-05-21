@@ -1,6 +1,6 @@
-// src/instant.schema.ts — FINAL MASTER
-// Every entity from every build session included.
-// Replace your existing instant.schema.ts with this file.
+// instant.schema.ts — ROOT (CLI pushes this to InstantDB)
+// Keep this file in sync with src/instant.schema.ts
+// To push: npx instant-cli push schema  (from project root)
 
 import { i } from "@instantdb/react"
 
@@ -8,121 +8,109 @@ const _schema = i.schema({
   entities: {
 
     // ─── InstantDB system entities ───────────────────────────────────────────
-
-    $files: i.entity({
-      path: i.string().unique().indexed(),
-      url:  i.string(),
-    }),
-    $streams: i.entity({
-      abortReason: i.string().optional(),
-      clientId:    i.string().unique().indexed(),
-      done:        i.boolean().optional(),
-      size:        i.number().optional(),
-    }),
-    $users: i.entity({
-      email:    i.string().unique().indexed().optional(),
-      imageURL: i.string().optional(),
-      type:     i.string().optional(),
-    }),
+    $files:   i.entity({ path: i.string().unique().indexed(), url: i.string() }),
+    $streams: i.entity({ abortReason: i.string().optional(), clientId: i.string().unique().indexed(), done: i.boolean().optional(), size: i.number().optional() }),
+    $users:   i.entity({ email: i.string().unique().indexed().optional(), imageURL: i.string().optional(), type: i.string().optional() }),
 
     // ─── Memorials ──────────────────────────────────────────────────────────
-
     memorials: i.entity({
-      // Identity
-      name:          i.string(),
-      subtitle:      i.string().optional(),
-      relation:      i.string().optional(),
-
-      // Dates / life record
-      years:         i.string().optional(),
-      birthYear:     i.string().optional(),
-      deathYear:     i.string().optional(),
-      born:          i.string().optional(),
-      died:          i.string().optional(),
-      age:           i.string().optional(),
-      alive:         i.boolean().optional(),
-
-      // Location
-      location:      i.string().optional(),
-
-      // Content
-      bio:           i.string().optional(),
-      description:   i.string().optional(),
-      color:         i.string().optional(),
-
-      // Media
-      photo:         i.string().optional(),   // portrait / avatar
-      coverPhoto:    i.string().optional(),   // hero cover image
-
-      // Voice / AI
+      name:               i.string(),
+      subtitle:           i.string().optional(),
+      years:              i.string().optional(),
+      bio:                i.string().optional(),
+      description:        i.string().optional(),
+      color:              i.string().optional(),    // legacy Tailwind class
+      themeHex:           i.string().optional(),    // "#92400e" hex accent
+      tributeCount:       i.number().optional(),
+      candleCount:        i.number().optional(),
+      visibility:         i.string().optional(),    // 'public' | 'family' | 'private'
+      dob:                i.string().optional(),
+      dod:                i.string().optional(),
+      dodYear:            i.string().optional(),    // year of death (family-set)
+      createdAt:          i.number(),
+      createdBy:          i.string(),
+      creatorId:          i.string().optional(),
+      photo:              i.string().optional(),
+      coverPhoto:         i.string().optional(),
+      born:               i.string().optional(),
+      died:               i.string().optional(),
+      age:                i.string().optional(),
+      location:           i.string().optional(),
+      birthYear:          i.string().optional(),
+      deathYear:          i.string().optional(),
+      relation:           i.string().optional(),
+      alive:              i.boolean().optional(),
+      allowTributes:      i.boolean().optional(),
+      updatedAt:          i.number().optional(),
       voiceUrl:           i.string().optional(),
       voiceDuration:      i.number().optional(),
       elevenLabsVoiceId:  i.string().optional(),
-
-      // Privacy
-      visibility:    i.string().optional(),   // 'public' | 'family' | 'private'
-      allowTributes: i.boolean().optional(),
-
-      // Ownership
-      creatorId:     i.string().optional(),
-      createdBy:     i.string().optional(),
-
-      // Counts (denormalised for Explore performance)
-      tributeCount:  i.number().optional(),
-      candleCount:   i.number().optional(),
-
-      // View count
-      viewCount:     i.number().optional(),
-
-      // Timestamps
-      createdAt:     i.number().optional(),
-      updatedAt:     i.number().optional(),
+      viewCount:          i.number().optional(),
+      isSelf:             i.boolean().optional(),   // true = this memorial IS the creator
+      countryCode:        i.string().optional(),   // creator's country at creation time (flag display)
     }),
 
     // ─── Tributes ────────────────────────────────────────────────────────────
-
     tributes: i.entity({
-      text:        i.string().optional(),
-      content:     i.string().optional(),
-      type:        i.string().optional(),      // 'tribute' | 'candle' | 'memory'
-      author:      i.string().optional(),
-      authorName:  i.string().optional(),
-      authorId:    i.string().optional(),
-      authorPhoto: i.string().optional(),
-      likes:       i.number().optional(),
-      reactions:   i.json().optional(),
-      createdAt:   i.number().optional(),
+      author:       i.string(),
+      type:         i.string(),
+      content:      i.string(),
+      color:        i.string().optional(),
+      createdAt:    i.number(),
+      text:         i.string().optional(),
+      authorName:   i.string().optional(),
+      authorId:     i.string().optional(),
+      authorPhoto:  i.string().optional(),
+      likes:        i.number().optional(),
+      reactions:    i.json().optional(),
+      photoUrl:     i.string().optional(),     // image attached to tribute
+      photoCaption: i.string().optional(),
     }),
 
-    // ─── Photos ──────────────────────────────────────────────────────────────
-
-    photos: i.entity({
-      url:         i.string(),
-      caption:     i.string().optional(),
-
-      // Social media import metadata
-      takenAt:     i.number().optional(),    // original Unix timestamp from Facebook/Instagram
-      displayDate: i.string().optional(),   // human-readable: "15 June 2019"
-      source:      i.string().optional(),   // 'facebook' | 'instagram' | null
-
-      createdAt:   i.number().optional(),
+    // ─── Tribute Comments (family-only threads under tributes) ───────────────
+    tributeComments: i.entity({
+      tributeId:   i.string().indexed(),
+      memorialId:  i.string().indexed(),
+      authorId:    i.string(),
+      authorName:  i.string(),
+      authorPhoto: i.string().optional(),
+      content:     i.string(),
+      createdAt:   i.number(),
     }),
 
     // ─── Profiles ────────────────────────────────────────────────────────────
-
     profiles: i.entity({
-      userId:      i.string(),
-      displayName: i.string().optional(),
-      photoUrl:    i.string().optional(),
-      onboarded:   i.boolean().optional(),
-      plan:        i.string().optional(),    // 'free' | 'family' | 'legacy'
-      subscribedAt: i.number().optional(),
-      stripeCustomerId: i.string().optional(),
-      createdAt:   i.number().optional(),
+      userId:              i.string(),
+      firstName:           i.string().optional(),    // given name — used for greetings & recognition
+      lastName:            i.string().optional(),    // family name
+      displayName:         i.string().optional(),    // firstName + lastName (full name)
+      country:             i.string().optional(),    // country name e.g. 'United Kingdom'
+      countryCode:         i.string().optional(),    // ISO 3166-1 alpha-2 e.g. 'GB'
+      photoUrl:            i.string().optional(),
+      onboarded:           i.boolean().optional(),
+      createdAt:           i.number().optional(),
+      plan:                i.string().optional(),    // 'free' | 'family' | 'legacy'
+      stripeCustomerId:    i.string().optional(),
+      subscribedAt:        i.number().optional(),
+      familyOwnerId:       i.string().optional(),
+      joinedFamilyAt:      i.number().optional(),
+      notifyAnniversaries: i.boolean().optional(),
+      notifyTributes:      i.boolean().optional(),
+      notifyFamily:        i.boolean().optional(),
+      intent:              i.string().optional(),    // 'self' | 'other'
     }),
 
-    // ─── Family members (orbital family tree) ────────────────────────────────
+    // ─── Photos ──────────────────────────────────────────────────────────────
+    photos: i.entity({
+      url:         i.string(),
+      caption:     i.string().optional(),
+      createdAt:   i.number().optional(),
+      takenAt:     i.number().optional(),      // original Unix timestamp (EXIF/social)
+      displayDate: i.string().optional(),      // "15 June 2019"
+      source:      i.string().optional(),      // 'facebook' | 'instagram' | null
+    }),
 
+    // ─── Family Members (orbital tree nodes) ─────────────────────────────────
     familyMembers: i.entity({
       name:       i.string(),
       avatar:     i.string().optional(),
@@ -132,41 +120,69 @@ const _schema = i.schema({
       alive:      i.boolean().optional(),
       relation:   i.string().optional(),
       generation: i.number().optional(),
-      ring:       i.number().optional(),     // 1 | 2 | 3 (orbital ring)
-      angle:      i.number().optional(),     // 0–360
+      ring:       i.number().optional(),       // 1 | 2 | 3 (orbital ring)
+      angle:      i.number().optional(),       // 0–360
       byMarriage: i.boolean().optional(),
       bio:        i.string().optional(),
       ownerId:    i.string().optional(),
+      memorialId: i.string().optional(),
       createdAt:  i.number().optional(),
       updatedAt:  i.number().optional(),
     }),
 
-    // ─── Invites (family tree sharing) ───────────────────────────────────────
-
+    // ─── Invites ─────────────────────────────────────────────────────────────
     invites: i.entity({
-      code:          i.string().indexed(),   // 8-char code, indexed for lookup
+      code:          i.string().indexed(),
       familyOwnerId: i.string().indexed(),
       createdAt:     i.number(),
-      expiresAt:     i.number(),             // 7 days from creation
+      expiresAt:     i.number(),
       used:          i.boolean().optional(),
+      usedBy:        i.string().optional(),
+      usedAt:        i.number().optional(),
+    }),
+
+    // ─── Family Connections (request → approve → appear in tree) ─────────────
+    familyConnections: i.entity({
+      fromUserId:   i.string().indexed(),    // person claiming the relationship
+      fromName:     i.string(),              // their display name
+      fromEmail:    i.string().optional(),   // their email (used for PIN sharing)
+      fromPhoto:    i.string().optional(),   // their profile photo
+      toMemorialId: i.string().indexed(),    // which memorial they're connecting to
+      toUserId:     i.string().indexed(),    // memorial owner's userId
+      relation:     i.string(),              // e.g. "Son", "Daughter"
+      status:       i.string().indexed(),    // 'pending' | 'approved' | 'rejected'
+      verifyToken:  i.string().unique().indexed(), // one-time email verification token
+      requestedAt:  i.number(),
+      approvedAt:   i.number().optional(),
+      approvalNote: i.string().optional(),
+    }),
+
+    // ─── Family Messages (private, approved-members only) ────────────────────
+    familyMessages: i.entity({
+      memorialId: i.string().indexed(),
+      fromUserId: i.string(),
+      fromName:   i.string(),
+      fromPhoto:  i.string().optional(),
+      content:    i.string(),
+      photoUrl:   i.string().optional(),
+      createdAt:  i.number(),
+      readBy:     i.json().optional(),       // string[] — userIds who have read it
     }),
 
     // ─── Legacy Letters (time-capsule messages) ───────────────────────────────
-
     letters: i.entity({
       title:         i.string(),
       recipientName: i.string().optional(),
       content:       i.string(),
       unlockType:    i.string(),             // 'date' | 'event' | 'immediate'
-      unlockDate:    i.number().optional(),  // Unix ms timestamp
+      unlockDate:    i.number().optional(),
       unlockEvent:   i.string().optional(),  // 'graduation' | 'wedding' | '18th' etc.
       isLocked:      i.boolean().optional(),
-      createdBy:     i.string().optional(),  // user.id
+      createdBy:     i.string().optional(),
       createdAt:     i.number(),
     }),
 
     // ─── Documents (wills, wishes, financial records) ─────────────────────────
-
     documents: i.entity({
       title:       i.string(),
       type:        i.string(),
@@ -183,45 +199,39 @@ const _schema = i.schema({
       createdAt:   i.number(),
     }),
 
+    // ─── Wills ────────────────────────────────────────────────────────────────
+    wills: i.entity({
+      testatorName:    i.string(),
+      dateOfBirth:     i.string().optional(),
+      address:         i.string().optional(),
+      properties:      i.json().optional(),    // [{type, address, value, beneficiary, pct}]
+      financialAssets: i.json().optional(),    // [{type, institution, accountRef, value, beneficiary, pct}]
+      possessions:     i.json().optional(),
+      digitalAssets:   i.json().optional(),
+      beneficiaries:   i.json().optional(),    // [{name, relation, contact}]
+      executorName:    i.string().optional(),
+      executorContact: i.string().optional(),
+      funeralWishes:   i.string().optional(),
+      medicalWishes:   i.string().optional(),
+      specialNote:     i.string().optional(),
+      status:          i.string().optional(),  // 'draft' | 'complete'
+      createdAt:       i.number(),
+      updatedAt:       i.number().optional(),
+    }),
+
   },
 
   // ─── Links ─────────────────────────────────────────────────────────────────
-
   links: {
 
-    $streams$files: {
-      forward:  { on: "$streams", has: "many", label: "$files" },
-      reverse:  { on: "$files",   has: "one",  label: "$stream", onDelete: "cascade" },
-    },
+    $streams$files:          { forward: { on:"$streams",  has:"many", label:"$files"   }, reverse: { on:"$files",    has:"one", label:"$stream",   onDelete:"cascade" } },
+    $usersLinkedPrimaryUser: { forward: { on:"$users",    has:"one",  label:"linkedPrimaryUser", onDelete:"cascade" }, reverse: { on:"$users", has:"many", label:"linkedGuestUsers" } },
 
-    $usersLinkedPrimaryUser: {
-      forward:  { on: "$users", has: "one",  label: "linkedPrimaryUser", onDelete: "cascade" },
-      reverse:  { on: "$users", has: "many", label: "linkedGuestUsers" },
-    },
-
-    // Memorial → Tributes
-    memorialTributes: {
-      forward:  { on: "memorials", has: "many", label: "tributes" },
-      reverse:  { on: "tributes",  has: "one",  label: "memorial" },
-    },
-
-    // Memorial → Photos
-    memorialPhotos: {
-      forward:  { on: "memorials", has: "many", label: "photos" },
-      reverse:  { on: "photos",    has: "one",  label: "memorial" },
-    },
-
-    // Memorial → Letters (Legacy Letters)
-    memorialLetters: {
-      forward:  { on: "memorials", has: "many", label: "letters" },
-      reverse:  { on: "letters",   has: "one",  label: "memorial" },
-    },
-
-    // Memorial → Documents
-    memorialDocuments: {
-      forward:  { on: "memorials", has: "many", label: "documents" },
-      reverse:  { on: "documents", has: "one",  label: "memorial" },
-    },
+    memorialTributes:  { forward: { on:"memorials", has:"many", label:"tributes"  }, reverse: { on:"tributes",  has:"one", label:"memorial" } },
+    memorialPhotos:    { forward: { on:"memorials", has:"many", label:"photos"    }, reverse: { on:"photos",    has:"one", label:"memorial" } },
+    memorialLetters:   { forward: { on:"memorials", has:"many", label:"letters"   }, reverse: { on:"letters",   has:"one", label:"memorial" } },
+    memorialDocuments: { forward: { on:"memorials", has:"many", label:"documents" }, reverse: { on:"documents", has:"one", label:"memorial" } },
+    memorialWills:     { forward: { on:"memorials", has:"many", label:"wills"     }, reverse: { on:"wills",     has:"one", label:"memorial" } },
 
   },
 
@@ -231,6 +241,5 @@ const _schema = i.schema({
 type _AppSchema = typeof _schema
 interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema
-
 export type { AppSchema }
 export default schema

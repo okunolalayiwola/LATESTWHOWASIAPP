@@ -8,12 +8,13 @@
 // Letters split into a separate resilient query so a failure only zeroes the stat.
 // Settings merged into Profile with notification toggles and real delete account.
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { id } from '@instantdb/react'
 import { db } from '../lib/instant'
 import { uploadImage } from '../lib/storage'
+import { COUNTRIES, countryFlag, findCountry } from '../lib/countries'
 import { SkeletonProfile, SkeletonStats, SkeletonListItem } from '../components/ui/Skeleton'
 import ToggleRow from '../components/ui/ToggleRow'
 
@@ -96,13 +97,98 @@ function SettingsRow({ icon, label, value, onClick, badge, danger }) {
 
 // ─── Edit modal ───────────────────────────────────────────────────────────────
 
-function EditNameModal({ current, onSave, onClose }) {
-  const [val, setVal] = useState(current || '')
-  const [saving, setSaving] = useState(false)
+function EditCountryModal({ current, onSave, onClose }) {
+  const [search,  setSearch]  = useState('')
+  const [saving,  setSaving]  = useState(false)
+  const [selected, setSelected] = useState(current || '')
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return COUNTRIES
+    return COUNTRIES.filter(c => c.name.toLowerCase().includes(q))
+  }, [search])
 
   async function save() {
-    if (!val.trim()) return
-    setSaving(true); await onSave(val.trim()); setSaving(false); onClose()
+    if (!selected) return
+    const country = findCountry(selected)
+    if (!country) return
+    setSaving(true)
+    await onSave(country.code, country.name)
+    setSaving(false)
+    onClose()
+  }
+
+  return (
+    <>
+      <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+        onClick={onClose} className="fixed inset-0 bg-black/70 z-40 backdrop-blur-sm" />
+      <motion.div initial={{ y:'100%' }} animate={{ y:0 }} exit={{ y:'100%' }}
+        transition={{ type:'spring', damping:30, stiffness:300 }}
+        className="fixed bottom-0 left-0 right-0 z-50 bg-[#0d0d10] border-t border-white/10 rounded-t-3xl px-5 pt-4 pb-10"
+        style={{ maxHeight: '80vh', display:'flex', flexDirection:'column' }}>
+        <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-5 flex-shrink-0" />
+        <h3 className="font-display text-xl font-bold text-white mb-1 flex-shrink-0">Your country</h3>
+        <p className="text-xs text-white/40 mb-4 leading-relaxed flex-shrink-0">
+          Shown as a flag on your memorials so visitors know where you're based.
+        </p>
+
+        {/* Search */}
+        <input
+          autoFocus
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search countries…"
+          className="w-full inset-field rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none mb-3 flex-shrink-0"
+        />
+
+        {/* Selected */}
+        {selected && (
+          <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 mb-3 flex-shrink-0">
+            <span className="text-xl">{countryFlag(selected)}</span>
+            <span className="text-sm font-semibold text-white flex-1">{findCountry(selected)?.name}</span>
+            <button onClick={() => setSelected('')} className="text-xs text-white/35 hover:text-white/60">✕</button>
+          </div>
+        )}
+
+        {/* List */}
+        <div className="flex-1 overflow-y-auto rounded-xl bg-white/[0.03] border border-white/[0.06] divide-y divide-white/[0.04]">
+          {filtered.map(c => (
+            <button
+              key={c.code}
+              onClick={() => setSelected(c.code)}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-white/5 ${selected === c.code ? 'bg-gold/10' : ''}`}
+            >
+              <span className="text-lg flex-shrink-0">{countryFlag(c.code)}</span>
+              <span className={`text-sm ${selected === c.code ? 'text-gold font-semibold' : 'text-white/70'}`}>{c.name}</span>
+              {selected === c.code && <span className="ml-auto text-gold text-xs">✓</span>}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-3 mt-4 flex-shrink-0">
+          <button onClick={onClose} className="flex-1 py-3 rounded-xl text-sm rubber-btn text-white/50">Cancel</button>
+          <button onClick={save} disabled={!selected || saving}
+            className="flex-[2] py-3 rounded-xl text-sm font-bold metal-btn text-black disabled:opacity-40">
+            {saving ? 'Saving…' : 'Save country'}
+          </button>
+        </div>
+      </motion.div>
+    </>
+  )
+}
+
+function EditNameModal({ profile, onSave, onClose }) {
+  const [firstName, setFirstName] = useState(profile?.firstName || profile?.displayName?.split(' ')[0] || '')
+  const [lastName,  setLastName]  = useState(profile?.lastName  || profile?.displayName?.split(' ').slice(1).join(' ') || '')
+  const [saving,    setSaving]    = useState(false)
+
+  async function save() {
+    if (!firstName.trim()) return
+    setSaving(true)
+    await onSave(firstName.trim(), lastName.trim())
+    setSaving(false)
+    onClose()
   }
 
   return (
@@ -113,19 +199,33 @@ function EditNameModal({ current, onSave, onClose }) {
         transition={{ type:'spring', damping:30, stiffness:300 }}
         className="fixed bottom-0 left-0 right-0 z-50 bg-[#0d0d10] border-t border-white/10 rounded-t-3xl px-5 pt-4 pb-10">
         <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-5" />
-        <h3 className="font-display text-xl font-bold text-white mb-5">Your display name</h3>
-        <p className="text-xs text-white/40 mb-4 leading-relaxed">
-          This is how you appear when you leave tributes on memorials.
-          It is not the name of the people you're honouring — that is set on each memorial.
+        <h3 className="font-display text-xl font-bold text-white mb-1">Your name</h3>
+        <p className="text-xs text-white/40 mb-5 leading-relaxed">
+          Your first name is used to greet you. Your full name appears when you leave tributes.
         </p>
-        <input autoFocus type="text" value={val}
-          onChange={e => setVal(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && save()}
-          placeholder="Your name"
-          className="w-full inset-field rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none mb-4" />
+        <div className="space-y-3 mb-4">
+          <div>
+            <label className="text-[0.6rem] font-semibold tracking-widest uppercase text-white/35 mb-1.5 block">First name</label>
+            <input autoFocus type="text" value={firstName}
+              onChange={e => setFirstName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && save()}
+              placeholder="e.g. Ada"
+              autoComplete="given-name"
+              className="w-full inset-field rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none" />
+          </div>
+          <div>
+            <label className="text-[0.6rem] font-semibold tracking-widest uppercase text-white/35 mb-1.5 block">Last name <span className="normal-case tracking-normal text-white/20">(optional)</span></label>
+            <input type="text" value={lastName}
+              onChange={e => setLastName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && save()}
+              placeholder="e.g. Lovelace"
+              autoComplete="family-name"
+              className="w-full inset-field rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none" />
+          </div>
+        </div>
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 py-3 rounded-xl text-sm rubber-btn text-white/50">Cancel</button>
-          <button onClick={save} disabled={!val.trim() || saving}
+          <button onClick={save} disabled={!firstName.trim() || saving}
             className="flex-[2] py-3 rounded-xl text-sm font-bold metal-btn text-black disabled:opacity-40">
             {saving ? 'Saving…' : 'Save name'}
           </button>
@@ -144,8 +244,9 @@ export default function ProfilePage() {
   const [uploading,     setUploading]     = useState(false)
   const [uploadPct,     setUploadPct]     = useState(0)
   const [uploadError,   setUploadError]   = useState('')
-  const [showEditName,  setShowEditName]  = useState(false)
-  const [confirmSignOut,setConfirmSignOut]= useState(false)
+  const [showEditName,    setShowEditName]    = useState(false)
+  const [showEditCountry, setShowEditCountry] = useState(false)
+  const [confirmSignOut,  setConfirmSignOut]  = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting,      setDeleting]      = useState(false)
 
@@ -180,7 +281,12 @@ export default function ProfilePage() {
     ? new Date(profile.createdAt).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
     : null
 
-  const displayName = profile?.displayName || user?.email?.split('@')[0] || 'You'
+  // firstName is the greeting name; displayName is the full name for tributes
+  const firstName   = profile?.firstName || profile?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || 'You'
+  const displayName = profile?.displayName
+    || [profile?.firstName, profile?.lastName].filter(Boolean).join(' ')
+    || user?.email?.split('@')[0]
+    || 'You'
   const initials    = (displayName || '?').split(' ').filter(Boolean).map(w => w[0]).join('').slice(0,2).toUpperCase() || '?'
 
   // ── Notification toggle state ─────────────────────────────────────────────
@@ -231,10 +337,23 @@ export default function ProfilePage() {
     } finally { setUploading(false); setUploadPct(0) }
   }
 
-  // ── Save display name ──────────────────────────────────────────────────────
-  async function saveDisplayName(name) {
+  // ── Save country ───────────────────────────────────────────────────────────
+  async function saveCountry(code, name) {
     if (!profile) return
-    await db.transact([db.tx.profiles[profile.id].update({ displayName: name })])
+    await db.transact([db.tx.profiles[profile.id].update({ countryCode: code, country: name })])
+  }
+
+  // ── Save name (first, last, and combined displayName) ─────────────────────
+  async function saveName(first, last) {
+    if (!profile) return
+    const fullName = [first, last].filter(Boolean).join(' ')
+    await db.transact([
+      db.tx.profiles[profile.id].update({
+        firstName:   first,
+        lastName:    last || '',
+        displayName: fullName,
+      })
+    ])
   }
 
   // ── Sign out ───────────────────────────────────────────────────────────────
@@ -518,7 +637,13 @@ export default function ProfilePage() {
             Account
           </p>
           <div className="metal-card rounded-2xl overflow-hidden">
-            <SettingsRow icon="👤" label="Display name" value={displayName}       onClick={() => setShowEditName(true)} />
+            <SettingsRow icon="👤" label="Your name" value={displayName}          onClick={() => setShowEditName(true)} />
+            <SettingsRow
+              icon={profile?.countryCode ? countryFlag(profile.countryCode) : '🌍'}
+              label="Country"
+              value={profile?.country || 'Not set'}
+              onClick={() => setShowEditCountry(true)}
+            />
             <SettingsRow icon="📧" label="Email address" value={user?.email}      onClick={() => {}} />
             <SettingsRow icon="🔒" label="Privacy settings"                       onClick={() => navigate('/settings')} />
             <SettingsRow icon="🌍" label="Language"         value="English"       onClick={() => {}} />
@@ -610,9 +735,16 @@ export default function ProfilePage() {
       <AnimatePresence>
         {showEditName && (
           <EditNameModal
-            current={profile?.displayName}
-            onSave={saveDisplayName}
+            profile={profile}
+            onSave={saveName}
             onClose={() => setShowEditName(false)}
+          />
+        )}
+        {showEditCountry && (
+          <EditCountryModal
+            current={profile?.countryCode}
+            onSave={saveCountry}
+            onClose={() => setShowEditCountry(false)}
           />
         )}
       </AnimatePresence>
