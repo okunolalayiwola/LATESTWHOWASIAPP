@@ -1,8 +1,6 @@
 // src/pages/ExplorePage.jsx
-// Global memorial discovery page.
-// "All" tab = all public memorials worldwide (guests + logged-in).
-// Relation tabs (Parents, Siblings…) = logged-in user's OWN public memorials filtered by that relation.
-// Country flags rendered from memorial.countryCode.
+// Filter tabs: All (global) | My Memorials | Family | Friends
+// "All" = everyone's public memorials; the rest = logged-in user's own, filtered by relation group.
 
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
@@ -14,17 +12,21 @@ import exploreBg from '../assets/explore-bg.webp'
 import { SkeletonGrid } from '../components/ui/Skeleton'
 import EmptyState from '../components/ui/EmptyState'
 
-const SORT_OPTIONS = ['Recently Added', 'Most Tributes', 'Featured']
+// ─── Filter definitions ───────────────────────────────────────────────────────
 
-const REL_FILTERS = [
-  { id: 'all',          label: 'All',          emoji: '◎' },
-  { id: 'partner',      label: 'Partners',     emoji: '💍' },
-  { id: 'children',     label: 'Children',     emoji: '🌱' },
-  { id: 'siblings',     label: 'Siblings',     emoji: '🤝' },
-  { id: 'parents',      label: 'Parents',      emoji: '✿' },
-  { id: 'grandparents', label: 'Grandparents', emoji: '♡' },
-  { id: 'friends',      label: 'Friends',      emoji: '☽' },
-  { id: 'extended',     label: 'Extended',     emoji: '🌿' },
+const MAIN_FILTERS = [
+  { id: 'all',     label: 'All',          icon: '◉', desc: 'Global public memorials' },
+  { id: 'mine',    label: 'My Memorials', icon: '★', desc: 'Memorials you created' },
+  { id: 'family',  label: 'Family',       icon: '♡', desc: 'Your family memorials' },
+  { id: 'friends', label: 'Friends',      icon: '☺', desc: 'Your friend memorials' },
+]
+
+const FAMILY_CATS = new Set(['partner','children','siblings','parents','extended','grandparents'])
+
+const SORT_OPTIONS = [
+  { id: 'recent',   label: 'Recently Added' },
+  { id: 'tributes', label: 'Most Tributes'  },
+  { id: 'featured', label: 'Featured'       },
 ]
 
 // ─── Memorial card ────────────────────────────────────────────────────────────
@@ -32,74 +34,176 @@ const REL_FILTERS = [
 function MemorialCard({ memorial, index }) {
   const tributeCount = memorial.tributes?.length || memorial.tributeCount || 0
   const flag         = memorial.countryCode ? countryFlag(memorial.countryCode) : ''
-  const relCat       = memorial.relation ? getRelationFilterCategory(memorial.relation) : null
+  const isLiving     = memorial.alive !== false
+  const photo        = memorial.photo || memorial.coverPhoto
 
   return (
     <motion.div
-      initial={{ opacity:0, y:16 }}
-      animate={{ opacity:1, y:0 }}
-      transition={{ duration:0.4, delay: Math.min(index * 0.06, 0.3) }}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.35, delay: Math.min(index * 0.05, 0.25) }}
     >
-      <Link to={`/memorial/${memorial.id}`}
-        className="block metal-card rounded-2xl overflow-hidden hover:opacity-90 transition-opacity">
-
-        {/* Photo */}
-        <div className="relative h-44 bg-gradient-to-br from-gold/10 to-coral/10">
-          {memorial.photo || memorial.coverPhoto ? (
-            <img src={memorial.photo || memorial.coverPhoto} alt={memorial.name}
-              className="w-full h-full object-cover object-center" />
+      <Link to={`/memorial/${memorial.id}`} className="group block rounded-2xl overflow-hidden"
+        style={{
+          background: 'linear-gradient(160deg, rgba(22,22,36,0.98) 0%, rgba(14,14,24,0.98) 100%)',
+          border: '1px solid rgba(255,255,255,0.10)',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.05) inset',
+          transition: 'transform 0.2s, box-shadow 0.2s',
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.transform = 'translateY(-2px)'
+          e.currentTarget.style.boxShadow = '0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,215,0,0.15), 0 1px 0 rgba(255,255,255,0.08) inset'
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.transform = 'translateY(0)'
+          e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.05) inset'
+        }}
+      >
+        {/* Photo section */}
+        <div className="relative h-44 overflow-hidden"
+          style={{ background: 'linear-gradient(135deg, rgba(255,215,0,0.08) 0%, rgba(56,189,248,0.05) 100%)' }}>
+          {photo ? (
+            <img src={photo} alt={memorial.name}
+              className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500" />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
-              <span className="font-display text-5xl font-bold text-white/10">
+              <span className="font-display text-6xl font-bold"
+                style={{ color: 'rgba(255,215,0,0.12)' }}>
                 {memorial.name?.charAt(0)}
               </span>
             </div>
           )}
-          {/* Gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
 
-          {/* Country flag */}
-          {flag && (
-            <div className="absolute top-2.5 right-2.5 text-xl leading-none"
-              title={memorial.countryCode}>{flag}</div>
-          )}
+          {/* Strong gradient scrim */}
+          <div className="absolute inset-0"
+            style={{ background: 'linear-gradient(to top, rgba(14,14,24,1) 0%, rgba(14,14,24,0.4) 45%, rgba(0,0,0,0.1) 100%)' }} />
 
-          {/* Status dot */}
-          <div className="absolute top-2.5 left-2.5">
-            <div className={`w-2 h-2 rounded-full ${memorial.alive !== false ? 'bg-mint' : 'bg-gold'}`}
-              style={{ boxShadow: `0 0 6px ${memorial.alive !== false ? '#34D399' : '#FFD700'}` }} />
+          {/* Top badges */}
+          <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isLiving ? 'bg-emerald-400' : 'bg-amber-400'}`}
+                style={{ boxShadow: `0 0 6px ${isLiving ? 'rgba(52,211,153,0.8)' : 'rgba(255,215,0,0.8)'}` }} />
+              <span className="text-[0.6rem] font-semibold tracking-wide uppercase"
+                style={{ color: isLiving ? 'rgba(52,211,153,0.85)' : 'rgba(255,215,0,0.75)' }}>
+                {isLiving ? 'Living' : 'In memory'}
+              </span>
+            </div>
+            {flag && <span className="text-lg leading-none">{flag}</span>}
           </div>
+
+          {/* Voice badge */}
+          {memorial.elevenLabsVoiceId && (
+            <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-full px-2 py-0.5"
+              style={{ background: 'rgba(251,146,60,0.2)', border: '1px solid rgba(251,146,60,0.35)' }}>
+              <span className="text-orange-400 text-[0.55rem]">◉</span>
+              <span className="text-orange-400 text-[0.55rem] font-semibold">Voice</span>
+            </div>
+          )}
         </div>
 
-        {/* Info */}
+        {/* Info section */}
         <div className="p-4">
-          <h3 className="font-display text-lg font-bold text-white leading-tight mb-0.5 truncate">
+          <h3 className="font-display text-base font-bold text-white leading-tight truncate mb-0.5">
             {memorial.name}
           </h3>
+
           {(memorial.years || memorial.born || memorial.died) && (
-            <p className="text-xs text-white/35 mb-2">
-              {memorial.years || `${memorial.born || ''}${memorial.died ? ` — ${memorial.died}` : ''}`}
+            <p className="text-[0.65rem] font-medium mb-2"
+              style={{ color: 'rgba(255,215,0,0.55)' }}>
+              {memorial.years || `${memorial.born || ''}${memorial.died ? ` – ${memorial.died}` : ''}`}
             </p>
           )}
+
           {memorial.subtitle && (
-            <p className="text-xs text-white/50 leading-relaxed line-clamp-2 mb-3">
+            <p className="text-xs leading-relaxed line-clamp-2 mb-3"
+              style={{ color: 'rgba(255,255,255,0.45)' }}>
               {memorial.subtitle}
             </p>
           )}
 
-          {/* Stats row */}
-          <div className="flex items-center gap-3 text-[0.6rem]">
-            {tributeCount > 0 && (
-              <span className="text-white/35">♡ {tributeCount} tribute{tributeCount !== 1 ? 's' : ''}</span>
+          {/* Footer row */}
+          <div className="flex items-center justify-between pt-3"
+            style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+            {tributeCount > 0 ? (
+              <span className="text-[0.6rem] font-semibold flex items-center gap-1"
+                style={{ color: 'rgba(255,255,255,0.35)' }}>
+                <span style={{ color: 'rgba(255,100,100,0.7)' }}>♡</span>
+                {tributeCount} tribute{tributeCount !== 1 ? 's' : ''}
+              </span>
+            ) : (
+              <span className="text-[0.6rem]" style={{ color: 'rgba(255,255,255,0.2)' }}>
+                No tributes yet
+              </span>
             )}
-            {memorial.elevenLabsVoiceId && (
-              <span className="text-coral/60">◉ Voice</span>
-            )}
-            {relCat && (
-              <span className="text-white/25 capitalize">{relCat}</span>
-            )}
-            {memorial.location && !relCat && (
-              <span className="text-white/25 truncate">{memorial.location}</span>
+            <span className="text-[0.6rem] font-semibold tracking-wide uppercase px-2 py-0.5 rounded-full"
+              style={{
+                background: 'rgba(255,255,255,0.06)',
+                color: 'rgba(255,255,255,0.3)',
+              }}>
+              View →
+            </span>
+          </div>
+        </div>
+      </Link>
+    </motion.div>
+  )
+}
+
+// ─── Featured card ────────────────────────────────────────────────────────────
+
+function FeaturedCard({ memorial }) {
+  const flag  = memorial.countryCode ? countryFlag(memorial.countryCode) : ''
+  const photo = memorial.photo || memorial.coverPhoto
+  const trib  = memorial.tributes?.length || memorial.tributeCount || 0
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+      <Link to={`/memorial/${memorial.id}`} className="block rounded-3xl overflow-hidden"
+        style={{
+          boxShadow: '0 12px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,215,0,0.12)',
+        }}>
+        <div className="relative h-64 md:h-80">
+          {photo
+            ? <img src={photo} alt={memorial.name} className="w-full h-full object-cover object-center" />
+            : <div className="w-full h-full flex items-center justify-center"
+                style={{ background: 'linear-gradient(135deg, rgba(255,215,0,0.12) 0%, rgba(56,189,248,0.08) 100%)' }}>
+                <span className="font-display text-9xl font-bold"
+                  style={{ color: 'rgba(255,215,0,0.10)' }}>{memorial.name?.charAt(0)}</span>
+              </div>
+          }
+          {/* Strong cinematic overlay */}
+          <div className="absolute inset-0"
+            style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.35) 50%, rgba(0,0,0,0.1) 100%)' }} />
+
+          {/* Top right: flag */}
+          {flag && (
+            <div className="absolute top-4 right-4 text-2xl">{flag}</div>
+          )}
+
+          {/* Bottom content */}
+          <div className="absolute bottom-0 left-0 right-0 p-6">
+            {/* Featured badge */}
+            <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+                style={{ background: 'rgba(255,215,0,0.15)', border: '1px solid rgba(255,215,0,0.30)' }}>
+                <span className="text-amber-400 text-[0.6rem]">✦</span>
+                <span className="text-[0.6rem] font-bold tracking-[0.15em] uppercase text-amber-400">Featured</span>
+              </div>
+              {trib > 0 && (
+                <span className="text-[0.6rem] text-white/45">
+                  ♡ {trib} tribute{trib !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+
+            <h2 className="font-display text-2xl md:text-3xl font-bold text-white mb-1.5 leading-tight">
+              {memorial.name}
+            </h2>
+            {memorial.subtitle && (
+              <p className="text-sm leading-relaxed line-clamp-2" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                {memorial.subtitle}
+              </p>
             )}
           </div>
         </div>
@@ -112,47 +216,48 @@ function MemorialCard({ memorial, index }) {
 
 export default function ExplorePage() {
   const [search,       setSearch]       = useState('')
-  const [activeSort,   setActiveSort]   = useState('Recently Added')
+  const [activeSort,   setActiveSort]   = useState('recent')
   const [activeFilter, setActiveFilter] = useState('all')
 
   const { user } = db.useAuth()
 
   const { isLoading, error, data } = db.useQuery({
-    memorials: {
-      $: { limit: 100 },
-      tributes: {},
-    }
+    memorials: { $: { limit: 100 }, tributes: {} }
   })
 
-  // Public memorials only
   const memorials = useMemo(() =>
     (data?.memorials || []).filter(m => !m.visibility || m.visibility === 'public'),
     [data]
   )
 
-  // Featured pick (most active / has voice)
   const featured = useMemo(() =>
     memorials.find(m => (m.tributes?.length || m.tributeCount || 0) > 3 || m.elevenLabsVoiceId),
     [memorials]
   )
 
-  // Filtered + sorted list
-  // • activeFilter === 'all'  → all public memorials (global, anyone)
-  // • activeFilter !== 'all'  → logged-in user's own memorials in that relation category
   const filtered = useMemo(() => {
     let list = [...memorials]
 
-    if (activeFilter !== 'all') {
-      // Relation filter only makes sense for the logged-in user's own memorials
-      if (!user) return []   // guest — no relationships to show
+    // ── Filter by tab ─────────────────────────────────────────────────────
+    if (activeFilter === 'mine') {
+      if (!user) return []
+      list = list.filter(m => m.createdBy === user.id || m.creatorId === user.id)
+    } else if (activeFilter === 'family') {
+      if (!user) return []
       list = list.filter(m => {
         const isOwn = m.createdBy === user.id || m.creatorId === user.id
-        if (!isOwn) return false
-        const cat = getRelationFilterCategory(m.relation)
-        return cat === activeFilter
+        return isOwn && FAMILY_CATS.has(getRelationFilterCategory(m.relation))
+      })
+    } else if (activeFilter === 'friends') {
+      if (!user) return []
+      list = list.filter(m => {
+        const isOwn = m.createdBy === user.id || m.creatorId === user.id
+        return isOwn && getRelationFilterCategory(m.relation) === 'friends'
       })
     }
+    // 'all' → no additional filtering
 
+    // ── Search ────────────────────────────────────────────────────────────
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter(m =>
@@ -164,13 +269,14 @@ export default function ExplorePage() {
       )
     }
 
-    if (activeSort === 'Recently Added') {
+    // ── Sort ──────────────────────────────────────────────────────────────
+    if (activeSort === 'recent') {
       list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
-    } else if (activeSort === 'Most Tributes') {
+    } else if (activeSort === 'tributes') {
       list.sort((a, b) =>
         (b.tributes?.length || b.tributeCount || 0) - (a.tributes?.length || a.tributeCount || 0)
       )
-    } else if (activeSort === 'Featured') {
+    } else if (activeSort === 'featured') {
       list = list.filter(m => m.elevenLabsVoiceId || (m.tributes?.length || m.tributeCount || 0) > 2)
     }
 
@@ -180,9 +286,9 @@ export default function ExplorePage() {
   // ─── Loading ──────────────────────────────────────────────────────────────────
   if (isLoading) return (
     <div className="relative z-10 min-h-screen pt-20 pb-28">
-      <div className="max-w-7xl mx-auto px-5 md:px-8 space-y-6">
-        <div className="h-4 w-32 bg-white/5 rounded-full animate-pulse" />
-        <div className="h-10 w-72 bg-white/5 rounded-xl animate-pulse" />
+      <div className="max-w-7xl mx-auto px-5 md:px-8 space-y-6 pt-10">
+        <div className="h-12 w-full bg-white/5 rounded-2xl animate-pulse" />
+        <div className="h-11 w-full bg-white/5 rounded-2xl animate-pulse" />
         <SkeletonGrid count={8} />
       </div>
     </div>
@@ -198,18 +304,8 @@ export default function ExplorePage() {
     </div>
   )
 
-  if (!isLoading && memorials.length === 0) return (
-    <div className="relative z-10 min-h-screen pt-20 pb-28">
-      <div className="max-w-7xl mx-auto px-5 md:px-8">
-        <EmptyState
-          icon="◎"
-          title="No memorials yet"
-          description="Be the first to create a living memorial and preserve a story forever."
-          action={{ label: 'Create a memorial', to: '/create' }}
-        />
-      </div>
-    </div>
-  )
+  const showFeatured = activeFilter === 'all' && !search.trim() && featured
+  const needsLogin   = activeFilter !== 'all' && !user
 
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (
@@ -222,175 +318,235 @@ export default function ExplorePage() {
             backgroundImage: `url(${exploreBg})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            opacity: 0.35,
+            opacity: 0.25,
           }}
         />
+        {/* Dark overlay to deepen the page */}
+        <div className="absolute inset-0"
+          style={{ background: 'linear-gradient(180deg, rgba(8,8,15,0.55) 0%, rgba(8,8,15,0.30) 40%, rgba(8,8,15,0.70) 100%)' }} />
       </div>
 
-      {/* ── Search — full-width hero ─────────────────────────────────────────── */}
-      <div className="px-5 md:px-8 pt-8 pb-2 max-w-7xl mx-auto">
-        <div className="relative">
-          <svg className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40"
-            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round"
-              d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-          </svg>
-          <input
-            autoFocus={false}
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search memorials by name, location, or story…"
-            className="w-full rounded-2xl pl-14 pr-12 text-base text-white placeholder-white/30 focus:outline-none"
-            style={{
-              background: 'rgba(255,255,255,0.07)',
-              border: '1px solid rgba(255,255,255,0.14)',
-              backdropFilter: 'blur(12px)',
-              padding: '18px 48px 18px 52px',
-              boxShadow: '0 4px 32px rgba(0,0,0,0.35), 0 1px 0 rgba(255,255,255,0.06) inset',
-              fontSize: '15px',
-              transition: 'border-color 0.2s, box-shadow 0.2s',
-            }}
-            onFocus={e => {
-              e.target.style.borderColor = 'rgba(255,215,0,0.45)'
-              e.target.style.boxShadow = '0 4px 32px rgba(0,0,0,0.35), 0 0 0 3px rgba(255,215,0,0.10), 0 1px 0 rgba(255,255,255,0.06) inset'
-            }}
-            onBlur={e => {
-              e.target.style.borderColor = 'rgba(255,255,255,0.14)'
-              e.target.style.boxShadow = '0 4px 32px rgba(0,0,0,0.35), 0 1px 0 rgba(255,255,255,0.06) inset'
-            }}
-          />
+      <div className="relative z-10 max-w-7xl mx-auto px-5 md:px-8">
+
+        {/* ── Search bar ─────────────────────────────────────────────────────── */}
+        <div className="pt-6 pb-4">
+          <div className="relative">
+            {/* Search icon */}
+            <svg className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none"
+              style={{ color: 'rgba(255,215,0,0.5)' }}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+              <path strokeLinecap="round" strokeLinejoin="round"
+                d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by name, location, or story…"
+              className="w-full rounded-2xl text-white placeholder-white/30 focus:outline-none"
+              style={{
+                background: 'rgba(18,18,30,0.90)',
+                border: '1.5px solid rgba(255,255,255,0.12)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+                padding: '16px 48px 16px 52px',
+                fontSize: '15px',
+                boxShadow: '0 2px 20px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.04) inset',
+                transition: 'border-color 0.2s, box-shadow 0.2s',
+              }}
+              onFocus={e => {
+                e.target.style.borderColor = 'rgba(255,215,0,0.50)'
+                e.target.style.boxShadow = '0 2px 20px rgba(0,0,0,0.5), 0 0 0 3px rgba(255,215,0,0.10)'
+              }}
+              onBlur={e => {
+                e.target.style.borderColor = 'rgba(255,255,255,0.12)'
+                e.target.style.boxShadow = '0 2px 20px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.04) inset'
+              }}
+            />
+
+            {search && (
+              <button onClick={() => setSearch('')}
+                className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full transition-all"
+                style={{ color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.06)' }}>
+                ✕
+              </button>
+            )}
+          </div>
+
           {search && (
-            <button onClick={() => setSearch('')}
-              className="absolute right-4 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-full text-white/40 hover:text-white/70 hover:bg-white/10 transition-all">
-              ✕
-            </button>
+            <p className="text-xs mt-2 ml-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
+              {filtered.length === 0
+                ? 'No memorials match your search.'
+                : `${filtered.length} memorial${filtered.length !== 1 ? 's' : ''} found`}
+            </p>
           )}
         </div>
-        {search && (
-          <p className="text-xs text-white/30 mt-2 ml-1">
-            {filtered.length === 0
-              ? 'No memorials match your search.'
-              : `${filtered.length} memorial${filtered.length !== 1 ? 's' : ''} found`}
-          </p>
-        )}
-      </div>
 
-      {/* ── Relation filter chips ───────────────────────────────────────────── */}
-      <div className="px-5 md:px-8 mb-4 max-w-7xl mx-auto">
-        <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-          {REL_FILTERS.map(f => (
-            <button
-              key={f.id}
-              onClick={() => { setActiveFilter(f.id); setSearch('') }}
-              className={`flex-shrink-0 flex items-center gap-1.5 text-xs px-3.5 py-2 rounded-full font-semibold transition-all ${
-                activeFilter === f.id
-                  ? 'stat-badge text-white/90'
-                  : 'text-white/35 hover:text-white/60 border border-white/10 hover:border-white/20'
-              }`}
-            >
-              <span>{f.emoji}</span> {f.label}
-            </button>
-          ))}
+        {/* ── Filter tabs ─────────────────────────────────────────────────────── */}
+        <div className="mb-5">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+            {MAIN_FILTERS.map(f => {
+              const isActive = activeFilter === f.id
+              return (
+                <motion.button
+                  key={f.id}
+                  onClick={() => { setActiveFilter(f.id); setSearch('') }}
+                  whileTap={{ scale: 0.96 }}
+                  className="flex-shrink-0 flex items-center gap-2 font-semibold rounded-xl transition-all"
+                  style={isActive ? {
+                    background: 'linear-gradient(135deg, #FFD700 0%, #E6C200 50%, #38BDF8 140%)',
+                    color: '#0a0a12',
+                    padding: '10px 18px',
+                    fontSize: '13px',
+                    boxShadow: '0 4px 20px rgba(255,215,0,0.30), 0 1px 0 rgba(255,255,255,0.35) inset',
+                    border: '1.5px solid transparent',
+                  } : {
+                    background: 'rgba(20,20,34,0.90)',
+                    color: 'rgba(255,255,255,0.60)',
+                    padding: '10px 18px',
+                    fontSize: '13px',
+                    boxShadow: '0 2px 12px rgba(0,0,0,0.4)',
+                    border: '1.5px solid rgba(255,255,255,0.12)',
+                  }}
+                >
+                  <span style={{ fontSize: '14px', opacity: isActive ? 1 : 0.7 }}>{f.icon}</span>
+                  {f.label}
+                </motion.button>
+              )
+            })}
+          </div>
+
+          {/* Context hint */}
+          {activeFilter !== 'all' && (
+            <p className="text-[0.6rem] mt-2 ml-1" style={{ color: 'rgba(255,255,255,0.28)' }}>
+              {user
+                ? MAIN_FILTERS.find(f => f.id === activeFilter)?.desc
+                : 'Sign in to filter by your memorials'}
+            </p>
+          )}
         </div>
-        {/* Subtle context label */}
-        {activeFilter !== 'all' && (
-          <p className="text-[0.58rem] text-white/25 mt-2 ml-1">
-            {user
-              ? `Showing your ${REL_FILTERS.find(f => f.id === activeFilter)?.label.toLowerCase()} memorials`
-              : 'Sign in to filter by your relationships'}
-          </p>
+
+        {/* ── Sort strip — only on All tab ─────────────────────────────────────── */}
+        {activeFilter === 'all' && !search && (
+          <div className="flex items-center gap-1.5 mb-6">
+            <span className="text-[0.58rem] font-semibold tracking-widest uppercase mr-1"
+              style={{ color: 'rgba(255,255,255,0.22)' }}>Sort</span>
+            {SORT_OPTIONS.map(s => {
+              const isActive = activeSort === s.id
+              return (
+                <button key={s.id} onClick={() => setActiveSort(s.id)}
+                  className="text-xs px-3 py-1.5 rounded-lg font-medium transition-all"
+                  style={isActive ? {
+                    background: 'rgba(255,215,0,0.12)',
+                    color: 'rgba(255,215,0,0.9)',
+                    border: '1px solid rgba(255,215,0,0.25)',
+                  } : {
+                    background: 'transparent',
+                    color: 'rgba(255,255,255,0.35)',
+                    border: '1px solid transparent',
+                  }}>
+                  {s.label}
+                </button>
+              )
+            })}
+          </div>
         )}
-      </div>
+        {activeFilter !== 'all' && <div className="mb-6" />}
 
-      {/* ── Sort ────────────────────────────────────────────────────────────── */}
-      {activeFilter === 'all' && (
-        <div className="px-5 md:px-8 mb-6 max-w-7xl mx-auto flex items-center gap-2">
-          <span className="text-[0.6rem] text-white/25 uppercase tracking-wide">Sort:</span>
-          {SORT_OPTIONS.map(s => (
-            <button key={s} onClick={() => setActiveSort(s)}
-              className={`text-xs px-3 py-1.5 rounded-full transition-all ${
-                activeSort === s ? 'stat-badge text-white/80 font-semibold' : 'text-white/30 hover:text-white/55'
-              }`}>
-              {s}
-            </button>
-          ))}
-        </div>
-      )}
-      {activeFilter !== 'all' && <div className="mb-6" />}
+        {/* ── Featured card ────────────────────────────────────────────────────── */}
+        {showFeatured && (
+          <div className="mb-8">
+            <FeaturedCard memorial={featured} />
+          </div>
+        )}
 
-      {/* ── Featured card (All tab, no search active) ────────────────────────── */}
-      {activeFilter === 'all' && !search && featured && (
-        <div className="px-5 md:px-8 mb-8 max-w-7xl mx-auto">
-          <Link to={`/memorial/${featured.id}`}
-            className="block metal-card rounded-3xl overflow-hidden hover:opacity-90 transition-opacity">
-            <div className="relative h-64 md:h-80">
-              {(featured.photo || featured.coverPhoto)
-                ? <img src={featured.photo || featured.coverPhoto} alt={featured.name}
-                    className="w-full h-full object-cover object-center" />
-                : <div className="w-full h-full bg-gradient-to-br from-gold/15 to-coral/10 flex items-center justify-center">
-                    <span className="font-display text-8xl font-bold text-white/10">{featured.name?.charAt(0)}</span>
-                  </div>
-              }
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-              {featured.countryCode && (
-                <div className="absolute top-4 right-4 text-2xl">{countryFlag(featured.countryCode)}</div>
-              )}
-              <div className="absolute bottom-0 left-0 right-0 p-6">
-                <p className="text-[0.55rem] font-bold tracking-[0.22em] uppercase text-gold/70 mb-1">✦ Featured</p>
-                <h2 className="font-display text-2xl md:text-3xl font-bold text-white mb-1">{featured.name}</h2>
-                {featured.subtitle && <p className="text-sm text-white/60 line-clamp-2">{featured.subtitle}</p>}
-              </div>
+        {/* ── Login prompt ─────────────────────────────────────────────────────── */}
+        {needsLogin ? (
+          <div className="py-20 flex flex-col items-center text-center">
+            <div className="w-16 h-16 rounded-2xl mb-6 flex items-center justify-center"
+              style={{ background: 'rgba(255,215,0,0.08)', border: '1px solid rgba(255,215,0,0.15)' }}>
+              <span className="text-2xl" style={{ color: 'rgba(255,215,0,0.5)' }}>
+                {MAIN_FILTERS.find(f => f.id === activeFilter)?.icon}
+              </span>
             </div>
-          </Link>
-        </div>
-      )}
-
-      {/* ── Grid ────────────────────────────────────────────────────────────── */}
-      <div className="px-5 md:px-8 max-w-7xl mx-auto">
-
-        {/* Guest prompt when a relation filter is selected */}
-        {activeFilter !== 'all' && !user ? (
-          <div className="text-center py-20">
-            <div className="text-5xl opacity-15 mb-5">✦</div>
-            <p className="text-white/50 text-sm mb-2">Sign in to see your {REL_FILTERS.find(f => f.id === activeFilter)?.label.toLowerCase()} memorials</p>
-            <Link to="/auth" className="text-xs text-gold/70 hover:text-gold underline mt-2 inline-block">
+            <p className="font-display text-lg font-bold text-white mb-2">
+              Sign in to see your {MAIN_FILTERS.find(f => f.id === activeFilter)?.label}
+            </p>
+            <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,0.40)' }}>
+              {MAIN_FILTERS.find(f => f.id === activeFilter)?.desc} will appear here.
+            </p>
+            <Link to="/auth"
+              className="inline-flex items-center gap-2 font-bold rounded-xl px-6 py-3"
+              style={{
+                background: 'linear-gradient(135deg, #FFD700 0%, #D4A800 100%)',
+                color: '#0a0a12',
+                boxShadow: '0 4px 20px rgba(255,215,0,0.30)',
+                fontSize: '14px',
+              }}>
               Sign in →
             </Link>
           </div>
+
         ) : filtered.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="text-5xl opacity-15 mb-5">◎</div>
-            <p className="text-white/40 text-sm mb-2">
-              {activeFilter !== 'all'
-                ? `No ${REL_FILTERS.find(f => f.id === activeFilter)?.label.toLowerCase()} memorials yet.`
-                : 'No memorials found.'}
+          <div className="py-20 flex flex-col items-center text-center">
+            <div className="text-5xl mb-5 opacity-15">◎</div>
+            <p className="text-white/40 text-sm mb-3">
+              {search
+                ? 'No memorials match your search.'
+                : activeFilter !== 'all'
+                  ? `No ${MAIN_FILTERS.find(f => f.id === activeFilter)?.label.toLowerCase()} memorials yet.`
+                  : 'No memorials found.'
+              }
             </p>
-            {search && (
-              <button onClick={() => setSearch('')}
-                className="text-xs text-gold/60 hover:text-gold underline mt-2">
-                Clear search
-              </button>
-            )}
-            {activeFilter !== 'all' && !search && (
-              <button onClick={() => setActiveFilter('all')}
-                className="text-xs text-gold/60 hover:text-gold underline mt-2 block mx-auto">
-                View all memorials
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              {search && (
+                <button onClick={() => setSearch('')}
+                  className="text-xs underline transition-colors"
+                  style={{ color: 'rgba(255,215,0,0.60)' }}>
+                  Clear search
+                </button>
+              )}
+              {activeFilter !== 'all' && (
+                <button onClick={() => setActiveFilter('all')}
+                  className="text-xs underline transition-colors"
+                  style={{ color: 'rgba(255,215,0,0.60)' }}>
+                  View all memorials
+                </button>
+              )}
+              {activeFilter !== 'mine' && (
+                <Link to="/create"
+                  className="text-xs font-semibold px-4 py-2 rounded-lg"
+                  style={{
+                    background: 'rgba(255,215,0,0.10)',
+                    color: 'rgba(255,215,0,0.80)',
+                    border: '1px solid rgba(255,215,0,0.20)',
+                  }}>
+                  + Create memorial
+                </Link>
+              )}
+            </div>
           </div>
+
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            <AnimatePresence mode="popLayout">
-              {filtered.map((memorial, i) => (
-                <MemorialCard
-                  key={memorial.id}
-                  memorial={memorial}
-                  index={i}
-                />
-              ))}
-            </AnimatePresence>
-          </div>
+          <>
+            {/* Count label */}
+            {!search && activeFilter === 'all' && (
+              <p className="text-[0.65rem] font-semibold tracking-wide uppercase mb-4"
+                style={{ color: 'rgba(255,255,255,0.22)' }}>
+                {filtered.length} memorial{filtered.length !== 1 ? 's' : ''}
+              </p>
+            )}
+
+            {/* Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <AnimatePresence mode="popLayout">
+                {filtered.map((memorial, i) => (
+                  <MemorialCard key={memorial.id} memorial={memorial} index={i} />
+                ))}
+              </AnimatePresence>
+            </div>
+          </>
         )}
       </div>
     </div>
