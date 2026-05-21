@@ -139,8 +139,9 @@ export default function SettingsPage() {
       const url = await uploadImage(file, setAvatarPct, 'avatars')
       await upsertProfile({ photoUrl: url })
       showToast('Photo updated ✦')
-    } catch {
-      toast.error('Upload failed. Check Cloudinary config.')
+    } catch (err) {
+      console.error('[settings avatar]', err)
+      toast.error(err?.message || 'Upload failed. Try again.')
       setAvatarPreview(null)
     } finally {
       setUploading(false); setAvatarPct(0)

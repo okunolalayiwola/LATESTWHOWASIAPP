@@ -907,6 +907,8 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
   const [selected,  setSelected]  = useState(null)
   const [uploading, setUploading] = useState(false)
   const [pct,       setPct]       = useState(0)
+  const [uploadError, setUploadError] = useState('')
+  const [failedCount, setFailedCount] = useState(0)
   const fileRef = useRef(null)
 
   // Photos added here (after the memorial exists) are NOT used to shape the
@@ -915,8 +917,12 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
     const files = Array.from(e.target.files || [])
     if (!files.length) return
     setUploading(true)
-    try {
-      for (const file of files) {
+    setUploadError('')
+    setFailedCount(0)
+    let firstErr = ''
+    let failures = 0
+    for (const file of files) {
+      try {
         const url = await uploadImage(file, setPct, 'memorials')
         await db.transact([
           db.tx.photos[id()].update({
@@ -927,8 +933,18 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
             addedAfterCreation: true,
           }).link({ memorial: memorialId })
         ])
+      } catch (err) {
+        console.error('[gallery upload]', file.name, err)
+        failures += 1
+        if (!firstErr) firstErr = err?.message || 'Upload failed'
       }
-    } finally { setUploading(false); setPct(0) }
+    }
+    setUploading(false)
+    setPct(0)
+    if (failures > 0) {
+      setFailedCount(failures)
+      setUploadError(firstErr)
+    }
     if (fileRef.current) fileRef.current.value = ''
   }
 
@@ -1010,6 +1026,18 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
         )}
         <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
 
+        {uploadError && (
+          <div style={{
+            padding: 12, marginBottom: 12, borderRadius: 12,
+            background: 'rgba(255,107,107,0.10)', border: '1px solid rgba(255,107,107,0.30)',
+          }}>
+            <p style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.rust, margin: 0 }}>
+              {failedCount === 1 ? '1 photo failed to upload' : `${failedCount} photos failed`}
+            </p>
+            <p style={{ fontSize: 10.5, color: 'rgba(255,107,107,0.80)', marginTop: 4, lineHeight: 1.5 }}>{uploadError}</p>
+          </div>
+        )}
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}
           className="gallery-grid">
           {shown.map((photo, i) => (
@@ -1086,6 +1114,7 @@ function TributeFormModal({ onClose, onSubmit, submitting }) {
   const [photoFile,  setPhotoFile]  = useState(null)
   const [photoPreview, setPhotoPreview] = useState(null)
   const [uploading,  setUploading]  = useState(false)
+  const [photoError, setPhotoError] = useState('')
   const textRef  = useRef(null)
   const photoRef = useRef(null)
 
@@ -1094,6 +1123,7 @@ function TributeFormModal({ onClose, onSubmit, submitting }) {
   async function handlePhotoSelect(e) {
     const file = e.target.files[0]
     if (!file) return
+    setPhotoError('')
     setPhotoFile(file)
     setPhotoPreview(URL.createObjectURL(file))
   }
@@ -1101,6 +1131,7 @@ function TributeFormModal({ onClose, onSubmit, submitting }) {
   function removePhoto() {
     setPhotoFile(null)
     setPhotoPreview(null)
+    setPhotoError('')
     if (photoRef.current) photoRef.current.value = ''
   }
 
@@ -1109,7 +1140,15 @@ function TributeFormModal({ onClose, onSubmit, submitting }) {
     let photoUrl = null
     if (photoFile) {
       setUploading(true)
-      try { photoUrl = await uploadImage(photoFile, () => {}, 'tributes') } catch {}
+      setPhotoError('')
+      try {
+        photoUrl = await uploadImage(photoFile, () => {}, 'tributes')
+      } catch (err) {
+        console.error('[tribute photo]', err)
+        setPhotoError(err?.message || 'Could not upload photo. Post without it?')
+        setUploading(false)
+        return  // don't post the tribute if photo failed — let user decide
+      }
       setUploading(false)
     }
     onSubmit(text, 'tribute', photoUrl)
@@ -1161,6 +1200,20 @@ function TributeFormModal({ onClose, onSubmit, submitting }) {
             </button>
           )}
           <input ref={photoRef} type="file" accept="image/*" className="hidden" style={{ display: 'none' }} onChange={handlePhotoSelect} />
+
+          {photoError && (
+            <div style={{ marginTop: 12, padding: 12, borderRadius: 12,
+              background: 'rgba(255,107,107,0.10)', border: '1px solid rgba(255,107,107,0.30)' }}>
+              <p style={{ fontSize: 11.5, color: C.rust, margin: 0, fontWeight: 600 }}>{photoError}</p>
+              <button
+                onClick={() => { setPhotoFile(null); setPhotoPreview(null); setPhotoError(''); if (photoRef.current) photoRef.current.value = '' }}
+                style={{ marginTop: 6, background: 'none', border: 'none', color: C.rust,
+                  fontFamily: MONO, fontSize: 10, letterSpacing: '.16em', textTransform: 'uppercase',
+                  fontWeight: 700, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
+                Post without photo
+              </button>
+            </div>
+          )}
 
           <button onClick={handleSubmit} disabled={!text.trim() || submitting || uploading}
             style={{ width: '100%', marginTop: 16, padding: '16px 0', borderRadius: 999, border: 'none',

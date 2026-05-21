@@ -131,17 +131,23 @@ function StepPerson({ form, setForm }) {
 function StepStory({ form, setForm }) {
   const [uploading,    setUploading]    = useState(false)
   const [uploadPct,    setUploadPct]    = useState(0)
+  const [uploadError,  setUploadError]  = useState('')
   const [photoPreview, setPhotoPreview] = useState(form.photoUrl || null)
   const fileRef = useRef()
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
 
   async function handlePhoto(e) {
     const file = e.target.files[0]; if (!file) return
+    setUploadError('')
     setPhotoPreview(URL.createObjectURL(file))
     setUploading(true)
     try {
       const url = await uploadImage(file, setUploadPct, 'memorials')
       setForm(f => ({ ...f, photoUrl: url }))
+    } catch (err) {
+      console.error('[edit memorial photo]', err)
+      setUploadError(err?.message || 'Could not upload photo. Try again.')
+      setPhotoPreview(form.photoUrl || null)
     } finally { setUploading(false); setUploadPct(0) }
   }
 
@@ -168,6 +174,9 @@ function StepStory({ form, setForm }) {
           {uploading && <div className="absolute bottom-0 left-0 h-1 bg-gold transition-all" style={{ width:`${uploadPct}%` }} />}
         </div>
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
+        {uploadError && (
+          <p className="text-[0.65rem] text-coral mt-2">{uploadError}</p>
+        )}
       </div>
 
       {!photoPreview && (

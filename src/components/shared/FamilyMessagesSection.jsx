@@ -29,6 +29,7 @@ const C = {
   muted:   '#7a7164',
   muted2:  '#948a7a',
   saffron: '#f3b21a',
+  coral:   '#c8531f',
 }
 const DISP = "'Space Grotesk', system-ui, sans-serif"
 const MONO = "'JetBrains Mono', ui-monospace, monospace"
@@ -281,6 +282,7 @@ export default function FamilyMessagesSection({ memorialId, user, userProfile, c
   const [photoPreview, setPhotoPreview] = useState(null)
   const [uploading,    setUploading]    = useState(false)
   const [sending,      setSending]      = useState(false)
+  const [sendError,    setSendError]    = useState('')
   const [showMembers,  setShowMembers]  = useState(false)
   const bottomRef = useRef(null)
   const photoRef  = useRef(null)
@@ -391,11 +393,20 @@ export default function FamilyMessagesSection({ memorialId, user, userProfile, c
     if ((!text.trim() && !photoFile) || sending) return
     if (!memorialId) return    // safety: don't send without a chat scope
     setSending(true)
+    setSendError('')
     try {
       let photoUrl = null
       if (photoFile) {
         setUploading(true)
-        try { photoUrl = await uploadImage(photoFile, () => {}, 'family-messages') } catch {}
+        try {
+          photoUrl = await uploadImage(photoFile, () => {}, 'family-messages')
+        } catch (err) {
+          console.error('[chat photo]', err)
+          setUploading(false)
+          setSendError(err?.message || 'Could not attach photo. Try again or send without it.')
+          setSending(false)
+          return  // don't send a half-broken message
+        }
         setUploading(false)
       }
       const displayName = userProfile?.displayName || user.email?.split('@')[0] || 'Family member'
@@ -415,6 +426,9 @@ export default function FamilyMessagesSection({ memorialId, user, userProfile, c
       setText('')
       setPhotoFile(null)
       setPhotoPreview(null)
+    } catch (err) {
+      console.error('[chat send]', err)
+      setSendError('Could not send message. Check your connection.')
     } finally { setSending(false) }
   }
 
@@ -682,6 +696,23 @@ export default function FamilyMessagesSection({ memorialId, user, userProfile, c
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── Send error ─────────────────────────────────────────────────────── */}
+      {sendError && (
+        <div style={{
+          padding: '10px 16px',
+          borderTop: '1px solid rgba(255,107,107,0.20)',
+          background: 'rgba(255,107,107,0.08)',
+          display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between',
+        }}>
+          <p style={{ margin: 0, fontSize: 12, color: C.coral, flex: 1, lineHeight: 1.4 }}>{sendError}</p>
+          <button
+            onClick={() => setSendError('')}
+            style={{ background: 'none', border: 'none', color: C.coral, cursor: 'pointer',
+              fontSize: 13, padding: 4 }}
+            aria-label="Dismiss">✕</button>
+        </div>
+      )}
 
       {/* ── Compose bar ────────────────────────────────────────────────────── */}
       <div style={{

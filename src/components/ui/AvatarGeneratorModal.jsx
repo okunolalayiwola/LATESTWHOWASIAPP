@@ -134,7 +134,10 @@ export default function AvatarGeneratorModal({ existingPhotos = [], currentPhoto
     try {
       const url = await uploadImage(file, () => {}, 'memorials/sources')
       setSourcePhoto(url)
-    } catch { setError('Upload failed. Please try again.') }
+    } catch (err) {
+      console.error('[avatar source upload]', err)
+      setError(err?.message || 'Upload failed. Please try again.')
+    }
     finally { setUploading(false) }
   }
 

@@ -229,6 +229,7 @@ function VoiceRecorder({ form, setForm }) {
   const [uploadPct, setUploadPct] = useState(0)
   const [duration, setDuration] = useState(0)
   const [timer, setTimer] = useState(0)
+  const [voiceError, setVoiceError] = useState('')
   const mediaRecorder = useRef(null)
   const chunks = useRef([])
   const timerRef = useRef(null)
@@ -256,13 +257,15 @@ function VoiceRecorder({ form, setForm }) {
         const blob = new Blob(chunks.current, { type: 'audio/webm' })
         const file = new File([blob], `voice-${Date.now()}.webm`, { type: 'audio/webm' })
         setUploading(true)
+        setVoiceError('')
         try {
           const result = await uploadAudio(file, setUploadPct, 'memorials/voice')
           setForm(f => ({ ...f, voiceUrl: result.url, voiceDuration: result.duration }))
           setDuration(result.duration)
           setRecorded(true)
-        } catch {
-          // silent fail
+        } catch (err) {
+          console.error('[voice upload]', err)
+          setVoiceError(err?.message || 'Could not save your recording. Try again.')
         } finally {
           setUploading(false)
           setUploadPct(0)
@@ -271,12 +274,18 @@ function VoiceRecorder({ form, setForm }) {
 
       recorder.start()
       setRecording(true)
+      setVoiceError('')
       setTimer(0)
       timerRef.current = setInterval(() => {
         setTimer(t => t + 1)
       }, 1000)
-    } catch {
-      // Microphone access denied
+    } catch (err) {
+      console.error('[mic access]', err)
+      setVoiceError(
+        err?.name === 'NotAllowedError'
+          ? 'Microphone access was denied. Enable it in your browser settings to record.'
+          : 'Could not access the microphone. Try uploading an audio file instead.'
+      )
     }
   }
 
@@ -298,13 +307,17 @@ function VoiceRecorder({ form, setForm }) {
     const file = e.target.files[0]
     if (!file) return
     setUploading(true)
+    setVoiceError('')
     uploadAudio(file, setUploadPct, 'memorials/voice')
       .then(result => {
         setForm(f => ({ ...f, voiceUrl: result.url, voiceDuration: result.duration }))
         setDuration(result.duration)
         setRecorded(true)
       })
-      .catch(() => {})
+      .catch(err => {
+        console.error('[voice file upload]', err)
+        setVoiceError(err?.message || 'Could not upload audio. Try again.')
+      })
       .finally(() => { setUploading(false); setUploadPct(0) })
   }
 
@@ -389,6 +402,13 @@ function VoiceRecorder({ form, setForm }) {
                 <div className="h-full bg-gold transition-all" style={{ width: `${uploadPct}%` }} />
               </div>
               <p className="text-[0.6rem] text-white/30 mt-1 text-right">Uploading {uploadPct}%</p>
+            </div>
+          )}
+
+          {voiceError && (
+            <div className="mt-3 p-3 rounded-xl bg-coral/10 border border-coral/30">
+              <p className="text-[0.7rem] text-coral font-semibold">Could not save your recording</p>
+              <p className="text-[0.6rem] text-coral/80 mt-1 leading-relaxed">{voiceError}</p>
             </div>
           )}
         </div>
