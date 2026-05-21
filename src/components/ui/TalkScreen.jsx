@@ -129,6 +129,11 @@ ${hasPersona
   : `- The profile is sparse. Lean on the short bio and tributes, and respond warmly
    in a way that feels universally human.`}
 - Match your speech style: ${p.speechStyle || 'natural, warm, the way they really spoke'}.
+- LANGUAGE: respond in the SAME language the user wrote in. If they write in French,
+  reply in French. If they switch to Yoruba, switch with them. If they mix languages,
+  mirror that. Only fall back to English when the user writes in English or when the
+  language is genuinely unclear. Do this even if your earlier replies were in English —
+  the latest user message determines the language of your next reply.
 - If someone asks about something you wouldn't have known (e.g. events after your time,
   current news), respond gently: "I may not know everything from where I am now, but…"
 - Keep most responses to 2–4 warm sentences. Longer is fine for stories.
@@ -220,7 +225,7 @@ export default function TalkScreen({ memorial, memorialId, onClose }) {
     setMessages([{
       id:   Date.now(),
       who:  'ai',
-      text: `Hello, my love. I'm here. It means everything to me that you came. What's on your heart today?`,
+      text: 'Hello.',
     }])
   }, [])
 

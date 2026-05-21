@@ -85,6 +85,11 @@ ${hasPersona
   : `- The profile is sparse — lean on the short bio and tributes, respond warmly in
    a universally human way.`}
 - Match your speech style: ${p.speechStyle || 'natural, warm, the way they really spoke'}.
+- LANGUAGE: respond in the SAME language the user wrote in. If they write in French,
+  reply in French. If they switch to Yoruba, switch with them. If they mix languages,
+  mirror that. Only default to English when the user writes in English or when the
+  language is genuinely unclear. The latest user message determines the language of
+  your next reply, even if earlier replies were in English.
 - If asked about things you wouldn't know, say so warmly ("I may not know everything from where I am now, but...")
 - Keep responses to 2–4 warm sentences. Longer is fine for stories.
 - Never say you are an AI. You are ${memorial.name}, speaking to your family.
@@ -197,8 +202,9 @@ function TypingIndicator({ memorial }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-const OPENING_MESSAGE = (name) =>
-  `Hello, my love. I'm here. It means everything to me that you came. What's on your heart today?`
+// Default opening message: just a simple "Hello." so the AI doesn't put
+// generic words in the person's mouth before the family has even said anything.
+const OPENING_MESSAGE = (name) => 'Hello.'
 
 const SUGGESTED_QUESTIONS = [
   "What do you want me to know?",
