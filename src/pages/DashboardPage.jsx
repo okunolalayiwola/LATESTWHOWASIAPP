@@ -42,7 +42,10 @@ const CSS = `
   --sh-pill:0 1px 2px rgba(20,17,13,.05),0 6px 18px rgba(20,17,13,.05);
   --r-xl:28px; --r-lg:22px; --r-md:16px; --r-sm:12px;
   font-family:'Plus Jakarta Sans',system-ui,sans-serif;
-  min-height:100vh; background:var(--bg-page); padding:18px;
+  min-height:100vh; background:var(--bg-page);
+  /* Reserve space for the BottomNav (64px) + iOS safe area + breathing room
+     so the bottom Quick-Action cards never sit flush against the nav. */
+  padding: 18px 18px max(110px, calc(env(safe-area-inset-bottom) + 96px));
 }
 .dash *{ box-sizing:border-box; }
 .canvas{
@@ -792,7 +795,7 @@ export default function DashboardPage() {
                     )}
 
                 {/* Quick actions */}
-                <div className="qa" style={{ marginTop: memorials.length === 0 ? 0 : 18 }}>
+                <div className="qa" style={{ marginTop: memorials.length === 0 ? 16 : 32 }}>
                   <a href="#" onClick={openVault}>
                     <div className="qic butter">🔒</div>
                     <div className="qt">Legacy Vault</div>

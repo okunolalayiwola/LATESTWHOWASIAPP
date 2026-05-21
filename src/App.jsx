@@ -172,6 +172,16 @@ function AppInner() {
   const location = useLocation()
   const { isLoading: authLoading } = db.useAuth()
 
+  // ── Scroll to top on every route change ────────────────────────────────────
+  // Without this, the browser preserves the previous page's scroll offset.
+  // When the user navigates from a long page (e.g. memorial detail) to a
+  // shorter one (dashboard), they land at the previous scroll Y and see
+  // the bottom of the new page mid-mount, which looks glitchy.
+  useEffect(() => {
+    // `instant` (not smooth) — avoids a visible animation that feels wrong on nav
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+  }, [location.pathname])
+
   // ── Global SEO defaults ─────────────────────────────────────────────────────
   useSEO({
     title:       'WHO WAS I — Living Memorial Platform',

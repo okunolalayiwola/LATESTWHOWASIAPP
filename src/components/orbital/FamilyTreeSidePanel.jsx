@@ -20,9 +20,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { getRelationFilterCategory } from '../../lib/relations'
 
 // Mobile detection via media query — driven by CSS so we avoid re-renders
-const PANEL_W   = 296
+const PANEL_W   = 276
 const PANEL_TOP = 88   // sit below the top bar
-const PANEL_BOT = 28
 
 const FAMILY_CATS = new Set(['partner','children','siblings','parents','extended','grandparents'])
 
@@ -32,21 +31,21 @@ function StatTile({ label, value, accent = '#FFD700' }) {
       flex: 1,
       background: 'rgba(255,255,255,0.04)',
       border: '1px solid rgba(255,255,255,0.08)',
-      borderRadius: 14,
-      padding: '12px 14px',
+      borderRadius: 12,
+      padding: '9px 11px',
       minWidth: 0,
     }}>
       <p style={{
         fontFamily: "'JetBrains Mono', monospace",
-        fontSize: 9, letterSpacing: '.20em', textTransform: 'uppercase',
+        fontSize: 8.5, letterSpacing: '.18em', textTransform: 'uppercase',
         color: 'rgba(255,255,255,0.42)', margin: 0,
       }}>
         {label}
       </p>
       <p style={{
         fontFamily: "'Cormorant Garamond', Georgia, serif",
-        fontWeight: 700, fontSize: 26, lineHeight: 1.05,
-        color: accent, margin: '4px 0 0', letterSpacing: '-.02em',
+        fontWeight: 700, fontSize: 20, lineHeight: 1.05,
+        color: accent, margin: '2px 0 0', letterSpacing: '-.02em',
       }}>
         {value}
       </p>
@@ -115,24 +114,26 @@ export default function FamilyTreeSidePanel({
   const Body = (
     <>
       {/* Header */}
-      <div style={{ marginBottom: 16 }}>
+      <div style={{ marginBottom: 12 }}>
         <p style={{
           fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 9, letterSpacing: '.28em', textTransform: 'uppercase',
+          fontSize: 8.5, letterSpacing: '.26em', textTransform: 'uppercase',
           color: 'rgba(255,215,0,0.65)', margin: 0,
         }}>
           ◉ {scope === 'memorial' ? 'Family circle' : 'Your family'}
         </p>
         <h3 style={{
           fontFamily: "'Cormorant Garamond', Georgia, serif",
-          fontWeight: 700, fontSize: 22, color: '#fff',
-          margin: '4px 0 2px', letterSpacing: '-.01em', lineHeight: 1.15,
+          fontWeight: 700, fontSize: 17, color: '#fff',
+          margin: '3px 0 1px', letterSpacing: '-.01em', lineHeight: 1.15,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
           {centerLabel}
         </h3>
         {subtitle && (
-          <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 11,
-            color: 'rgba(255,255,255,0.40)', margin: 0 }}>
+          <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 10.5,
+            color: 'rgba(255,255,255,0.40)', margin: 0,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {subtitle}
           </p>
         )}
@@ -142,25 +143,25 @@ export default function FamilyTreeSidePanel({
       <div style={{
         background: 'linear-gradient(135deg, rgba(255,215,0,0.06) 0%, rgba(56,189,248,0.04) 100%)',
         border: '1px solid rgba(255,215,0,0.20)',
-        borderRadius: 18, padding: '14px 14px 16px',
-        marginBottom: 16,
+        borderRadius: 14, padding: '10px 11px 11px',
+        marginBottom: 12,
       }}>
         <p style={{
           fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 8.5, letterSpacing: '.26em', textTransform: 'uppercase',
-          color: 'rgba(255,215,0,0.60)', margin: '0 0 10px',
+          fontSize: 8, letterSpacing: '.22em', textTransform: 'uppercase',
+          color: 'rgba(255,215,0,0.55)', margin: '0 0 7px',
         }}>
-          Selected profile
+          Selected
         </p>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
-            width: 54, height: 54, borderRadius: '50%', flexShrink: 0,
+            width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
             background: 'linear-gradient(135deg, rgba(255,215,0,.22), rgba(56,189,248,.18))',
             border: '1.5px solid rgba(255,215,0,0.35)',
             overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontFamily: "'Cormorant Garamond', serif",
-            fontSize: 20, fontWeight: 700, color: '#FFD700',
+            fontSize: 15, fontWeight: 700, color: '#FFD700',
           }}>
             {display.photo
               ? <img src={display.photo} alt={display.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -169,7 +170,7 @@ export default function FamilyTreeSidePanel({
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{
-              fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 14,
+              fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 12.5,
               color: '#fff', margin: 0, lineHeight: 1.2,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
@@ -177,8 +178,8 @@ export default function FamilyTreeSidePanel({
             </p>
             <p style={{
               fontFamily: "'JetBrains Mono', monospace",
-              fontSize: 9.5, letterSpacing: '.16em', textTransform: 'uppercase',
-              color: '#FFD700', margin: '4px 0 0',
+              fontSize: 8.5, letterSpacing: '.14em', textTransform: 'uppercase',
+              color: '#FFD700', margin: '3px 0 0',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
               {display.relation || 'family'}
@@ -188,7 +189,7 @@ export default function FamilyTreeSidePanel({
       </div>
 
       {/* Stats — total + pending */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         <StatTile
           label="Total members"
           value={total}
@@ -213,19 +214,19 @@ export default function FamilyTreeSidePanel({
       {scope === 'memorial' && isOwner && pendingCount > 0 && (
         <button onClick={onOpenPending}
           style={{
-            width: '100%', marginBottom: 16,
+            width: '100%', marginBottom: 12,
             background: 'rgba(255,215,0,0.10)',
             border: '1px solid rgba(255,215,0,0.30)',
-            borderRadius: 14, padding: '10px 12px',
+            borderRadius: 12, padding: '8px 10px',
             color: '#FFD700', cursor: 'pointer',
             fontFamily: "'Inter', sans-serif",
-            fontSize: 11.5, fontWeight: 700, letterSpacing: '.04em',
+            fontSize: 11, fontWeight: 700, letterSpacing: '.04em',
             display: 'flex', alignItems: 'center', gap: 8,
           }}>
           <span style={{
-            display: 'inline-flex', width: 22, height: 22, borderRadius: 11,
+            display: 'inline-flex', width: 20, height: 20, borderRadius: 10,
             background: 'rgba(255,215,0,0.22)', color: '#FFD700',
-            alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11,
+            alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 10.5,
           }}>
             {pendingCount}
           </span>
@@ -236,19 +237,19 @@ export default function FamilyTreeSidePanel({
         </button>
       )}
 
-      {/* Relation breakdown */}
-      {total > 0 && (
+      {/* Relation breakdown — only when there's actually a meaningful mix */}
+      {total >= 2 && (breakdown.family > 0 || breakdown.friends > 0 || breakdown.other > 0) && (
         <div style={{
-          marginBottom: 16,
-          padding: '14px 14px 6px',
+          marginBottom: 12,
+          padding: '10px 11px 4px',
           background: 'rgba(255,255,255,0.03)',
           border: '1px solid rgba(255,255,255,0.06)',
-          borderRadius: 16,
+          borderRadius: 12,
         }}>
           <p style={{
             fontFamily: "'JetBrains Mono', monospace",
-            fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase',
-            color: 'rgba(255,255,255,0.35)', margin: '0 0 10px',
+            fontSize: 8.5, letterSpacing: '.20em', textTransform: 'uppercase',
+            color: 'rgba(255,255,255,0.35)', margin: '0 0 8px',
           }}>
             Breakdown
           </p>
@@ -270,43 +271,35 @@ export default function FamilyTreeSidePanel({
           style={{
             width: '100%',
             background: 'linear-gradient(135deg, #FFD700 0%, #38BDF8 130%)',
-            border: 'none', borderRadius: 14, padding: '12px 0',
+            border: 'none', borderRadius: 12, padding: '10px 0',
             color: '#0a0a12', cursor: 'pointer',
             fontFamily: "'Inter', sans-serif",
-            fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase',
-            boxShadow: '0 6px 20px rgba(255,215,0,0.25)',
+            fontSize: 11, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase',
+            boxShadow: '0 4px 14px rgba(255,215,0,0.22)',
           }}>
           ✦ Invite family
         </button>
       )}
-
-      {/* Footer tip */}
-      <p style={{
-        marginTop: 14, fontFamily: "'Inter', sans-serif",
-        fontSize: 10.5, lineHeight: 1.55, color: 'rgba(255,255,255,0.35)',
-      }}>
-        Drag to pan around the web. Tap any face to re-centre on them — the circle
-        reorders to their world.
-      </p>
     </>
   )
 
   return (
     <>
-      {/* Desktop right rail */}
+      {/* Desktop right rail — auto-height (no stretch to viewport bottom) */}
       <div
         className="ftsp-desktop"
         style={{
           position: 'fixed',
-          top: PANEL_TOP, right: 16, bottom: PANEL_BOT,
+          top: PANEL_TOP, right: 16,
           width: PANEL_W,
+          maxHeight: `calc(100vh - ${PANEL_TOP + 32}px)`,
           zIndex: 22,
           background: 'rgba(10,10,15,0.82)',
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',
           border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: 22,
-          padding: '20px 18px',
+          borderRadius: 20,
+          padding: '16px 14px',
           overflowY: 'auto',
           boxShadow: '0 10px 40px rgba(0,0,0,0.55)',
         }}>
