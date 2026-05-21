@@ -91,7 +91,7 @@ export default function LandingPage() {
                     <h1 className="text-[clamp(2.2rem,5vw,4.4rem)] font-black leading-[1.05] tracking-[-0.025em] mb-5">
                       {chapters[0].title}
                     </h1>
-                    <p className="text-[clamp(0.85rem,1.4vw,1.1rem)] font-light text-white/65 leading-relaxed mb-8 max-w-md">
+                    <p className="text-[clamp(0.85rem,1.4vw,1.1rem)] font-light text-white leading-relaxed mb-8 max-w-md">
                       {chapters[0].subtitle}
                     </p>
                     <Link
@@ -129,7 +129,7 @@ export default function LandingPage() {
                         <span className="text-gradient-warm">{chapters[activeChapter].title}</span>
                       )}
                     </h2>
-                    <p className="text-sm lg:text-base font-light text-white/60 leading-relaxed max-w-sm mb-6">
+                    <p className="text-sm lg:text-base font-light text-white leading-relaxed max-w-sm mb-6">
                       {chapters[activeChapter].body}
                     </p>
                     {chapters[activeChapter].final && (
@@ -254,8 +254,8 @@ export default function LandingPage() {
                 <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${f.color} flex items-center justify-center text-white mb-5`}>
                   {f.icon}
                 </div>
-                <h3 className="text-lg font-bold mb-2 leading-snug">{f.title}</h3>
-                <p className="text-sm text-white/50 leading-relaxed">{f.desc}</p>
+                <h3 className="text-lg font-bold mb-2 leading-snug text-white">{f.title}</h3>
+                <p className="text-sm text-white leading-relaxed">{f.desc}</p>
               </motion.div>
             ))}
           </div>
@@ -274,7 +274,7 @@ export default function LandingPage() {
             <h2 className="text-[clamp(1.8rem,3.5vw,3.2rem)] font-black leading-tight mb-4">
               Every life <span className="text-gradient-warm">deserves</span> to be remembered.
             </h2>
-            <p className="text-sm lg:text-base text-white/50 leading-relaxed max-w-lg mx-auto mb-8">
+            <p className="text-sm lg:text-base text-white leading-relaxed max-w-lg mx-auto mb-8">
               Start their story today. Create a living memorial that will be cherished for generations.
             </p>
             <Link
@@ -307,17 +307,34 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-white/5 px-6 lg:px-12 py-8">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <span className="text-xs tracking-wider text-white/30">
-            WHO WAS I &middot; whowasi.uk &middot; v2.0
-          </span>
-          <div className="flex items-center gap-6">
-            <Link to="/explore" className="text-[0.65rem] tracking-wider text-white/30 hover:text-white/60 transition-colors">
-              Explore
-            </Link>
-            <Link to="/auth" className="text-[0.65rem] tracking-wider text-white/30 hover:text-white/60 transition-colors">
-              Sign In
-            </Link>
+        <div className="max-w-6xl mx-auto flex flex-col items-center gap-4">
+          <div className="w-full flex flex-col md:flex-row items-center justify-between gap-4">
+            <span className="text-xs tracking-wider text-white">
+              WHO WAS I &middot; whowasi.uk &middot; v2.0
+            </span>
+            <div className="flex items-center gap-6">
+              <Link to="/explore" className="text-[0.65rem] tracking-wider text-white hover:text-gold transition-colors">
+                Explore
+              </Link>
+              <Link to="/auth" className="text-[0.65rem] tracking-wider text-white hover:text-gold transition-colors">
+                Sign In
+              </Link>
+            </div>
+          </div>
+
+          {/* Creator credit */}
+          <div className="w-full pt-4 border-t border-white/5 flex items-center justify-center gap-2">
+            <span className="text-[0.65rem] tracking-[0.18em] uppercase text-white/55">
+              Created by
+            </span>
+            <a
+              href="https://okunolacreates.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[0.7rem] font-bold tracking-wider text-gold hover:text-sky transition-colors"
+            >
+              okunolacreates.com
+            </a>
           </div>
         </div>
       </footer>
