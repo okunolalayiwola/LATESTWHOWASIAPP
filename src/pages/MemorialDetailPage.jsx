@@ -2,7 +2,7 @@
 // Design: Memorial v2 — cream paper · saffron · Space Grotesk + Fraunces
 // Layout: Hero (full-bleed) → 2-col sticky-rail grid → footer
 
-import { useState, useRef, useMemo, useEffect, lazy, Suspense, Component } from 'react'
+import { useState, useRef, useMemo, useEffect, Suspense, Component } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { id } from '@instantdb/react'
@@ -13,19 +13,17 @@ import InviteCodeBadge from '../components/shared/InviteCodeBadge'
 import FamilyMessagesSection from '../components/shared/FamilyMessagesSection'
 
 // ─── Safe lazy loaders ────────────────────────────────────────────────────────
-function safeLazy(loader) {
-  return lazy(() =>
-    loader()
-      .then(m => ({ default: m.default || (() => null) }))
-      .catch(() => ({ default: () => null }))
-  )
-}
-const QRModal       = safeLazy(() => import('../components/ui/QRModal'))
-const LifeReel      = safeLazy(() => import('../components/ui/LifeReel'))
-const TalkScreen    = safeLazy(() => import('../components/ui/TalkScreen'))
-const FamilyTreeOrb       = safeLazy(() => import('../components/orbital/FamilyTreeOrb'))
-const FamilyTreeSidePanel = safeLazy(() => import('../components/orbital/FamilyTreeSidePanel'))
-const InviteModal         = safeLazy(() => import('../components/shared/InviteModal'))
+// Uses lazyWithRetry: on a chunk-fetch failure (typical after a redeploy where
+// the user's cached index.html points at chunks that no longer exist), it
+// retries once, then reloads the page to pick up the fresh index.html.
+import { lazyWithRetry } from '../lib/lazyWithRetry'
+
+const QRModal             = lazyWithRetry(() => import('../components/ui/QRModal'))
+const LifeReel            = lazyWithRetry(() => import('../components/ui/LifeReel'))
+const TalkScreen          = lazyWithRetry(() => import('../components/ui/TalkScreen'))
+const FamilyTreeOrb       = lazyWithRetry(() => import('../components/orbital/FamilyTreeOrb'))
+const FamilyTreeSidePanel = lazyWithRetry(() => import('../components/orbital/FamilyTreeSidePanel'))
+const InviteModal         = lazyWithRetry(() => import('../components/shared/InviteModal'))
 const Empty = () => null
 
 // ─── Design tokens ────────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 // src/App.jsx — MobileSimulator removed, SEO hooks integrated, PWA install banner
 
-import { useEffect, useState, lazy, Suspense } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 
@@ -11,37 +11,45 @@ import Navigation        from './components/Navigation'
 import BottomNav         from './components/BottomNav'
 import { db }            from './lib/instant'
 import { useSEO }        from './hooks'
+import { lazyWithRetry, installChunkErrorListener } from './lib/lazyWithRetry'
 
-// ─── Lazy pages ───────────────────────────────────────────────────────────────
+// Install global chunk-error listener once — catches stale chunk references
+// that escape React.lazy (e.g. imports inside event handlers/effects).
+installChunkErrorListener()
 
-const LandingPage          = lazy(() => import('./pages/LandingPage'))
-const AuthPage             = lazy(() => import('./pages/AuthPage'))
-const OnboardingPage       = lazy(() => import('./pages/OnboardingPage'))
-const NotFoundPage         = lazy(() => import('./pages/NotFoundPage'))
+// ─── Lazy pages — every dynamic import uses retry + auto-reload on stale chunks
+// Vite content-hashes chunk filenames; after a deploy the user's cached
+// index.html references chunks that no longer exist. lazyWithRetry retries
+// once, then reloads the page to fetch the fresh index.html.
 
-const ExplorePage          = lazy(() => import('./pages/ExplorePage'))
-const MemorialDetailPage   = lazy(() => import('./pages/MemorialDetailPage'))
-const CreateMemorialPage   = lazy(() => import('./pages/CreateMemorialPage'))
-const EditMemorialPage     = lazy(() => import('./pages/EditMemorialPage'))
+const LandingPage          = lazyWithRetry(() => import('./pages/LandingPage'))
+const AuthPage             = lazyWithRetry(() => import('./pages/AuthPage'))
+const OnboardingPage       = lazyWithRetry(() => import('./pages/OnboardingPage'))
+const NotFoundPage         = lazyWithRetry(() => import('./pages/NotFoundPage'))
 
-const ConversationPage     = lazy(() => import('./pages/ConversationPage'))
-const LegacyLettersPage    = lazy(() => import('./pages/LegacyLettersPage'))
-const SocialImportPage     = lazy(() => import('./pages/SocialImportPage'))
+const ExplorePage          = lazyWithRetry(() => import('./pages/ExplorePage'))
+const MemorialDetailPage   = lazyWithRetry(() => import('./pages/MemorialDetailPage'))
+const CreateMemorialPage   = lazyWithRetry(() => import('./pages/CreateMemorialPage'))
+const EditMemorialPage     = lazyWithRetry(() => import('./pages/EditMemorialPage'))
 
-const DashboardPage        = lazy(() => import('./pages/DashboardPage'))
-const ProfilePage          = lazy(() => import('./pages/ProfilePage'))
-const FamilyTreePage       = lazy(() => import('./pages/FamilyTreePage'))
-const SettingsPage         = lazy(() => import('./pages/SettingsPage'))
-const PremiumPage          = lazy(() => import('./pages/PremiumPage'))
+const ConversationPage     = lazyWithRetry(() => import('./pages/ConversationPage'))
+const LegacyLettersPage    = lazyWithRetry(() => import('./pages/LegacyLettersPage'))
+const SocialImportPage     = lazyWithRetry(() => import('./pages/SocialImportPage'))
 
-const ReelsPage            = lazy(() => import('./pages/ReelsPage'))
-const FacebookCallbackPage = lazy(() => import('./pages/FacebookCallbackPage'))
+const DashboardPage        = lazyWithRetry(() => import('./pages/DashboardPage'))
+const ProfilePage          = lazyWithRetry(() => import('./pages/ProfilePage'))
+const FamilyTreePage       = lazyWithRetry(() => import('./pages/FamilyTreePage'))
+const SettingsPage         = lazyWithRetry(() => import('./pages/SettingsPage'))
+const PremiumPage          = lazyWithRetry(() => import('./pages/PremiumPage'))
 
-const PrivacyPolicyPage    = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.PrivacyPolicyPage })))
-const TermsPage            = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.TermsPage })))
+const ReelsPage            = lazyWithRetry(() => import('./pages/ReelsPage'))
+const FacebookCallbackPage = lazyWithRetry(() => import('./pages/FacebookCallbackPage'))
 
-const FamilyVerifyPage     = lazy(() => import('./pages/FamilyVerifyPage'))
-const JoinPage             = lazy(() => import('./pages/JoinPage'))
+const PrivacyPolicyPage    = lazyWithRetry(() => import('./pages/LegalPages').then(m => ({ default: m.PrivacyPolicyPage })))
+const TermsPage            = lazyWithRetry(() => import('./pages/LegalPages').then(m => ({ default: m.TermsPage })))
+
+const FamilyVerifyPage     = lazyWithRetry(() => import('./pages/FamilyVerifyPage'))
+const JoinPage             = lazyWithRetry(() => import('./pages/JoinPage'))
 
 // ─── Loaders ──────────────────────────────────────────────────────────────────
 
