@@ -17,8 +17,17 @@ export default function BottomNav() {
   )
   const profile = data?.profiles?.[0]
 
-  const HIDE = ['/', '/auth', '/onboarding', '/reels']
-  if (HIDE.includes(location.pathname)) return null
+  // Exact-match routes to hide (top-level)
+  const HIDE_EXACT = ['/', '/auth', '/onboarding', '/reels', '/create']
+  // Prefix patterns to hide (focused flows with their own fixed bottom CTAs)
+  const HIDE_PREFIX = ['/connect/family/verify', '/connect/facebook']
+  // Path patterns for nested editor / focused flows
+  const path = location.pathname
+  const inFocusedFlow =
+    HIDE_EXACT.includes(path) ||
+    HIDE_PREFIX.some(p => path.startsWith(p)) ||
+    /^\/memorial\/[^/]+\/(edit|conversation|letters|import)$/.test(path)
+  if (inFocusedFlow) return null
 
   const active = (to) => location.pathname === to || location.pathname.startsWith(to + '/')
 

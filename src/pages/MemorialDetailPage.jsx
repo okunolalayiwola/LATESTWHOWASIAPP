@@ -267,10 +267,11 @@ function Hero({ memorial, memorialId, isOwner, navigate }) {
       </div>
 
       {/* Name plate */}
-      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0,
-        padding: '0 2rem 2rem', zIndex: 2, color: C.cream,
-        display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24,
-        animation: 'rise 0.8s ease-out 0.25s both' }}>
+      <div className="hero-nameplate"
+        style={{ position: 'absolute', left: 0, right: 0, bottom: 0,
+          padding: '0 2rem 2rem', zIndex: 2, color: C.cream,
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24,
+          animation: 'rise 0.8s ease-out 0.25s both' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           {relation && (
             <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.28em', textTransform: 'uppercase',
@@ -280,8 +281,9 @@ function Hero({ memorial, memorialId, isOwner, navigate }) {
             </div>
           )}
           <h1 style={{ fontFamily: DISP, fontWeight: 700,
-            fontSize: 'clamp(48px, 8.5vw, 120px)', lineHeight: .86,
-            letterSpacing: '-.045em', color: '#fff', textTransform: 'lowercase', margin: 0 }}>
+            fontSize: 'clamp(32px, 8.5vw, 120px)', lineHeight: .9,
+            letterSpacing: '-.045em', color: '#fff', textTransform: 'lowercase', margin: 0,
+            wordBreak: 'break-word', overflowWrap: 'break-word' }}>
             <StyledName name={memorial.name || ''} />
           </h1>
           <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: '1rem',
@@ -331,8 +333,9 @@ function Hero({ memorial, memorialId, isOwner, navigate }) {
         @keyframes rise     { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes livepulse{ 0%,100%{ opacity:1; transform:scale(1); } 50%{ opacity:.4; transform:scale(.85); } }
         @media (max-width: 640px) {
-          .hero-photo { width: 78% !important; }
-          .hero-blend { background: linear-gradient(to right, transparent 34%, rgba(21,18,14,.75) 56%, #15120e 72%) !important; }
+          .hero-photo { width: 100% !important; object-position: center 18% !important; }
+          .hero-blend { background: linear-gradient(to bottom, transparent 38%, rgba(21,18,14,.55) 65%, #15120e 100%) !important; }
+          .hero-nameplate { padding: 0 1.25rem 1.5rem !important; gap: 12px !important; }
         }
       `}</style>
     </section>
@@ -1054,7 +1057,7 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
           </button>
         )}
       </div>
-      <style>{`@media (max-width: 600px) { .gallery-grid { grid-template-columns: repeat(2, 1fr) !important; } }`}</style>
+      {/* keep 3-col preview on mobile so the 3-photo preview never orphans */}
 
       {/* Lightbox */}
       <AnimatePresence>
@@ -1288,19 +1291,28 @@ function TributeComments({ tributeId, memorialId, user, userProfile, isFamilyMem
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 function TabBar({ tabs, active, onChange }) {
   return (
-    <div style={{ display: 'flex', padding: 6, borderRadius: 18,
-      background: C.paper, border: '1px solid rgba(21,18,14,.10)',
-      width: 'fit-content', marginBottom: 20, gap: 0 }}>
+    <div className="memorial-tabbar"
+      style={{
+        display: 'flex', padding: 6, borderRadius: 18,
+        background: C.paper, border: '1px solid rgba(21,18,14,.10)',
+        marginBottom: 20, gap: 0,
+        maxWidth: '100%', overflowX: 'auto',
+        scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch',
+      }}>
       {tabs.map(({ key, label, count }) => {
         const isActive = active === key
         return (
           <button key={key} onClick={() => onChange(key)}
-            style={{ border: 'none', cursor: 'pointer', fontFamily: DISP, fontWeight: 600,
-              fontSize: 13.5, padding: '10px 18px', borderRadius: 12,
+            style={{
+              flexShrink: 0,
+              border: 'none', cursor: 'pointer', fontFamily: DISP, fontWeight: 600,
+              fontSize: 13.5, padding: '10px 16px', borderRadius: 12,
               background: isActive ? C.ink : 'transparent',
               color: isActive ? 'var(--theme, #f3b21a)' : C.ink2, letterSpacing: '.01em', transition: 'all .15s',
               boxShadow: isActive ? '0 4px 14px rgba(21,18,14,.2)' : 'none',
-              display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              whiteSpace: 'nowrap',
+            }}>
             {label}
             <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.06em',
               background: isActive ? 'var(--theme, #f3b21a)' : 'rgba(21,18,14,.08)',
@@ -1311,6 +1323,7 @@ function TabBar({ tabs, active, onChange }) {
           </button>
         )
       })}
+      <style>{`.memorial-tabbar::-webkit-scrollbar { display: none; }`}</style>
     </div>
   )
 }
@@ -1897,7 +1910,8 @@ function MemorialDetailPageInner() {
     <div style={{
       background:   C.paper,
       minHeight:    '100vh',
-      paddingTop:   56,
+      paddingTop:   'max(56px, calc(env(safe-area-inset-top) + 12px))',
+      paddingBottom:'max(96px, calc(env(safe-area-inset-bottom) + 80px))',
       '--theme':    themeHex,
       '--theme-lt': themeLight,
       '--theme-md': themeMedium,
@@ -2249,13 +2263,6 @@ function MemorialDetailPageInner() {
         }
         @media (max-width: 768px) {
           .page-grid { padding: 0 .75rem; }
-        }
-        /* Reel — desktop shows inline player, mobile shows teaser button */
-        .reel-desktop-wrap { display: block; }
-        .reel-mobile-wrap  { display: none;  }
-        @media (max-width: 768px) {
-          .reel-desktop-wrap { display: none;  }
-          .reel-mobile-wrap  { display: block; }
         }
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
