@@ -20,9 +20,11 @@ function safeLazy(loader) {
       .catch(() => ({ default: () => null }))
   )
 }
-const QRModal     = safeLazy(() => import('../components/ui/QRModal'))
-const LifeReel    = safeLazy(() => import('../components/ui/LifeReel'))
-const TalkScreen  = safeLazy(() => import('../components/ui/TalkScreen'))
+const QRModal       = safeLazy(() => import('../components/ui/QRModal'))
+const LifeReel      = safeLazy(() => import('../components/ui/LifeReel'))
+const TalkScreen    = safeLazy(() => import('../components/ui/TalkScreen'))
+const FamilyTreeOrb = safeLazy(() => import('../components/orbital/FamilyTreeOrb'))
+const InviteModal   = safeLazy(() => import('../components/shared/InviteModal'))
 const Empty = () => null
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -1265,6 +1267,364 @@ function LoadingSkeleton() {
   )
 }
 
+// ─── Memorial Family Circle ─────────────────────────────────────────────────
+// Full-viewport orbital canvas centred on this memorial.
+// Approved family connections orbit around. Click any orbiter → re-centres.
+// Memorial owners can:
+//   • View invite code + QR
+//   • Approve/reject pending connection requests (vetting the relation)
+//   • Remove approved members
+// Family members can view the circle.
+function MemorialFamilyCircle({ memorial, memorialId, user, isOwner, onClose }) {
+  const [centeredId,   setCenteredId]   = useState(null)   // null → memorial is centre
+  const [selected,     setSelected]     = useState(null)
+  const [recenterTick, setRecenterTick] = useState(0)
+  const [showInvite,   setShowInvite]   = useState(false)
+  const [showPending,  setShowPending]  = useState(false)
+
+  // All connections for this memorial — approved + pending
+  const { data } = db.useQuery(memorialId ? {
+    familyConnections: { $: { where: { toMemorialId: memorialId } } },
+  } : null)
+
+  const allConns      = data?.familyConnections || []
+  const approvedConns = allConns.filter(c => c.status === 'approved')
+  const pendingConns  = allConns.filter(c => c.status === 'pending')
+
+  // Memorial-as-centre object
+  const memorialCenter = useMemo(() => ({
+    id:        'MEMORIAL',
+    name:      memorial?.name || 'Memorial',
+    photo:     memorial?.photo || memorial?.coverPhoto || null,
+    alive:     memorial?.alive,
+    isMemorial: true,
+  }), [memorial])
+
+  // Convert approved connections → orbiter format
+  const memberOrbiters = useMemo(() => approvedConns.map(c => ({
+    id:       c.id,
+    name:     c.fromName || 'Family',
+    photo:    c.fromPhoto || null,
+    relation: getRelationLabel(c.relation) || c.relation,
+    alive:    true,
+    ring:     1,
+    fromUserId: c.fromUserId,
+    fromEmail:  c.fromEmail,
+    rawRelation: c.relation,
+  })), [approvedConns])
+
+  // Centre + orbiters depending on selection
+  const centered = centeredId
+    ? memberOrbiters.find(m => m.id === centeredId) || memorialCenter
+    : memorialCenter
+
+  const orbiters = centeredId
+    ? [
+        { ...memorialCenter, id: 'MEMORIAL', relation: '✦ Memorial', ring: 1 },
+        ...memberOrbiters.filter(m => m.id !== centeredId),
+      ]
+    : memberOrbiters
+
+  function handleSelect(member) {
+    if (member.id === 'MEMORIAL') { setCenteredId(null); setSelected(null); setRecenterTick(t => t + 1); return }
+    setSelected(member)
+    setCenteredId(member.id)
+    setRecenterTick(t => t + 1)
+  }
+
+  async function handleRemove(connId) {
+    if (!confirm('Remove this family member from the circle?')) return
+    try {
+      await db.transact([db.tx.familyConnections[connId].update({ status: 'rejected' })])
+      setSelected(null)
+    } catch { alert('Could not remove. Try again.') }
+  }
+
+  async function handleApprovePending(conn) {
+    try {
+      await db.transact([db.tx.familyConnections[conn.id].update({
+        status: 'approved',
+        approvedAt: Date.now(),
+      })])
+    } catch { alert('Could not approve. Try again.') }
+  }
+
+  async function handleRejectPending(conn) {
+    try {
+      await db.transact([db.tx.familyConnections[conn.id].update({
+        status: 'rejected',
+      })])
+    } catch { alert('Could not reject. Try again.') }
+  }
+
+  return (
+    <div style={{ position:'fixed', inset:0, zIndex:80, background:'#06060a' }}>
+      {/* Orbital canvas */}
+      <Suspense fallback={null}>
+        <FamilyTreeOrb
+          center={centered}
+          members={orbiters}
+          onSelectMember={handleSelect}
+          onCenterClick={() => {
+            if (centeredId) {
+              const m = memberOrbiters.find(x => x.id === centeredId)
+              if (m) setSelected(m)
+            }
+          }}
+          panResetSignal={recenterTick}
+        />
+      </Suspense>
+
+      {/* Top bar */}
+      <div style={{
+        position:'absolute', top:0, left:0, right:0, zIndex:20,
+        paddingTop:'max(20px, env(safe-area-inset-top))',
+        paddingLeft:16, paddingRight:16, paddingBottom:8,
+        background:'linear-gradient(to bottom, rgba(5,5,10,0.70) 0%, transparent 100%)',
+        display:'flex', alignItems:'center', justifyContent:'space-between', gap:8,
+        pointerEvents:'none',
+      }}>
+        <button onClick={onClose}
+          style={{
+            pointerEvents:'auto',
+            background:'rgba(10,10,15,0.85)', backdropFilter:'blur(20px)',
+            border:'1px solid rgba(255,255,255,0.10)',
+            borderRadius:999, padding:'8px 14px',
+            color:'rgba(255,255,255,0.7)', cursor:'pointer',
+            fontFamily:"'Inter',sans-serif", fontSize:11, fontWeight:600,
+            display:'flex', alignItems:'center', gap:6,
+          }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <path d="M15 18l-6-6 6-6"/>
+          </svg>
+          Back
+        </button>
+
+        <div style={{ pointerEvents:'auto', display:'flex', gap:8 }}>
+          {/* Pending requests pill (owner only) */}
+          {isOwner && pendingConns.length > 0 && (
+            <button onClick={() => setShowPending(true)}
+              style={{
+                background:'rgba(243,178,26,0.18)', backdropFilter:'blur(20px)',
+                border:'1px solid rgba(243,178,26,0.40)',
+                borderRadius:999, padding:'8px 14px',
+                color:'#FFD700', cursor:'pointer',
+                fontFamily:"'Inter',sans-serif", fontSize:11, fontWeight:700,
+                display:'flex', alignItems:'center', gap:6,
+              }}>
+              <span style={{ display:'inline-flex', width:18, height:18, borderRadius:999,
+                background:'rgba(243,178,26,0.30)', alignItems:'center', justifyContent:'center', fontSize:10 }}>
+                {pendingConns.length}
+              </span>
+              {pendingConns.length === 1 ? 'request' : 'requests'}
+            </button>
+          )}
+
+          {isOwner && (
+            <button onClick={() => setShowInvite(true)}
+              style={{
+                background:'linear-gradient(135deg,#FFD700,#38BDF8)',
+                border:'none', borderRadius:999, padding:'9px 18px',
+                color:'#0a0a12', cursor:'pointer',
+                fontFamily:"'Inter',sans-serif", fontSize:11, fontWeight:700, letterSpacing:'.06em',
+              }}>
+              + Invite
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom info — stats + memorial title */}
+      <div style={{
+        position:'absolute', bottom:24, left:'50%', transform:'translateX(-50%)',
+        zIndex:10, pointerEvents:'none', textAlign:'center', maxWidth:'92vw',
+      }}>
+        <p style={{
+          fontFamily:MONO, fontSize:9.5, letterSpacing:'.30em', textTransform:'uppercase',
+          color:'rgba(255,215,0,0.60)', margin:0,
+        }}>
+          ◉ Family Circle of {memorial?.name?.split(' ')[0]}
+        </p>
+        <p style={{
+          fontFamily:"'Inter',sans-serif", fontSize:10,
+          color:'rgba(255,255,255,0.40)', margin:'4px 0 0',
+        }}>
+          {memberOrbiters.length === 0
+            ? 'No family members yet — share the invite code to grow the circle.'
+            : `${memberOrbiters.length} approved · drag to pan · tap any node to re-centre`}
+        </p>
+      </div>
+
+      {/* Selected member HUD */}
+      <AnimatePresence>
+        {selected && (
+          <motion.div
+            key={selected.id}
+            initial={{ y: 40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 40, opacity: 0 }}
+            style={{
+              position:'absolute', left:'50%', transform:'translateX(-50%)',
+              bottom: 'calc(76px + env(safe-area-inset-bottom))',
+              zIndex: 30,
+              background:'rgba(10,10,15,0.92)', backdropFilter:'blur(24px)',
+              border:'1px solid rgba(255,215,0,0.25)',
+              borderRadius: 22, padding:'14px 18px',
+              minWidth: 260, maxWidth:'92vw',
+              boxShadow:'0 12px 40px rgba(0,0,0,0.5)',
+            }}>
+            <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+              <div style={{
+                width:48, height:48, borderRadius:'50%', flexShrink:0,
+                background:'linear-gradient(135deg,rgba(255,215,0,.20),rgba(56,189,248,.16))',
+                border:'1.5px solid rgba(255,215,0,0.35)',
+                overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center',
+                fontFamily:"'Cormorant Garamond',serif", fontWeight:700, fontSize:18, color:'#FFD700',
+              }}>
+                {selected.photo
+                  ? <img src={selected.photo} alt={selected.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                  : (selected.name?.[0] || '?').toUpperCase()
+                }
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <p style={{ fontFamily:DISP, fontWeight:700, fontSize:15, color:'#fff', margin:0, lineHeight:1.2 }}>
+                  {selected.name}
+                </p>
+                <p style={{ fontFamily:MONO, fontSize:9.5, letterSpacing:'.12em', textTransform:'uppercase',
+                  color:'rgba(255,215,0,.75)', margin:'4px 0 0' }}>
+                  {selected.relation || 'family'}
+                </p>
+              </div>
+              <button onClick={() => setSelected(null)}
+                style={{ background:'none', border:'none', color:'rgba(255,255,255,.4)',
+                  cursor:'pointer', fontSize:18, padding:4 }}>✕</button>
+            </div>
+            {isOwner && selected.id !== 'MEMORIAL' && (
+              <button onClick={() => handleRemove(selected.id)}
+                style={{
+                  marginTop: 12, width:'100%', padding:'8px 0',
+                  background:'rgba(200,83,31,.10)', border:'1px solid rgba(200,83,31,.30)',
+                  color:'#e07b5a', borderRadius:12, cursor:'pointer',
+                  fontFamily:MONO, fontSize:10, letterSpacing:'.16em', textTransform:'uppercase',
+                }}>
+                Remove from circle
+              </button>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Pending requests modal */}
+      <AnimatePresence>
+        {showPending && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowPending(false)}
+              style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:90, backdropFilter:'blur(8px)' }}
+            />
+            <motion.div
+              initial={{ y:'100%' }} animate={{ y:0 }} exit={{ y:'100%' }}
+              transition={{ type:'spring', damping:30, stiffness:300 }}
+              style={{
+                position:'fixed', bottom:0, left:0, right:0, zIndex:100,
+                background:'#0d0d12', borderTopLeftRadius:24, borderTopRightRadius:24,
+                padding:'16px 18px 30px', maxWidth:560, margin:'0 auto',
+                borderTop:'1px solid rgba(255,215,0,0.20)',
+                maxHeight:'80vh', overflowY:'auto',
+              }}>
+              <div style={{ width:40, height:4, background:'rgba(255,255,255,.18)', borderRadius:2, margin:'0 auto 14px' }} />
+              <h3 style={{ fontFamily:DISP, fontWeight:700, fontSize:18, color:'#fff', margin:'0 0 4px' }}>
+                Pending connection requests
+              </h3>
+              <p style={{ fontFamily:"'Inter',sans-serif", fontSize:12, color:'rgba(255,255,255,.5)', margin:'0 0 18px', lineHeight:1.5 }}>
+                Review who claims to be related to {memorial?.name?.split(' ')[0]}. Approve to add them to the circle, or change the relation if it's wrong.
+              </p>
+
+              {pendingConns.length === 0 ? (
+                <p style={{ textAlign:'center', padding:30, color:'rgba(255,255,255,.4)', fontSize:13 }}>
+                  No pending requests.
+                </p>
+              ) : (
+                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                  {pendingConns.map(c => (
+                    <div key={c.id}
+                      style={{
+                        background:'rgba(255,255,255,.04)',
+                        border:'1px solid rgba(255,255,255,.08)',
+                        borderRadius:16, padding:'14px 16px',
+                      }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:10 }}>
+                        <div style={{
+                          width:44, height:44, borderRadius:'50%', flexShrink:0,
+                          background:'linear-gradient(135deg,rgba(255,215,0,.15),rgba(56,189,248,.10))',
+                          border:'1px solid rgba(255,255,255,.10)',
+                          overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center',
+                          fontFamily:"'Inter',sans-serif", fontWeight:700, fontSize:15, color:'rgba(255,255,255,.5)',
+                        }}>
+                          {c.fromPhoto
+                            ? <img src={c.fromPhoto} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                            : (c.fromName?.[0] || '?').toUpperCase()
+                          }
+                        </div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <p style={{ fontFamily:DISP, fontWeight:600, fontSize:14, color:'#fff', margin:0 }}>
+                            {c.fromName || 'Anonymous'}
+                          </p>
+                          {c.fromEmail && (
+                            <p style={{ fontSize:11, color:'rgba(255,255,255,.4)', margin:'2px 0 0' }}>
+                              {c.fromEmail}
+                            </p>
+                          )}
+                          <p style={{ fontFamily:MONO, fontSize:9.5, letterSpacing:'.16em', textTransform:'uppercase',
+                            color:'#FFD700', margin:'4px 0 0' }}>
+                            claims: {getRelationLabel(c.relation) || c.relation}
+                          </p>
+                        </div>
+                      </div>
+                      <div style={{ display:'flex', gap:8 }}>
+                        <button onClick={() => handleRejectPending(c)}
+                          style={{ flex:1, padding:'10px 0', borderRadius:12,
+                            border:'1px solid rgba(200,83,31,.30)', background:'rgba(200,83,31,.10)',
+                            color:'#e07b5a', cursor:'pointer',
+                            fontFamily:MONO, fontSize:10, letterSpacing:'.14em', textTransform:'uppercase' }}>
+                          Reject
+                        </button>
+                        <button onClick={() => handleApprovePending(c)}
+                          style={{ flex:2, padding:'10px 0', borderRadius:12,
+                            border:'none', background:'linear-gradient(90deg,#FFD700,#38BDF8)',
+                            color:'#0a0a12', cursor:'pointer',
+                            fontFamily:MONO, fontSize:10, letterSpacing:'.14em', textTransform:'uppercase', fontWeight:700 }}>
+                          ✓ Approve to circle
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Invite modal (memorial-scoped) */}
+      <AnimatePresence>
+        {showInvite && (
+          <Suspense fallback={null}>
+            <InviteModal user={user} memorial={memorial} onClose={() => setShowInvite(false)} />
+          </Suspense>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+// Helper for memorial family circle — locally imported here
+function getRelationLabel(value) {
+  if (!value) return ''
+  return String(value).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
 // ─── Main inner component ─────────────────────────────────────────────────────
 function MemorialDetailPageInner() {
   const { id: memorialId } = useParams()
@@ -1278,6 +1638,7 @@ function MemorialDetailPageInner() {
   const [showQR,          setShowQR]          = useState(false)
   const [showTalkScreen,  setShowTalkScreen]  = useState(false)
   const [showReelFull,    setShowReelFull]    = useState(false)
+  const [showFamilyCircle, setShowFamilyCircle] = useState(false)
 
   const { user } = db.useAuth()
 
@@ -1297,6 +1658,26 @@ function MemorialDetailPageInner() {
     } : null
   )
   const isFamilyMember = !!(familyConnQ?.data?.familyConnections?.length)
+
+  // All approved family connections for this memorial — preview row faces + count
+  const allFamilyQ = db.useQuery(
+    memorialId ? {
+      familyConnections: {
+        $: { where: { toMemorialId: memorialId, status: 'approved' } },
+      },
+    } : null
+  )
+  const approvedFamilyForMemorial = allFamilyQ?.data?.familyConnections || []
+
+  // Pending requests for this memorial — for owner's attention badge
+  const pendingFamilyQ = db.useQuery(
+    (user && memorialId) ? {
+      familyConnections: {
+        $: { where: { toMemorialId: memorialId, status: 'pending' } },
+      },
+    } : null
+  )
+  const pendingFamilyCount = pendingFamilyQ?.data?.familyConnections?.length || 0
 
   // Load current user profile for messages + comments (display name, photo)
   const profileQ = db.useQuery(
@@ -1524,6 +1905,119 @@ function MemorialDetailPageInner() {
               {activeTab === 'Family' && (isOwner || isFamilyMember) && (
                 <motion.div key="family" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                   style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+                  {/* ── Family Circle preview ──────────────────────────────── */}
+                  <Card variant="ink" style={{ padding: 0, overflow: 'hidden' }}>
+                    <div style={{
+                      padding: '18px 24px 14px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      gap: 12, flexWrap: 'wrap',
+                      borderBottom: '1px solid rgba(241,236,225,.06)',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <Label onInk>Family circle</Label>
+                        <span style={{
+                          fontFamily: MONO, fontSize: 9.5, letterSpacing: '.18em', textTransform: 'uppercase',
+                          color: 'rgba(243,178,26,.85)',
+                          background: 'rgba(243,178,26,.10)',
+                          border: '1px solid rgba(243,178,26,.25)',
+                          padding: '3px 8px', borderRadius: 999,
+                        }}>
+                          ◉ Infinite web
+                        </span>
+                      </div>
+
+                      <button onClick={() => setShowFamilyCircle(true)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 6,
+                          background: 'rgba(243,178,26,.12)',
+                          color: C.saffron,
+                          border: '1px solid rgba(243,178,26,.30)',
+                          borderRadius: 999, padding: '7px 14px',
+                          cursor: 'pointer',
+                          fontFamily: MONO, fontSize: 10, letterSpacing: '.18em',
+                          textTransform: 'uppercase', fontWeight: 600,
+                        }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+                          <path d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/>
+                        </svg>
+                        Open circle
+                      </button>
+                    </div>
+
+                    <div style={{ padding: '14px 24px 20px' }}>
+                      <h3 style={{
+                        fontFamily: DISP, fontWeight: 700, fontSize: 22, letterSpacing: '-.02em',
+                        lineHeight: 1.15, margin: 0, color: C.cream,
+                      }}>
+                        {approvedFamilyForMemorial.length === 0
+                          ? <>An infinite web — <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: C.saffron2 }}>waiting for the first connection.</em></>
+                          : <>An infinite web — <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: C.saffron2 }}>{approvedFamilyForMemorial.length} approved.</em></>
+                        }
+                      </h3>
+                      <p style={{ color: 'rgba(241,236,225,.55)', fontSize: 13, lineHeight: 1.55, margin: '8px 0 14px' }}>
+                        {memorial.name?.split(' ')[0]} sits at the centre. Family members orbit around them.
+                        Tap any face to re-centre on that person — the web reorders to their world. Drag to pan freely.
+                        Only approved family appear here; pending requests must be vetted before joining.
+                      </p>
+
+                      {/* Member face row preview */}
+                      {approvedFamilyForMemorial.length > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+                          {approvedFamilyForMemorial.slice(0, 8).map(c => (
+                            <div key={c.id} style={{
+                              width: 36, height: 36, borderRadius: '50%', overflow: 'hidden',
+                              background: 'linear-gradient(135deg,rgba(255,215,0,.18),rgba(56,189,248,.12))',
+                              border: '1.5px solid rgba(255,215,0,0.30)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 11, fontWeight: 700, color: C.saffron,
+                            }} title={`${c.fromName} · ${getRelationLabel(c.relation) || c.relation}`}>
+                              {c.fromPhoto
+                                ? <img src={c.fromPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                : (c.fromName?.[0] || '?').toUpperCase()
+                              }
+                            </div>
+                          ))}
+                          {approvedFamilyForMemorial.length > 8 && (
+                            <span style={{ fontSize: 11, color: 'rgba(241,236,225,.5)', marginLeft: 4 }}>
+                              +{approvedFamilyForMemorial.length - 8} more
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Pending requests alert (owner only) */}
+                      {isOwner && pendingFamilyCount > 0 && (
+                        <button onClick={() => setShowFamilyCircle(true)}
+                          style={{
+                            width: '100%', marginBottom: 10,
+                            background: 'rgba(243,178,26,.10)',
+                            border: '1px solid rgba(243,178,26,.30)',
+                            borderRadius: 14, padding: '10px 14px',
+                            display: 'flex', alignItems: 'center', gap: 10,
+                            cursor: 'pointer',
+                          }}>
+                          <span style={{
+                            display: 'inline-flex', width: 24, height: 24, borderRadius: 12,
+                            background: 'rgba(243,178,26,.25)', color: '#FFD700',
+                            alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 11,
+                          }}>
+                            {pendingFamilyCount}
+                          </span>
+                          <span style={{ flex: 1, textAlign: 'left',
+                            fontFamily: DISP, fontSize: 13, fontWeight: 600, color: C.saffron }}>
+                            {pendingFamilyCount === 1 ? '1 person is awaiting your approval' : `${pendingFamilyCount} people awaiting approval`}
+                          </span>
+                          <span style={{ color: C.saffron, fontSize: 14 }}>→</span>
+                        </button>
+                      )}
+                    </div>
+                  </Card>
+
+                  {/* ── Invite code (owner only) ────────────────────────────── */}
+                  {isOwner && (
+                    <InviteCodeBadge user={user} memorial={memorial} compact />
+                  )}
 
                   {/* Alive / Deceased toggle for family members */}
                   {(isOwner || isFamilyMember) && (
@@ -1757,6 +2251,19 @@ function MemorialDetailPageInner() {
               onClose={() => setShowTalkScreen(false)}
             />
           </Suspense>
+        )}
+      </AnimatePresence>
+
+      {/* ── Memorial Family Circle — full-viewport orbital ──────────────────── */}
+      <AnimatePresence>
+        {showFamilyCircle && (
+          <MemorialFamilyCircle
+            memorial={memorial}
+            memorialId={memorialId}
+            user={user}
+            isOwner={isOwner}
+            onClose={() => setShowFamilyCircle(false)}
+          />
         )}
       </AnimatePresence>
     </div>

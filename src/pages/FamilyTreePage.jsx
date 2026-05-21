@@ -17,12 +17,13 @@ export default function FamilyTreePage() {
   const { user } = db.useAuth()
   const navigate  = useNavigate()
 
-  const [selected,   setSelected]   = useState(null)
-  const [showSearch, setShowSearch]  = useState(false)
-  const [showInvite, setShowInvite]  = useState(false)
-  const [centerId,   setCenterId]    = useState(null)
-  const [viewMode,   setViewMode]    = useState('tree')   // 'tree' | 'list'
-  const [listQuery,  setListQuery]   = useState('')
+  const [selected,    setSelected]    = useState(null)
+  const [showSearch,  setShowSearch]   = useState(false)
+  const [showInvite,  setShowInvite]   = useState(false)
+  const [centeredId,  setCenteredId]   = useState(null)   // null → user is centre
+  const [recenterTick, setRecenterTick] = useState(0)
+  const [viewMode,    setViewMode]    = useState('tree')  // 'tree' | 'list'
+  const [listQuery,   setListQuery]    = useState('')
   const [searchParams] = useSearchParams()
 
   // Query approved family connections where this user is the owner
@@ -39,19 +40,47 @@ export default function FamilyTreePage() {
   const connections = data?.familyConnections || []
   const profile     = data?.profiles?.[0]
   const userName    = profile?.displayName || user?.email?.split('@')[0] || 'Family'
+  const userPhoto   = profile?.photoUrl || null
+
+  // User-as-centre object (the default centre when nothing is selected)
+  const userCenter = useMemo(() => ({
+    id:        'me',
+    name:      userName,
+    photo:     userPhoto,
+    alive:     true,
+    isMemorial: false,
+    subtitle:   'You',
+  }), [userName, userPhoto])
 
   // Convert approved connections to the FamilyTreeOrb members format
   const members = useMemo(() => connections.map(conn => ({
     id:        conn.id,
     name:      conn.fromName || 'Family Member',
     photo:     conn.fromPhoto || null,
-    relation:  conn.relation,
-    alive:     true,   // we don't track this from connections yet
-    ring:      1,      // all in ring 1 until we have deeper tree data
+    relation:  getRelationLabel(conn.relation) || conn.relation,
+    alive:     true,
+    ring:      1,
     generation: 1,
     connId:    conn.id,
     fromUserId: conn.fromUserId,
   })), [connections])
+
+  // Build the orbital list — when someone is "centered on", the previous
+  // centre (the user) joins as an honourary ring-1 node.
+  const centered = useMemo(() => {
+    if (!centeredId) return userCenter
+    const m = members.find(x => x.id === centeredId)
+    return m || userCenter
+  }, [centeredId, members, userCenter])
+
+  const orbiters = useMemo(() => {
+    if (!centeredId) return members
+    // Centre is a connection → push user back into the orbit
+    return [
+      { id: 'me', name: userName, photo: userPhoto, relation: 'You', alive: true, ring: 1 },
+      ...members.filter(m => m.id !== centeredId),
+    ]
+  }, [centeredId, members, userName, userPhoto])
 
   if (!user) {
     return (
@@ -67,8 +96,18 @@ export default function FamilyTreePage() {
 
   function handleSelect(member) {
     if (!member) { setSelected(null); return }
+    // Clicking 'me' (back to you) → recentre on user
+    if (member.id === 'me') { setCenteredId(null); setSelected(null); setRecenterTick(t => t + 1); return }
     setSelected(member)
-    setCenterId(member.id)
+    setCenteredId(member.id)
+    setRecenterTick(t => t + 1)
+  }
+  function handleCenterClick() {
+    // Click on the centre → open HUD if a member is centered
+    if (centeredId) {
+      const m = members.find(x => x.id === centeredId)
+      if (m) setSelected(m)
+    }
   }
 
   // Filtered list for the list view
@@ -96,56 +135,42 @@ export default function FamilyTreePage() {
             </div>
           ) : (
             <FamilyTreeOrb
-              members={members}
+              center={centered}
+              members={orbiters}
               onSelectMember={handleSelect}
-              centerMemberId={centerId}
+              onCenterClick={handleCenterClick}
+              panResetSignal={recenterTick}
             />
           )}
 
-          {/* Centre label */}
-          {!selected && (
+          {/* Empty-state invite prompt — only when truly empty */}
+          {!isLoading && members.length === 0 && !centeredId && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               style={{
-                position: 'absolute', top: '50%', left: '50%',
-                transform: 'translate(-50%, -50%)',
-                textAlign: 'center', pointerEvents: 'none', zIndex: 5,
-                marginTop: 60,
+                position: 'absolute', bottom: 120, left: '50%',
+                transform: 'translateX(-50%)',
+                textAlign: 'center', pointerEvents: 'auto', zIndex: 5,
               }}
             >
-              <p style={{ fontFamily:"'Inter',sans-serif", fontSize:9, fontWeight:600,
-                letterSpacing:'0.22em', textTransform:'uppercase', color:'rgba(255,215,0,0.45)', marginBottom:4 }}>
-                Family Archive
+              <p style={{ fontFamily:"'Inter',sans-serif", fontSize:11,
+                color:'rgba(255,255,255,0.45)', marginBottom:10 }}>
+                No family connections yet
               </p>
-              <p style={{ fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:'clamp(14px,3vw,20px)',
-                fontWeight:700, color:'rgba(255,255,255,0.88)', lineHeight:1.2 }}>
-                {userName}
-              </p>
-
-              {/* Empty state — invite link instead of "Add member" */}
-              {!isLoading && members.length === 0 && (
-                <div style={{ marginTop: 14 }}>
-                  <p style={{ fontFamily:"'Inter',sans-serif", fontSize:11,
-                    color:'rgba(255,255,255,0.28)', marginBottom:10 }}>
-                    No family connections yet
-                  </p>
-                  <button
-                    onClick={() => setShowInvite(true)}
-                    style={{
-                      pointerEvents:'auto',
-                      background:'rgba(255,215,0,0.10)',
-                      border:'1px solid rgba(255,215,0,0.25)',
-                      borderRadius:20, padding:'8px 20px',
-                      color:'rgba(255,215,0,0.75)',
-                      fontFamily:"'Inter',sans-serif",
-                      fontSize:11, fontWeight:600, cursor:'pointer',
-                    }}
-                  >
-                    Share invite code →
-                  </button>
-                </div>
-              )}
+              <button
+                onClick={() => setShowInvite(true)}
+                style={{
+                  background:'rgba(255,215,0,0.10)',
+                  border:'1px solid rgba(255,215,0,0.25)',
+                  borderRadius:20, padding:'10px 22px',
+                  color:'rgba(255,215,0,0.85)',
+                  fontFamily:"'Inter',sans-serif",
+                  fontSize:11, fontWeight:600, cursor:'pointer',
+                }}
+              >
+                Share invite code →
+              </button>
             </motion.div>
           )}
         </>
@@ -326,7 +351,7 @@ export default function FamilyTreePage() {
             user={user}
             onClose={() => setSelected(null)}
             onEdit={() => {}}
-            onDeleted={() => { setSelected(null); setCenterId(null) }}
+            onDeleted={() => { setSelected(null); setCenteredId(null); setRecenterTick(t => t + 1) }}
           />
         )}
       </AnimatePresence>
@@ -336,7 +361,7 @@ export default function FamilyTreePage() {
         {showSearch && (
           <SearchModal
             members={members}
-            onSelect={m => { setSelected(m); setCenterId(m.id); setShowSearch(false); setViewMode('tree') }}
+            onSelect={m => { setSelected(m); setCenteredId(m.id); setShowSearch(false); setViewMode('tree'); setRecenterTick(t => t + 1) }}
             onClose={() => setShowSearch(false)}
           />
         )}

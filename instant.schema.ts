@@ -135,6 +135,11 @@ const _schema = i.schema({
     invites: i.entity({
       code:          i.string().indexed(),
       familyOwnerId: i.string().indexed(),
+      // memorialId — each memorial has its own dedicated invite code so
+      // family members are connected to the specific memorial they're invited
+      // to, not just the owner's overall family circle.
+      memorialId:    i.string().optional().indexed(),
+      memorialName:  i.string().optional(),   // human label so JoinPage can show "join Grace's family"
       createdAt:     i.number(),
       expiresAt:     i.number(),
       used:          i.boolean().optional(),

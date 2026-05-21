@@ -116,6 +116,8 @@ const _schema = i.schema({
     invites: i.entity({
       code:          i.string().indexed(),
       familyOwnerId: i.string().indexed(),
+      memorialId:    i.string().optional().indexed(),
+      memorialName:  i.string().optional(),
       createdAt:     i.number(),
       expiresAt:     i.number(),
       used:          i.boolean().optional(),

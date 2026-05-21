@@ -12,32 +12,37 @@ function generateCode() {
   return Math.random().toString(36).slice(2, 10).toUpperCase()
 }
 
-export default function InviteCodeBadge({ user, compact = false }) {
+export default function InviteCodeBadge({ user, memorial, compact = false }) {
   const [code,     setCode]     = useState(null)
   const [loading,  setLoading]  = useState(false)
   const [copied,   setCopied]   = useState(false)
   const [expanded, setExpanded] = useState(false)
 
-  // Fetch the user's most recent non-expired invite
+  const memorialId   = memorial?.id   || null
+  const memorialName = memorial?.name || null
+
+  // Fetch invites. When a memorial is provided, scope to memorial-specific
+  // codes only. Otherwise show user-level invites that have no memorialId.
   const { data } = db.useQuery(
     user
-      ? { invites: { $: { where: { familyOwnerId: user.id, used: false } } } }
+      ? memorialId
+        ? { invites: { $: { where: { familyOwnerId: user.id, memorialId, used: false } } } }
+        : { invites: { $: { where: { familyOwnerId: user.id, used: false } } } }
       : null
   )
 
   useEffect(() => {
     if (!data) return
-    const now      = Date.now()
-    const valid    = (data.invites || [])
+    const now   = Date.now()
+    // When in user-level mode, filter OUT memorial-scoped codes
+    const valid = (data.invites || [])
       .filter(inv => !inv.expiresAt || inv.expiresAt > now)
+      .filter(inv => memorialId ? inv.memorialId === memorialId : !inv.memorialId)
       .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
 
-    if (valid.length > 0) {
-      setCode(valid[0].code)
-    } else {
-      setCode(null)
-    }
-  }, [data])
+    if (valid.length > 0) setCode(valid[0].code)
+    else setCode(null)
+  }, [data, memorialId])
 
   const inviteLink = code ? `${window.location.origin}/join?code=${code}` : null
   const qrUrl      = code
@@ -54,6 +59,8 @@ export default function InviteCodeBadge({ user, compact = false }) {
         db.tx.invites[inviteId].update({
           code:          newCode,
           familyOwnerId: user.id,
+          memorialId:    memorialId   || undefined,
+          memorialName:  memorialName || undefined,
           createdAt:     Date.now(),
           expiresAt:     Date.now() + 30 * 24 * 60 * 60 * 1000,   // 30 days
           used:          false,
@@ -99,7 +106,7 @@ export default function InviteCodeBadge({ user, compact = false }) {
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 12 }}>
           <div>
             <p style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:9, letterSpacing:'.24em', textTransform:'uppercase',
-              color:'rgba(255,255,255,.35)', marginBottom:4 }}>Family invite code</p>
+              color:'rgba(255,255,255,.35)', marginBottom:4 }}>{memorialName ? `${memorialName.split(' ')[0]} — invite code` : 'Family invite code'}</p>
             {code ? (
               <p style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:22, fontWeight:700, color:'#fff',
                 letterSpacing:'.2em', margin:0 }}>{code}</p>
@@ -177,7 +184,7 @@ export default function InviteCodeBadge({ user, compact = false }) {
       padding:    '20px 22px',
     }}>
       <p style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:9, letterSpacing:'.28em', textTransform:'uppercase',
-        color:'rgba(255,255,255,.35)', marginBottom:6 }}>Family invite code</p>
+        color:'rgba(255,255,255,.35)', marginBottom:6 }}>{memorialName ? `${memorialName.split(' ')[0]} — invite code` : 'Family invite code'}</p>
 
       {code ? (
         <>

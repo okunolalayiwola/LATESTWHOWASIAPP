@@ -1,8 +1,13 @@
 // src/components/shared/InviteModal.jsx
 // Generates and shares a family tree invite.
 // Stores invite codes in InstantDB `invites` collection.
-// Invited users receive a link that takes them to the shared family tree.
-// QR code generated via free qrserver.com API (no npm needed).
+//
+// When invoked WITHOUT a memorial prop (e.g. from /family-tree):
+//   → invite is tied to the user's overall family circle.
+// When invoked WITH a memorial prop (from MemorialDetailPage):
+//   → invite is tied to that specific memorial. Family connections approved
+//     via this code will link to memorialId, so the orbital tree displays
+//     them on the correct memorial.
 
 import { useState } from 'react'
 import { motion }   from 'framer-motion'
@@ -14,12 +19,15 @@ function generateCode() {
   return Math.random().toString(36).slice(2, 10).toUpperCase()
 }
 
-export default function InviteModal({ user, onClose }) {
+export default function InviteModal({ user, memorial, onClose }) {
   const [code,    setCode]    = useState(null)
   const [loading, setLoading] = useState(false)
   const [copied,  setCopied]  = useState(false)
   const [copyType, setCopyType] = useState(null) // 'link' | 'code'
   const [error,   setError]   = useState('')
+
+  const memorialName = memorial?.name || ''
+  const memorialId   = memorial?.id   || null
 
   const inviteLink = code
     ? `${window.location.origin}/join?code=${code}`
@@ -37,8 +45,10 @@ export default function InviteModal({ user, onClose }) {
 
       await db.transact([
         db.tx.invites[inviteId].update({
-          code:          newCode,                 // FIX: was `code` (null)
+          code:          newCode,
           familyOwnerId: user.id,
+          memorialId:    memorialId || undefined,
+          memorialName:  memorialName || undefined,
           createdAt:     Date.now(),
           expiresAt:     Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
           used:          false,
@@ -92,9 +102,13 @@ export default function InviteModal({ user, onClose }) {
         {/* Handle */}
         <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-5" />
 
-        <h3 className="font-display text-2xl font-bold text-white mb-1">Invite family</h3>
+        <h3 className="font-display text-2xl font-bold text-white mb-1">
+          {memorialName ? `Invite to ${memorialName}'s circle` : 'Invite family'}
+        </h3>
         <p className="text-xs text-white/40 mb-6 leading-relaxed">
-          Share a link so family members can view your family tree and add tributes to memorials. Codes expire after 7 days.
+          {memorialName
+            ? `Share this code so family members can be added to ${memorialName}'s family circle. They'll choose their relationship, and you'll confirm or change it. Codes expire after 7 days.`
+            : `Share a link so family members can view your family tree and add tributes to memorials. Codes expire after 7 days.`}
         </p>
 
         {!code ? (

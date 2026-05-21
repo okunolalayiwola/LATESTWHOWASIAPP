@@ -153,12 +153,16 @@ export default function JoinPage() {
               <div className="text-center">
                 <div className="w-14 h-14 rounded-full bg-gradient-to-br from-gold/20 to-sky/20 border border-gold/20 flex items-center justify-center text-2xl mx-auto mb-4">✦</div>
                 <h1 className="font-display text-xl font-bold text-white mb-2">
-                  How are you related?
+                  {inviteData?.memorialName
+                    ? <>Joining <span className="text-gold">{inviteData.memorialName}</span>'s circle</>
+                    : 'How are you related?'}
                 </h1>
                 <p className="text-sm text-white/50 leading-relaxed">
-                  {inviteData
-                    ? 'Choose your relationship to the person who invited you.'
-                    : 'Choose your relationship to the family you\'re joining.'}
+                  {inviteData?.memorialName
+                    ? `Choose your relationship to ${inviteData.memorialName}. The family will confirm or correct it before adding you.`
+                    : inviteData
+                      ? 'Choose your relationship to the person who invited you.'
+                      : 'Choose your relationship to the family you\'re joining.'}
                 </p>
               </div>
 

@@ -1,0 +1,265 @@
+# WHO WAS I — Cline Project Rules
+# Living memorial platform — whowasi.uk
+
+## Tech Stack
+- React 19 + Vite + Tailwind CSS v4
+- Framer Motion v12 (animations)
+- React Router v7 (`createBrowserRouter`, loader pattern)
+- InstantDB (`@instantdb/react`) — real-time reactive database (no REST, no SQL)
+- Vercel — hosting + serverless API functions in `/api/*.js`
+- Resend — transactional email
+- Cloudinary — image hosting/CDN (upload via `src/lib/uploadImage.js`)
+- Stripe — subscriptions
+- ElevenLabs — voice synthesis (via `/api/elevenlabs.js` proxy ONLY)
+
+---
+
+## SECURITY — READ FIRST
+
+**NEVER put any API key in a `VITE_` prefixed variable.**
+`VITE_` variables are bundled into the client and exposed publicly.
+
+Only allowed `VITE_` vars:
+- `VITE_INSTANT_APP_ID` — InstantDB app ID (safe, public)
+- `VITE_CLOUDINARY_CLOUD_NAME` — Cloudinary cloud name (safe, public)
+
+All other secrets (`RESEND_API_KEY`, `ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`,
+`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`) live **server-side only** in Vercel
+environment variables and are used exclusively in `/api/*.js` files.
+
+**Never import Anthropic, ElevenLabs, Resend, or Stripe SDKs in `src/`.**
+Always proxy through `/api/*.js` serverless functions.
+
+---
+
+## InstantDB — How We Use It
+
+### Initialisation
+```js
+// src/lib/instant.js
+import { init } from '@instantdb/react'
+import schema from '../instant.schema'
+export const db = init({ appId: import.meta.env.VITE_INSTANT_APP_ID, schema })
+```
+
+### Auth
+```js
+const { isLoading, user, error } = db.useAuth()
+// user.id is the unique identifier throughout the codebase
+```
+
+### Queries
+```js
+// All queries are reactive — component re-renders on data change
+const { data, isLoading, error } = db.useQuery({
+  memorials: { $: { where: { createdBy: user.id } } }
+})
+// One-shot (non-reactive):
+const { data } = await db.queryOnce({ memorials: { $: { where: { id: memorialId } } } })
+```
+
+### Mutations
+```js
+import { id } from '@instantdb/react'
+// Create
+await db.transact(db.tx.memorials[id()].update({ name: 'Ada', createdBy: user.id, createdAt: Date.now() }))
+// Update
+await db.transact(db.tx.memorials[memorialId].update({ bio: 'new bio' }))
+// Delete
+await db.transact(db.tx.memorials[memorialId].delete())
+// Link
+await db.transact(db.tx.memorials[memId].link({ tributes: tributeId }))
+```
+
+### Query with $in
+```js
+// Filter by array of IDs
+const { data } = db.useQuery({
+  familyMessages: { $: { where: { memorialId: { $in: arrayOfIds } }, order: { serverCreatedAt: 'asc' } } }
+})
+```
+
+---
+
+## InstantDB Schema — All Entities
+
+Push schema: `npx instant-cli push schema` (from project root, reads `instant.schema.ts`)
+Push perms:  `npx instant-cli push perms`  (reads `src/instant.perms.ts`)
+
+The canonical app schema is at `src/instant.schema.ts`.
+The root `instant.schema.ts` is kept in sync for the CLI — **edit both if you add entities**.
+
+### Entities & Key Fields
+
+| Entity | Key Fields |
+|---|---|
+| `memorials` | `createdBy` (userId), `name`, `themeHex`, `alive`, `visibility`, `photo`, `coverPhoto` |
+| `tributes` | `authorId`, `type` ('tribute' only), `content`, `photoUrl`, link → memorial |
+| `tributeComments` | `tributeId`, `memorialId`, `authorId`, `authorName`, `content`, `createdAt` |
+| `profiles` | `userId`, `displayName`, `photoUrl`, `plan`, `onboarded` |
+| `photos` | `url`, `takenAt` (EXIF/social Unix ms), `displayDate`, `source`, link → memorial |
+| `familyMembers` | `ownerId`, `memorialId`, `name`, `photo`, `ring` (1-3), `alive` |
+| `invites` | `code` (8-char, indexed), `familyOwnerId`, `expiresAt`, `used` |
+| `familyConnections` | `fromUserId`, `toMemorialId`, `toUserId`, `relation`, `status` ('pending'\|'approved'\|'rejected'), `verifyToken` (unique) |
+| `familyMessages` | `memorialId`, `fromUserId`, `content`, `readBy` (JSON string[]) |
+| `letters` | `createdBy`, `unlockType` ('date'\|'event'\|'immediate'), `isLocked` |
+| `documents` | `createdBy`, `fileUrl`, `unlockType`, `isLocked` |
+| `wills` | `testatorName`, `beneficiaries`, `executorName`, link → memorial |
+
+### Links (use `.link()` / include in query)
+- `memorials` → `tributes` (memorialTributes)
+- `memorials` → `photos` (memorialPhotos)
+- `memorials` → `letters` (memorialLetters)
+- `memorials` → `documents` (memorialDocuments)
+- `memorials` → `wills` (memorialWills)
+
+---
+
+## API Endpoints (`/api/*.js`)
+
+All are Vercel serverless functions (ESM, `export default async function handler(req, res)`).
+
+| File | Method | Purpose |
+|---|---|---|
+| `chat.js` | POST | Anthropic chat proxy |
+| `elevenlabs.js` | POST | ElevenLabs TTS proxy |
+| `vault-share-pin.js` | POST | Email vault PIN to family members via Resend |
+| `family-connection-request.js` | POST | Email memorial owner when someone requests to join |
+| `family-connection-approved.js` | POST | Email new family member after approval |
+| `memorial-pdf.js` | POST | Generate memorial PDF (puppeteer) |
+| `tribute-notification.js` | POST | Email owner when tribute is posted |
+| `send-anniversary.js` | GET | Cron — anniversary reminder emails |
+| `vault-reset.js` | POST | Vault PIN reset (requires identity verification) |
+| `stripe.js` | POST | Create Stripe checkout session |
+| `stripe-webhook.js` | POST | Handle Stripe webhook events |
+| `report-tribute.js` | POST | Report abusive tribute |
+| `og.jsx` | GET | Open Graph image generation |
+| `sitemap.js` | GET | Dynamic sitemap |
+
+### vault-share-pin.js — Request Shape
+```json
+{ "senderName": "Jane", "memorialName": "Ada Lovelace", "pin": "123456", "recipients": [{ "name": "Tom", "email": "tom@example.com" }] }
+```
+
+### family-connection-request.js — Request Shape
+```json
+{ "ownerEmail": "...", "ownerName": "...", "claimerName": "...", "relation": "Son", "memorialName": "...", "verifyUrl": "https://whowasi.uk/family/verify?token=..." }
+```
+
+### family-connection-approved.js — Request Shape
+```json
+{ "claimerEmail": "...", "claimerName": "...", "relation": "Son", "ownerName": "...", "memorialName": "..." }
+```
+
+---
+
+## Key Source Files
+
+```
+src/
+  lib/
+    instant.js        — db initialisation
+    vaultAuth.js      — PIN hash/verify (SHA-256, localStorage, never server-side)
+    uploadImage.js    — Cloudinary upload helper
+  pages/
+    MemorialDetailPage.jsx   — main memorial view (tabs: About, Photos, Tributes, Family, Vault)
+    FamilyTreePage.jsx       — orbital family tree
+    LegacyLettersPage.jsx    — vault (letters, docs, PIN sharing)
+    DashboardPage.jsx        — user dashboard (memorials + family messages)
+    FamilyVerifyPage.jsx     — /family/verify?token= (approve/reject connections)
+    JoinFamilyPage.jsx       — /join (claim family membership via invite code)
+    LegalPages.jsx           — Privacy Policy + Terms of Service (UK GDPR / DPA 2018)
+  components/
+    orbital/FamilyTreeOrb.jsx        — canvas orbital animation
+    shared/FamilyMessagesSection.jsx — private family messages thread
+    ui/VaultDocuments.jsx            — vault document list (isOwner prop)
+```
+
+---
+
+## Vault PIN — Architecture
+
+- PIN is 6 digits, never stored on any server
+- On set: `SHA-256(pin + memorialId)` stored in `localStorage` as `vault_${memorialId}`
+- On verify: `verifyPIN(memorialId, userId, plainPin)` in `src/lib/vaultAuth.js`
+- On share: user re-enters plain PIN in `VaultShareModal`; verified client-side first;
+  plain PIN sent to `/api/vault-share-pin` which emails it; PIN never persisted server-side
+- On reset: `/api/vault-reset.js` requires identity proof (e.g. death certificate)
+
+---
+
+## CSS Conventions
+
+- Tailwind v4 — config is in CSS via `@theme` in `src/index.css`
+- No `tailwind.config.js` — all customisation in CSS
+- Memorial theme colour via CSS custom properties:
+  ```css
+  --theme:    /* from memorial.themeHex, e.g. #92400e */
+  --theme-lt: /* lighter tint */
+  --theme-md: /* medium tint */
+  ```
+  Applied with `style={{ '--theme': memorial.themeHex, ... }}` on the page wrapper
+
+---
+
+## Photos — Business Rules
+
+- Max 5 photos per memorial (hard block on upload)
+- EXIF date extracted on upload via `exifreader` — stored as `takenAt` (Unix ms)
+- `displayDate` is the human-readable string shown in the UI
+- Photos sorted by `takenAt` ascending
+
+---
+
+## Family Connections — Flow
+
+1. Visitor clicks "Join as family" → posts connection request → `family-connection-request.js` emails owner
+2. Owner sees pending request in dashboard → Approve/Reject
+3. On approve: `db.transact` updates `status: 'approved'` + `approvedAt` → triggers `family-connection-approved.js` email
+4. Approved member gains access to: Family tab, private messages, tribute comments, alive/deceased toggle, vault PIN sharing
+
+---
+
+## Environment Variables (Vercel Dashboard)
+
+### Required for production
+| Variable | Used in |
+|---|---|
+| `VITE_INSTANT_APP_ID` | Client — InstantDB app ID |
+| `VITE_CLOUDINARY_CLOUD_NAME` | Client — Cloudinary cloud name |
+| `RESEND_API_KEY` | `/api/` email functions |
+| `ANTHROPIC_API_KEY` | `/api/chat.js` |
+| `ELEVENLABS_API_KEY` | `/api/elevenlabs.js` |
+| `STRIPE_SECRET_KEY` | `/api/stripe.js`, `/api/stripe-webhook.js` |
+| `STRIPE_WEBHOOK_SECRET` | `/api/stripe-webhook.js` |
+| `CLOUDINARY_API_SECRET` | `/api/memorial-pdf.js` (if signed upload) |
+| `NEXT_PUBLIC_APP_URL` | `/api/` base URL fallback (set to `https://whowasi.uk`) |
+| `INSTANT_APP_ADMIN_TOKEN` | `npx instant-cli` deploys (local only, not on Vercel) |
+
+---
+
+## Deployment Checklist
+
+### First-time / after schema changes
+```bash
+# 1. Push InstantDB schema (new entities/fields)
+npx instant-cli push schema
+
+# 2. Push InstantDB permissions
+npx instant-cli push perms
+
+# 3. Deploy to Vercel
+vercel --prod
+```
+
+### Routine deploy
+```bash
+npm run build            # verify clean build first
+vercel --prod
+```
+
+### Local dev
+```bash
+npm run dev              # Vite dev server on :5173
+vercel dev               # Vite + Vercel functions together on :3000 (preferred)
+```
