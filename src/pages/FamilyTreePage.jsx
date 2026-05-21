@@ -156,36 +156,9 @@ export default function FamilyTreePage() {
             />
           )}
 
-          {/* Empty-state invite prompt — only when truly empty */}
-          {!isLoading && members.length === 0 && !centeredId && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              style={{
-                position: 'absolute', bottom: 120, left: '50%',
-                transform: 'translateX(-50%)',
-                textAlign: 'center', pointerEvents: 'auto', zIndex: 5,
-              }}
-            >
-              <p style={{ fontFamily:"'Inter',sans-serif", fontSize:11,
-                color:'rgba(255,255,255,0.45)', marginBottom:10 }}>
-                No family connections yet
-              </p>
-              <button
-                onClick={() => setShowInvite(true)}
-                style={{
-                  background:'rgba(255,215,0,0.10)',
-                  border:'1px solid rgba(255,215,0,0.25)',
-                  borderRadius:20, padding:'10px 22px',
-                  color:'rgba(255,215,0,0.85)',
-                  fontFamily:"'Inter',sans-serif",
-                  fontSize:11, fontWeight:600, cursor:'pointer',
-                }}
-              >
-                Share invite code →
-              </button>
-            </motion.div>
-          )}
+          {/* Empty-state CTA removed — the side panel already provides the
+              "✦ Invite to circle" button so there's no need for a redundant
+              prompt + horizontal pill at the bottom of the canvas. */}
         </>
       )}
 

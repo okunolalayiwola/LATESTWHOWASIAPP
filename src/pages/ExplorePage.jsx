@@ -324,19 +324,15 @@ export default function ExplorePage() {
   return (
     <div className="relative z-10 pt-20 pb-28 min-h-screen">
 
-      {/* Background */}
+      {/* Background — fully bright, no overlay */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         <div className="w-full h-full"
           style={{
             backgroundImage: `url(${exploreBg})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            opacity: 0.25,
           }}
         />
-        {/* Dark overlay to deepen the page */}
-        <div className="absolute inset-0"
-          style={{ background: 'linear-gradient(180deg, rgba(8,8,15,0.55) 0%, rgba(8,8,15,0.30) 40%, rgba(8,8,15,0.70) 100%)' }} />
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-5 md:px-8">

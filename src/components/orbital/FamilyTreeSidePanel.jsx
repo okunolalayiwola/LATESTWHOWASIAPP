@@ -20,8 +20,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { getRelationFilterCategory } from '../../lib/relations'
 
 // Mobile detection via media query — driven by CSS so we avoid re-renders
-const PANEL_W   = 320
-const PANEL_TOP = 96   // sit below the top bar
+const PANEL_W   = 296
+const PANEL_TOP = 88   // sit below the top bar
 const PANEL_BOT = 28
 
 const FAMILY_CATS = new Set(['partner','children','siblings','parents','extended','grandparents'])
@@ -313,44 +313,45 @@ export default function FamilyTreeSidePanel({
         {Body}
       </div>
 
-      {/* Mobile — compact pill at the bottom that opens into a sheet */}
+      {/* Mobile — compact circular FAB in the corner */}
       <button
         className="ftsp-mobile-pill"
         onClick={() => setMobileOpen(true)}
+        aria-label="Family stats"
         style={{
           position: 'fixed',
-          bottom: 'calc(74px + env(safe-area-inset-bottom))',
-          left: 16, right: 16,
+          bottom: 'calc(82px + env(safe-area-inset-bottom))',
+          right: 16,
           zIndex: 22,
-          background: 'rgba(10,10,15,0.92)',
-          backdropFilter: 'blur(24px)',
-          border: '1px solid rgba(255,215,0,0.25)',
-          borderRadius: 16, padding: '10px 14px',
-          color: '#fff', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', gap: 10,
-          fontFamily: "'Inter', sans-serif", fontSize: 12, textAlign: 'left',
-          boxShadow: '0 10px 30px rgba(0,0,0,0.55)',
-        }}>
-        <span style={{
-          display: 'inline-flex', width: 32, height: 32, borderRadius: 8,
-          background: 'linear-gradient(135deg,rgba(255,215,0,.20),rgba(56,189,248,.15))',
+          width: 48, height: 48,
+          borderRadius: '50%',
+          background: 'rgba(10,10,15,0.88)',
+          backdropFilter: 'blur(20px)',
           border: '1px solid rgba(255,215,0,0.30)',
-          alignItems: 'center', justifyContent: 'center',
-          color: '#FFD700', fontWeight: 800, fontSize: 13,
+          color: '#FFD700', cursor: 'pointer',
+          fontFamily: "'Cormorant Garamond', serif",
+          fontWeight: 700, fontSize: 18,
+          boxShadow: '0 6px 24px rgba(0,0,0,0.55)',
+          padding: 0,
+          position: 'fixed',
         }}>
+        {/* Number + tiny pending dot */}
+        <span style={{ display: 'block', lineHeight: 1, position: 'relative' }}>
           {total}
+          {scope === 'memorial' && isOwner && pendingCount > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: -10, right: -12,
+              width: 16, height: 16, borderRadius: 8,
+              background: '#FFD700', color: '#0a0a12',
+              fontFamily: "'Inter',sans-serif", fontWeight: 800, fontSize: 9,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: '1.5px solid #06060a',
+            }}>
+              {pendingCount}
+            </span>
+          )}
         </span>
-        <span style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ margin: 0, fontWeight: 700, color: '#fff', fontSize: 12 }}>
-            {total === 0 ? 'No family yet' : `${total} member${total !== 1 ? 's' : ''} · tap for details`}
-          </p>
-          <p style={{ margin: '2px 0 0', color: 'rgba(255,255,255,.45)', fontSize: 10.5 }}>
-            {scope === 'memorial' && isOwner && pendingCount > 0
-              ? `${pendingCount} pending`
-              : 'Stats · breakdown · invite'}
-          </p>
-        </span>
-        <span style={{ color: 'rgba(255,215,0,0.75)', fontSize: 14 }}>↑</span>
       </button>
 
       <AnimatePresence>
@@ -396,7 +397,7 @@ export default function FamilyTreeSidePanel({
         .ftsp-mobile-pill { display: none; }
         @media (max-width: 1023px) {
           .ftsp-desktop  { display: none; }
-          .ftsp-mobile-pill { display: flex; }
+          .ftsp-mobile-pill { display: inline-flex; align-items: center; justify-content: center; }
         }
       `}</style>
     </>

@@ -141,16 +141,20 @@ export default function QRModal({ url, name, onClose }) {
   return (
     <>
       <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-        onClick={onClose} className="fixed inset-0 bg-black/60 z-50 backdrop-blur-sm" />
+        onClick={onClose}
+        style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.65)', zIndex: 200, backdropFilter:'blur(8px)' }}
+      />
 
       <motion.div
         initial={{ opacity:0, scale:0.92, y:24 }}
         animate={{ opacity:1, scale:1,    y:0   }}
         exit={{   opacity:0, scale:0.92, y:24   }}
         transition={{ type:'spring', damping:26, stiffness:280 }}
-        className="fixed inset-0 z-50 flex items-center justify-center p-6 pointer-events-none"
+        style={{ position:'fixed', inset:0, zIndex: 201, display:'flex',
+          alignItems:'center', justifyContent:'center', padding:24, pointerEvents:'none' }}
       >
-        <div className="pointer-events-auto w-full max-w-xs bg-white rounded-3xl p-5 text-center shadow-2xl">
+        <div className="w-full max-w-xs bg-white rounded-3xl p-5 text-center shadow-2xl"
+          style={{ pointerEvents:'auto', position:'relative' }}>
 
           <button onClick={onClose}
             className="absolute top-4 right-4 w-7 h-7 rounded-full flex items-center justify-center text-black/30 hover:text-black text-xs">

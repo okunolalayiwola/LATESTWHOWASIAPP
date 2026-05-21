@@ -427,12 +427,15 @@ function ActionsCard({ onTribute, onShare, onQR }) {
           { label: 'Share', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>, fn: onShare },
           { label: 'QR code', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><line x1="14" y1="14" x2="14" y2="18"/><line x1="18" y1="14" x2="21" y2="14"/><line x1="21" y1="18" x2="18" y2="18"/><line x1="14" y1="21" x2="21" y2="21"/></svg>, fn: onQR },
         ].map(({ label, icon, fn }) => (
-          <button key={label} onClick={fn} style={{
-            padding: '16px 18px', borderRadius: 20, background: C.paper, color: C.ink,
-            border: '1px solid rgba(21,18,14,.10)', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-            fontFamily: DISP, fontSize: 13, fontWeight: 600, transition: 'background .15s',
-          }}>
+          <button key={label} type="button"
+            onClick={e => { e.preventDefault(); e.stopPropagation(); fn?.() }}
+            style={{
+              padding: '16px 18px', borderRadius: 20, background: C.paper, color: C.ink,
+              border: '1px solid rgba(21,18,14,.10)', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+              fontFamily: DISP, fontSize: 13, fontWeight: 600, transition: 'background .15s',
+              position: 'relative', zIndex: 1,
+            }}>
             <span>{label}</span>
             <span style={{ width: 30, height: 30, borderRadius: 9, background: C.cream,
               border: '1px solid rgba(21,18,14,.10)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
