@@ -490,6 +490,214 @@ function EventCard({ ev, navigate }) {
   )
 }
 
+// ─── Family Chat Panel ──────────────────────────────────────────────────────
+// Shown on the Messages tab. Lists every chat the user has access to (their
+// own memorials + the ones they're approved family of). Each row shows the
+// memorial name + unread count. Clicking a row opens that chat.
+function FamilyChatPanel({ allMemIds, ownedMemorials, connectedMemorialIds, allFamilyMessages, user, userProfile }) {
+  const [activeId, setActiveId] = useState(null)
+
+  // Fetch names/photos of memorials the user is connected to but doesn't own
+  const connQ = db.useQuery(
+    connectedMemorialIds.length ? {
+      memorials: { $: { where: { id: { $in: connectedMemorialIds } } } },
+    } : null
+  )
+  const connMemorials = connQ?.data?.memorials || []
+
+  // Build the full chat list — owned + connected
+  const chats = useMemo(() => {
+    const arr = []
+    const seen = new Set()
+    ownedMemorials.forEach(m => {
+      if (seen.has(m.id)) return
+      seen.add(m.id)
+      arr.push({ id: m.id, name: m.name, photo: m.photo || m.coverPhoto || null, role: 'owner' })
+    })
+    connMemorials.forEach(m => {
+      if (seen.has(m.id)) return
+      seen.add(m.id)
+      arr.push({ id: m.id, name: m.name, photo: m.photo || m.coverPhoto || null, role: 'family' })
+    })
+    return arr
+  }, [ownedMemorials.map(m => m.id).join(), connMemorials.map(m => m.id).join()])
+
+  // Default to first chat with unread, else first chat
+  useEffect(() => {
+    if (activeId || chats.length === 0) return
+    const withUnread = chats.find(c => allFamilyMessages.some(m =>
+      m.memorialId === c.id && m.fromUserId !== user?.id &&
+      !(Array.isArray(m.readBy) ? m.readBy : []).includes(user?.id)
+    ))
+    setActiveId((withUnread || chats[0]).id)
+  }, [chats.length, activeId])
+
+  // Unread count per chat
+  const unreadForChat = (memId) => allFamilyMessages.filter(m =>
+    m.memorialId === memId && m.fromUserId !== user?.id &&
+    !(Array.isArray(m.readBy) ? m.readBy : []).includes(user?.id)
+  ).length
+
+  // Last message preview per chat
+  const lastMessage = (memId) => {
+    const msgs = allFamilyMessages
+      .filter(m => m.memorialId === memId)
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+    return msgs[0]
+  }
+
+  if (chats.length === 0) {
+    return (
+      <div className="empty">
+        <div className="eic">✉️</div>
+        <h4>No family connections yet</h4>
+        <p>Family chats appear once you've connected with family via invite codes — or once you've been added to someone else's circle.</p>
+        <Link to="/family-tree" className="cta">View your family tree</Link>
+      </div>
+    )
+  }
+
+  return (
+    <div className="fcp">
+      {/* Chat list */}
+      <aside className="fcp-list">
+        <p className="fcp-listhead">
+          {chats.length} {chats.length === 1 ? 'chat' : 'chats'}
+        </p>
+        {chats.map(c => {
+          const isActive = c.id === activeId
+          const unread   = unreadForChat(c.id)
+          const last     = lastMessage(c.id)
+          return (
+            <button key={c.id} onClick={() => setActiveId(c.id)}
+              className={`fcp-row ${isActive ? 'active' : ''}`}>
+              <div className="fcp-avatar">
+                {c.photo
+                  ? <img src={c.photo} alt="" />
+                  : (c.name?.[0] || '?').toUpperCase()}
+              </div>
+              <div className="fcp-row-body">
+                <div className="fcp-row-top">
+                  <span className="fcp-name">{c.name}</span>
+                  {unread > 0 && (
+                    <span className="fcp-unread">{unread > 9 ? '9+' : unread}</span>
+                  )}
+                </div>
+                <p className="fcp-preview">
+                  {last
+                    ? <><strong>{last.fromUserId === user?.id ? 'You' : (last.fromName?.split(' ')[0] || 'Family')}:</strong> {last.content?.slice(0, 60) || (last.photoUrl ? '📷 Photo' : '...')}</>
+                    : <em>No messages yet</em>
+                  }
+                </p>
+              </div>
+            </button>
+          )
+        })}
+      </aside>
+
+      {/* Active chat */}
+      <div className="fcp-chat">
+        {activeId ? (
+          <FamilyMessagesSection
+            key={activeId}
+            memorialId={activeId}
+            user={user}
+            userProfile={userProfile}
+          />
+        ) : (
+          <div className="fcp-pickprompt">Pick a chat to begin</div>
+        )}
+      </div>
+
+      <style>{`
+        .fcp {
+          display: grid;
+          grid-template-columns: 280px 1fr;
+          gap: 16px;
+          min-height: 540px;
+        }
+        .fcp-list {
+          background: var(--card-bg);
+          border: 1px solid var(--card-line);
+          border-radius: 18px;
+          padding: 12px;
+          box-shadow: var(--shadow-card);
+          display: flex; flex-direction: column; gap: 6px;
+          max-height: 620px; overflow-y: auto;
+        }
+        .fcp-listhead {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 9.5px; letter-spacing: .22em; text-transform: uppercase;
+          color: var(--card-text-3); margin: 6px 8px 6px;
+        }
+        .fcp-row {
+          display: flex; align-items: center; gap: 10px;
+          width: 100%; text-align: left;
+          padding: 9px 10px; border-radius: 12px;
+          background: transparent; border: 1px solid transparent;
+          cursor: pointer; transition: all .15s;
+          color: var(--card-text);
+          font-family: inherit;
+        }
+        .fcp-row:hover { background: rgba(247,241,227,.04); }
+        .fcp-row.active {
+          background: rgba(255,233,129,.10);
+          border-color: rgba(255,233,129,.30);
+        }
+        .fcp-avatar {
+          width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+          background: linear-gradient(135deg, rgba(255,233,129,.20), rgba(56,189,248,.14));
+          border: 1.5px solid rgba(255,233,129,.30);
+          overflow: hidden; display: flex; align-items: center; justify-content: center;
+          font-family: 'Cormorant Garamond', Georgia, serif; font-size: 15px; font-weight: 700;
+          color: var(--butter);
+        }
+        .fcp-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .fcp-row-body { flex: 1; min-width: 0; }
+        .fcp-row-top {
+          display: flex; align-items: center; justify-content: space-between; gap: 8px;
+        }
+        .fcp-name {
+          font-weight: 700; font-size: 13.5px; color: var(--card-text);
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .fcp-unread {
+          flex-shrink: 0;
+          background: #dc3232; color: #fff;
+          font-size: 10px; font-weight: 800;
+          padding: 1px 7px; border-radius: 999px;
+          min-width: 18px; text-align: center;
+        }
+        .fcp-preview {
+          margin: 3px 0 0; font-size: 11.5px; line-height: 1.4;
+          color: var(--card-text-2);
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .fcp-preview strong {
+          color: var(--card-text); font-weight: 700;
+        }
+        .fcp-chat {
+          background: var(--card-bg);
+          border: 1px solid var(--card-line);
+          border-radius: 18px;
+          overflow: hidden;
+          box-shadow: var(--shadow-card);
+          min-height: 540px;
+          display: flex; flex-direction: column;
+        }
+        .fcp-pickprompt {
+          flex: 1; display: flex; align-items: center; justify-content: center;
+          color: var(--card-text-3); font-size: 13px;
+        }
+        @media (max-width: 820px) {
+          .fcp { grid-template-columns: 1fr; }
+          .fcp-list { max-height: 260px; }
+        }
+      `}</style>
+    </div>
+  )
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 export default function DashboardPage() {
   const navigate = useNavigate()
@@ -613,7 +821,7 @@ export default function DashboardPage() {
     { id:'overview',  label:'Overview',  badge: memorials.length },
     { id:'activity',  label:'Activity',  badge: feed.counts.activity },
     { id:'upcoming',  label:'Upcoming',  badge: feed.counts.upcoming },
-    { id:'messages',  label:'✦ Messages', badge: unreadMsgCount, urgent: unreadMsgCount > 0 },
+    { id:'messages',  label:'💬 Family Chat', badge: unreadMsgCount, urgent: unreadMsgCount > 0 },
   ]
 
   if (isLoading) {
@@ -882,7 +1090,7 @@ export default function DashboardPage() {
                 exit={{ opacity:0, y:-12 }} transition={{ duration:.25 }}>
 
                 <div className="feedhead" style={{ marginBottom:0 }}>
-                  <h2>Family Messages</h2>
+                  <h2>Family Chat</h2>
                   <span className="cnt">
                     {unreadMsgCount > 0
                       ? <b style={{ color:'#dc3232' }}>{unreadMsgCount} unread</b>
@@ -890,32 +1098,18 @@ export default function DashboardPage() {
                   </span>
                 </div>
 
-                <p style={{ fontSize:13, color:'var(--muted)', margin:'6px 0 20px', lineHeight:1.5 }}>
-                  Private messages shared within your approved family circles. Only connected family members can see these.
+                <p style={{ fontSize:13, color:'var(--muted)', margin:'6px 0 18px', lineHeight:1.5 }}>
+                  Private group chats with approved family members. Each memorial has its own circle.
                 </p>
 
-                {allMemIds.length === 0 ? (
-                  <div className="empty">
-                    <div className="eic">✉️</div>
-                    <h4>No family connections yet</h4>
-                    <p>Family messages appear once you've connected with family members via invite codes.</p>
-                    <Link to="/family-tree" className="cta">View family tree</Link>
-                  </div>
-                ) : (
-                  /* Show messages grouped by memorial */
-                  <div style={{
-                    background:'var(--card-bg)', border:'1px solid var(--card-line)',
-                    borderRadius:24, padding:24,
-                    boxShadow:'var(--shadow-card)',
-                    minHeight:480, display:'flex', flexDirection:'column',
-                  }}>
-                    <FamilyMessagesSection
-                      memorialId={allMemIds.length === 1 ? allMemIds[0] : undefined}
-                      user={user}
-                      userProfile={data?.profiles?.[0]}
-                    />
-                  </div>
-                )}
+                <FamilyChatPanel
+                  allMemIds={allMemIds}
+                  ownedMemorials={memorialsRaw}
+                  connectedMemorialIds={connectedIds}
+                  allFamilyMessages={allFamilyMessages}
+                  user={user}
+                  userProfile={data?.profiles?.[0]}
+                />
               </motion.div>
             )}
           </AnimatePresence>
