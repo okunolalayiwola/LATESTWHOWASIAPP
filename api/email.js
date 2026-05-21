@@ -196,12 +196,26 @@ const actions = {
   },
 
   // ── Family connection request ───────────────────────────────────────────
+  // The memorial owner is notified at the email on their account ($users.email).
+  // ownerUserId is the InstantDB user id — we look up the email first.
   async 'family-connection-request'(body) {
-    const { token, claimerName, claimerEmail, relation, ownerUserId } = body
+    const { token, claimerName, claimerEmail, relation, ownerUserId, memorialName } = body
     if (!token || !ownerUserId) return { status: 400, json: { error: 'Missing required fields' } }
+
+    // Resolve the owner's email from their userId
+    let ownerEmail = null
+    try {
+      const r = await instantQuery({ $users: { $: { where: { id: ownerUserId } } } })
+      ownerEmail = r?.$users?.[0]?.email
+    } catch {}
+    if (!ownerEmail) {
+      return { json: { skipped: true, reason: 'owner has no email on file' } }
+    }
 
     const approveUrl = `${APP}/connect/family/verify/${token}?action=approve`
     const rejectUrl  = `${APP}/connect/family/verify/${token}?action=reject`
+    const reviewUrl  = `${APP}/connect/family/verify/${token}`
+    const subjectMem = memorialName ? ` (${memorialName})` : ''
 
     await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -211,17 +225,18 @@ const actions = {
       },
       body: JSON.stringify({
         from: 'WHO WAS I <noreply@whowasi.uk>',
-        to: [ownerUserId],
-        subject: `${claimerName || 'Someone'} wants to join your family on WHO WAS I`,
+        to: [ownerEmail],
+        subject: `${claimerName || 'Someone'} wants to join your family${subjectMem}`,
         html: buildHtml({
           body: `
             <h2>Family Connection Request</h2>
-            <p><strong>${claimerName || 'Someone'}</strong> has requested to join your family circle on WHO WAS I.</p>
+            <p><strong>${claimerName || 'Someone'}</strong> has requested to join your family circle${memorialName ? ` for <strong>${memorialName}</strong>` : ''} on WHO WAS I.</p>
             <p>They claim to be your: <span style="display:inline-block;background:#f3b21a;color:#15120e;font-weight:700;padding:4px 14px;border-radius:999px;font-size:13px;margin:4px 0">${relation || 'family member'}</span></p>
             ${claimerEmail ? `<p>Their email: <strong>${claimerEmail}</strong></p>` : ''}
-            <p style="margin-top:24px">Please review and approve or decline this request:</p>
+            <p style="margin-top:24px">Please review and approve, decline, or suggest a different relationship:</p>
             <div style="margin:20px 0">
               <a href="${approveUrl}" style="display:inline-block;padding:14px 28px;border-radius:12px;font-size:14px;font-weight:700;text-decoration:none;background:#f3b21a;color:#15120e;margin-right:12px">✓ Approve</a>
+              <a href="${reviewUrl}" style="display:inline-block;padding:14px 28px;border-radius:12px;font-size:14px;font-weight:700;text-decoration:none;background:#fff;color:#15120e;border:1px solid #e0d8c4;margin-right:12px">✎ Review</a>
               <a href="${rejectUrl}" style="display:inline-block;padding:14px 28px;border-radius:12px;font-size:14px;font-weight:700;text-decoration:none;background:#f0ece0;color:#6e6a62">✕ Decline</a>
             </div>`,
           footer: 'WHO WAS I · Living Memorial Platform · whowasi.uk<br/>If you did not expect this request, you can safely ignore this email.',
@@ -263,6 +278,42 @@ const actions = {
             </ul>
             <a href="${treeUrl}" style="display:inline-block;padding:14px 28px;border-radius:12px;font-size:14px;font-weight:700;text-decoration:none;background:#f3b21a;color:#15120e;margin:16px 0">View your family tree →</a>`,
           footer: 'WHO WAS I · Living Memorial Platform · whowasi.uk<br/>This email was sent because a family connection was approved on your account.',
+        }),
+      }),
+    })
+    return { json: { ok: true } }
+  },
+
+  // ── Family connection — owner suggested a different relation ──────────
+  // The inviter (claimer) sees the suggestion on their dashboard and gets
+  // an email asking them to confirm or decline the new label.
+  async 'family-connection-suggested'(body) {
+    const { claimerEmail, claimerName, originalRelation, suggestedRelation, ownerName } = body
+    if (!claimerEmail) return { status: 400, json: { error: 'Missing claimerEmail' } }
+
+    const dashUrl = `${APP}/dashboard?tab=overview`
+
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'WHO WAS I <noreply@whowasi.uk>',
+        to: [claimerEmail],
+        subject: `${ownerName || 'The family'} suggested a different relationship — please confirm`,
+        html: buildHtml({
+          body: `
+            <h2>A small correction ✎</h2>
+            <p>Hi <strong>${claimerName || 'there'}</strong>,</p>
+            <p>You asked to join <strong>${ownerName || 'a family'}</strong>'s circle as <strong>${originalRelation || 'family'}</strong>. They've suggested a different relationship:</p>
+            <p style="margin:20px 0">
+              <span style="display:inline-block;background:#f3b21a;color:#15120e;font-weight:700;padding:6px 16px;border-radius:999px;font-size:14px">${suggestedRelation || 'family'}</span>
+            </p>
+            <p>Please open your dashboard to confirm this or decline. If you confirm, you'll be added to the family circle right away.</p>
+            <a href="${dashUrl}" style="display:inline-block;padding:14px 28px;border-radius:12px;font-size:14px;font-weight:700;text-decoration:none;background:#f3b21a;color:#15120e;margin:16px 0">Review on dashboard →</a>`,
+          footer: 'WHO WAS I · Living Memorial Platform · whowasi.uk',
         }),
       }),
     })

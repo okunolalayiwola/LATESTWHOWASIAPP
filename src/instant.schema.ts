@@ -158,18 +158,21 @@ const _schema = i.schema({
 
     // ── Family Connections (request → approve → appear in tree) ──────────────
     familyConnections: i.entity({
-      fromUserId:    i.string().indexed(),   // person claiming the relationship
-      fromName:      i.string(),             // their display name
-      fromEmail:     i.string().optional(),  // their email
-      fromPhoto:     i.string().optional(),  // their profile photo
-      toMemorialId:  i.string().indexed(),   // which memorial they're connecting to
-      toUserId:      i.string().indexed(),   // memorial owner's userId
-      relation:      i.string(),             // canonical relation value
-      status:        i.string().indexed(),   // 'pending' | 'approved' | 'rejected'
-      verifyToken:   i.string().unique().indexed(), // one-time token for email link
+      fromUserId:    i.string().indexed(),
+      fromName:      i.string(),
+      fromEmail:     i.string().optional(),
+      fromPhoto:     i.string().optional(),
+      toMemorialId:  i.string().indexed(),
+      toUserId:      i.string().indexed(),
+      relation:      i.string(),
+      status:        i.string().indexed(),
+      verifyToken:   i.string().unique().indexed(),
       requestedAt:   i.number(),
       approvedAt:    i.number().optional(),
       approvalNote:  i.string().optional(),
+      suggestedRelation:  i.string().optional(),
+      suggestedAt:        i.number().optional(),
+      inviterRespondedAt: i.number().optional(),
     }),
 
     // ── Family Messages (private, approved-members only) ──────────────────────

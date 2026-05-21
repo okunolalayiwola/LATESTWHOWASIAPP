@@ -59,7 +59,7 @@ const PRONOUN_OPTIONS = [
  * Create flow. Pass `isSelf` from the URL and `pronouns` from the form.
  * Returns an object the steps and main page consume directly.
  */
-function getCopy(isSelf, pronouns) {
+function getCopy(isSelf, pronouns, alive = true) {
   if (isSelf) {
     return {
       mode:              'self',
@@ -69,11 +69,15 @@ function getCopy(isSelf, pronouns) {
         publish:         'Privacy & publish',
       },
       stepTitles: {
+        // "you" is the same whether the person is living or marking themselves
+        // as having passed — the form addresses them in 2nd person either way.
         person:          (<>Who are <span className="text-gradient-gold">you?</span></>),
         story:           (<>Your <span className="text-gradient-gold">story</span></>),
         publish:         (<>Ready to <span className="text-gradient-gold">publish?</span></>),
       },
-      heroIntro:         "You're creating your own living legacy — your story, your voice, preserved for those who'll read it in time.",
+      heroIntro:         alive
+        ? "You're creating your own living legacy — your story, your voice, preserved for those who'll read it in time."
+        : "You're creating your own memorial — your story, your voice, preserved for those who'll read it in time.",
       portraitLabel:     'Your portrait',
       portraitHelp:      'This is your portrait — the face of your living legacy.',
       portraitChange:    'Change photo',
@@ -116,6 +120,9 @@ function getCopy(isSelf, pronouns) {
   const wasWere = p === 'they' ? 'were' : 'was'
   const isAre   = p === 'they' ? 'are' : 'is'
   const haveHas = p === 'they' ? 'have' : 'has'
+  // Tense-adaptive helpers — present tense for living, past tense for deceased
+  const beVerb   = alive ? isAre   : wasWere   // is/are  vs  was/were
+  const knewKnow = alive ? 'knows' : 'knew'    // knows him  vs  knew him
   const Cap = s => s.charAt(0).toUpperCase() + s.slice(1)
 
   return {
@@ -127,11 +134,15 @@ function getCopy(isSelf, pronouns) {
       publish:         'Privacy & publish',
     },
     stepTitles: {
-      person:          (<>Who {wasWere} <span className="text-gradient-gold">{p}?</span></>),
+      // "Who is she?" / "Who are they?" for living; "Who was she?" / "Who were
+      // they?" for deceased. Drives off the in-form alive toggle.
+      person:          (<>Who {beVerb} <span className="text-gradient-gold">{p}?</span></>),
       story:           (<>{Cap(poss)} <span className="text-gradient-gold">story</span></>),
       publish:         (<>Ready to <span className="text-gradient-gold">publish?</span></>),
     },
-    heroIntro:         `You're creating a memorial for someone else. Your own account profile stays separate — this memorial honours ${obj}.`,
+    heroIntro:         alive
+      ? `You're creating a memorial for someone you love. This honours ${obj} while ${p} ${isAre} still with you — ${poss} story, ${poss} voice, ${poss} memories preserved.`
+      : `You're creating a memorial for someone you've lost. This honours ${obj} and the life ${p} lived — ${poss} story, ${poss} voice, ${poss} memories preserved.`,
     portraitLabel:     `${Cap(poss)} portrait`,
     portraitHelp:      `The portrait of the person this memorial honours — not your own profile photo.`,
     portraitChange:    'Change photo',
@@ -152,9 +163,13 @@ function getCopy(isSelf, pronouns) {
     countryHelp:       `Where ${p} ${isAre} based — shown as a country flag on ${poss} card.`,
     countryPlaceholder:'Select country…',
     subtitleLabel:     `One-line description of ${obj}`,
-    subtitlePlaceholder: `e.g. A teacher, mother, and light to all who knew ${obj}`,
+    subtitlePlaceholder: alive
+      ? `e.g. A teacher, mother, and light to all who ${knewKnow} ${obj}`
+      : `e.g. A teacher, mother, and light to all who knew ${obj}`,
     bioLabel:          `${Cap(poss)} life story`,
-    bioPlaceholder:    (name) => `Write about ${name || obj}. ${Cap(poss)} personality, ${poss} passions, the memories ${p} left behind…`,
+    bioPlaceholder:    (name) => alive
+      ? `Write about ${name || obj}. ${Cap(poss)} personality, ${poss} passions, the moments that make ${obj} who ${p} ${isAre}…`
+      : `Write about ${name || obj}. ${Cap(poss)} personality, ${poss} passions, the memories ${p} left behind…`,
     locationLabel:     `${Cap(poss)} hometown`,
     locationPlaceholder:'e.g. Lagos, Nigeria',
     voiceLabel:        `Record ${poss} voice`,
@@ -1136,7 +1151,13 @@ export default function CreateMemorialPage() {
   const [showGuestGate, setShowGuestGate] = useState(false)
 
   // Adaptive copy — single source of truth for every label/placeholder/helper.
-  const copy = useMemo(() => getCopy(isSelf, form.pronouns), [isSelf, form.pronouns])
+  // Adapts copy to: self vs other, pronouns (he/she/they), and living vs
+  // deceased. Recomputes whenever the user changes the alive toggle so the
+  // title flips between "Who is she?" and "Who was she?" live.
+  const copy = useMemo(
+    () => getCopy(isSelf, form.pronouns, form.alive !== false),
+    [isSelf, form.pronouns, form.alive],
+  )
 
   // ── Pre-fill country from profile (both modes) ──────────────────────────────
   useEffect(() => {

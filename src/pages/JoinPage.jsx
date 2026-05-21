@@ -76,16 +76,19 @@ export default function JoinPage() {
         }),
       ])
 
-      // Notify memorial owner via email
-      fetch('/api/family-connection-request', {
+      // Notify memorial owner via email — consolidated endpoint
+      fetch('/api/email', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
+          action:        'family-connection-request',
           token,
           claimerName:   claimerName || user.email?.split('@')[0] || 'A family member',
           claimerEmail:  user.email || '',
           relation,
           ownerUserId:   inviteData?.familyOwnerId || '',
+          memorialId:    inviteData?.memorialId    || '',
+          memorialName:  inviteData?.memorialName  || '',
         }),
       }).catch(() => {})
 

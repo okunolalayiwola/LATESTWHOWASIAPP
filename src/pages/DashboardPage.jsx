@@ -12,7 +12,7 @@
 // <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,300;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
 
 import { useState, useEffect, useMemo } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { db } from '../lib/instant'
 import { usePullToRefresh } from '../hooks'
@@ -490,6 +490,234 @@ function EventCard({ ev, navigate }) {
   )
 }
 
+// ─── Family Connection Inbox ────────────────────────────────────────────────
+// Pinned at the top of the Overview tab. Two kinds of actionable items:
+//   1. Incoming requests for memorials I own → I approve / decline / suggest
+//      another relation. (Quick approve right here; full review link too.)
+//   2. Suggestions from owners → I confirm or decline the owner's
+//      counter-suggestion of how I'm related.
+function FamilyConnectionInbox({ incoming, suggestions, user }) {
+  if (incoming.length === 0 && suggestions.length === 0) return null
+
+  async function ownerApprove(conn) {
+    try {
+      await db.transact([
+        db.tx.familyConnections[conn.id].update({
+          status:            'approved',
+          relation:          conn.relation,
+          suggestedRelation: null,
+          approvedAt:        Date.now(),
+        }),
+      ])
+      // Email the inviter
+      fetch('/api/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action:       'family-connection-approved',
+          claimerEmail: conn.fromEmail,
+          claimerName:  conn.fromName,
+          relation:     conn.relation,
+          ownerName:    user?.email?.split('@')[0] || 'the family',
+        }),
+      }).catch(() => {})
+    } catch { alert('Could not approve. Try again.') }
+  }
+
+  async function ownerReject(conn) {
+    if (!confirm('Decline this request?')) return
+    try {
+      await db.transact([
+        db.tx.familyConnections[conn.id].update({ status: 'rejected' }),
+      ])
+    } catch { alert('Could not decline. Try again.') }
+  }
+
+  // Inviter accepts the owner's suggested relation
+  async function inviterAcceptSuggestion(conn) {
+    try {
+      await db.transact([
+        db.tx.familyConnections[conn.id].update({
+          status:             'approved',
+          relation:           conn.suggestedRelation,
+          suggestedRelation:  null,
+          inviterRespondedAt: Date.now(),
+          approvedAt:         Date.now(),
+        }),
+      ])
+      // Email the inviter (themselves) AND it'd be polite to also notify owner.
+      fetch('/api/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action:       'family-connection-approved',
+          claimerEmail: conn.fromEmail,
+          claimerName:  conn.fromName,
+          relation:     conn.suggestedRelation,
+          ownerName:    'the family',
+        }),
+      }).catch(() => {})
+    } catch { alert('Could not confirm. Try again.') }
+  }
+
+  async function inviterDeclineSuggestion(conn) {
+    if (!confirm('Decline the suggested relationship?')) return
+    try {
+      await db.transact([
+        db.tx.familyConnections[conn.id].update({
+          status:             'rejected',
+          inviterRespondedAt: Date.now(),
+        }),
+      ])
+    } catch { alert('Could not decline. Try again.') }
+  }
+
+  return (
+    <div className="fci">
+      <div className="fci-head">
+        <span className="fci-badge">{incoming.length + suggestions.length}</span>
+        <div>
+          <p className="fci-title">Family requests</p>
+          <p className="fci-sub">Items waiting for your decision</p>
+        </div>
+      </div>
+
+      <div className="fci-list">
+        {/* Owner-side: incoming requests */}
+        {incoming.map(c => (
+          <div key={c.id} className="fci-row">
+            <div className="fci-avatar">
+              {c.fromPhoto
+                ? <img src={c.fromPhoto} alt="" />
+                : (c.fromName?.[0] || '?').toUpperCase()}
+            </div>
+            <div className="fci-body">
+              <p className="fci-line">
+                <strong>{c.fromName || 'Someone'}</strong> wants to join your family circle as <strong>{c.relation}</strong>
+              </p>
+              <div className="fci-actions">
+                <button onClick={() => ownerApprove(c)} className="fci-btn fci-btn-go">
+                  ✓ Approve
+                </button>
+                <Link
+                  to={`/connect/family/verify/${c.verifyToken}`}
+                  className="fci-btn fci-btn-alt"
+                >
+                  ✎ Review / suggest
+                </Link>
+                <button onClick={() => ownerReject(c)} className="fci-btn fci-btn-no">
+                  Decline
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {/* Inviter-side: counter-suggestions */}
+        {suggestions.map(c => (
+          <div key={c.id} className="fci-row fci-row-suggest">
+            <div className="fci-avatar fci-avatar-suggest">✎</div>
+            <div className="fci-body">
+              <p className="fci-line">
+                The family suggests you joined as <strong>{c.suggestedRelation}</strong> instead of <strong>{c.relation}</strong>.
+              </p>
+              <div className="fci-actions">
+                <button onClick={() => inviterAcceptSuggestion(c)} className="fci-btn fci-btn-go">
+                  ✓ Accept "{c.suggestedRelation}"
+                </button>
+                <button onClick={() => inviterDeclineSuggestion(c)} className="fci-btn fci-btn-no">
+                  Decline
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <style>{`
+        .fci {
+          background: linear-gradient(135deg, rgba(243,178,26,.12), rgba(56,189,248,.06));
+          border: 1px solid rgba(243,178,26,.30);
+          border-radius: var(--r-xl);
+          padding: 18px;
+          margin-bottom: 22px;
+          box-shadow: 0 4px 18px rgba(243,178,26,.10);
+        }
+        .fci-head {
+          display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+        }
+        .fci-badge {
+          width: 32px; height: 32px; border-radius: 10px;
+          background: var(--butter); color: var(--ink);
+          display: flex; align-items: center; justify-content: center;
+          font-weight: 800; font-size: 15px;
+          box-shadow: 0 2px 8px rgba(255,233,129,.30);
+        }
+        .fci-title {
+          margin: 0; font-size: 15px; font-weight: 800; color: var(--card-text);
+        }
+        .fci-sub {
+          margin: 1px 0 0; font-size: 11.5px; color: var(--card-text-2);
+        }
+        .fci-list { display: flex; flex-direction: column; gap: 10px; }
+        .fci-row {
+          display: flex; gap: 12px; padding: 12px 14px;
+          background: rgba(247,241,227,.05);
+          border: 1px solid rgba(247,241,227,.10);
+          border-radius: var(--r-lg);
+        }
+        .fci-row-suggest {
+          background: rgba(56,189,248,.06);
+          border-color: rgba(56,189,248,.22);
+        }
+        .fci-avatar {
+          width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+          background: linear-gradient(135deg, rgba(255,233,129,.22), rgba(56,189,248,.14));
+          border: 1.5px solid rgba(255,233,129,.30);
+          overflow: hidden; display: flex; align-items: center; justify-content: center;
+          font-family: 'Cormorant Garamond', serif;
+          font-size: 15px; font-weight: 700; color: var(--butter);
+        }
+        .fci-avatar-suggest {
+          background: rgba(56,189,248,.18);
+          border-color: rgba(56,189,248,.40);
+          color: var(--sky-2);
+        }
+        .fci-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .fci-body { flex: 1; min-width: 0; }
+        .fci-line {
+          margin: 0 0 8px; font-size: 13px; line-height: 1.5;
+          color: var(--card-text);
+        }
+        .fci-line strong { color: var(--butter); font-weight: 700; }
+        .fci-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+        .fci-btn {
+          padding: 7px 12px; border-radius: 999px;
+          font-family: inherit; font-size: 11.5px; font-weight: 700;
+          cursor: pointer; border: 1px solid transparent;
+          text-decoration: none; display: inline-flex; align-items: center;
+          transition: all .15s;
+        }
+        .fci-btn-go {
+          background: var(--butter); color: var(--ink);
+          border-color: rgba(255,233,129,.50);
+        }
+        .fci-btn-go:hover { box-shadow: 0 4px 14px rgba(255,233,129,.30); }
+        .fci-btn-alt {
+          background: rgba(247,241,227,.06); color: var(--card-text);
+          border-color: rgba(247,241,227,.14);
+        }
+        .fci-btn-alt:hover { background: rgba(247,241,227,.10); }
+        .fci-btn-no {
+          background: transparent; color: var(--card-text-2);
+          border-color: rgba(247,241,227,.10);
+        }
+        .fci-btn-no:hover { color: #e07b5a; border-color: rgba(200,83,31,.30); }
+      `}</style>
+    </div>
+  )
+}
+
 // ─── Family Chat Panel ──────────────────────────────────────────────────────
 // Shown on the Messages tab. Lists every chat the user has access to (their
 // own memorials + the ones they're approved family of). Each row shows the
@@ -701,8 +929,26 @@ function FamilyChatPanel({ allMemIds, ownedMemorials, connectedMemorialIds, allF
 // ════════════════════════════════════════════════════════════════════════════
 export default function DashboardPage() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { user, isLoading: authLoading } = db.useAuth()
-  const [activeTab,       setActiveTab]       = useState('overview')
+  // Tab can be opened directly via ?tab=messages (e.g. from the top nav Chat link)
+  const [activeTab,       setActiveTab]       = useState(() => searchParams.get('tab') || 'overview')
+
+  // Sync URL → tab when user navigates here with a new ?tab=…
+  useEffect(() => {
+    const urlTab = searchParams.get('tab')
+    if (urlTab && urlTab !== activeTab) setActiveTab(urlTab)
+  }, [searchParams])
+
+  // Sync tab → URL whenever the user clicks a different tab (without scroll change)
+  useEffect(() => {
+    const urlTab = searchParams.get('tab')
+    if (activeTab === 'overview') {
+      if (urlTab) setSearchParams({}, { replace: true })
+    } else if (urlTab !== activeTab) {
+      setSearchParams({ tab: activeTab }, { replace: true })
+    }
+  }, [activeTab])
   const [showVaultPicker, setShowVaultPicker] = useState(false)
   // Relation filter for My Memorials
   const [relFilter,       setRelFilter]       = useState('all')
@@ -744,6 +990,33 @@ export default function DashboardPage() {
     const readBy = Array.isArray(m.readBy) ? m.readBy : []
     return m.fromUserId !== user?.id && !readBy.includes(user?.id)
   }).length
+
+  // ── Family connection inbox queries ────────────────────────────────────────
+  // (a) Incoming requests for memorials I own — awaiting MY approval
+  const incomingQ = db.useQuery(
+    user ? {
+      familyConnections: {
+        $: { where: { toUserId: user.id, status: 'pending' } },
+      },
+    } : null
+  )
+  const incomingRaw = incomingQ?.data?.familyConnections || []
+  // Filter to actionable: NO suggestedRelation set means owner hasn't acted yet
+  const incomingForMe = incomingRaw.filter(c => !c.suggestedRelation)
+
+  // (b) My outgoing requests — the owner has counter-suggested a relation
+  //     awaiting MY confirmation
+  const suggestionsQ = db.useQuery(
+    user ? {
+      familyConnections: {
+        $: { where: { fromUserId: user.id, status: 'pending' } },
+      },
+    } : null
+  )
+  const myOutgoing       = suggestionsQ?.data?.familyConnections || []
+  const suggestionsForMe = myOutgoing.filter(c => !!c.suggestedRelation)
+
+  const familyInboxCount = incomingForMe.length + suggestionsForMe.length
 
   const { pullProgress, refreshing, onTouchStart, onTouchMove, onTouchEnd }
     = usePullToRefresh(async () => { await new Promise(r => setTimeout(r, 800)) })
@@ -928,6 +1201,13 @@ export default function DashboardPage() {
               <motion.div key="overview"
                 initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}
                 exit={{ opacity:0, y:-12 }} transition={{ duration:.25 }}>
+
+                {/* ── Family connection inbox — pending decisions ────────── */}
+                <FamilyConnectionInbox
+                  incoming={incomingForMe}
+                  suggestions={suggestionsForMe}
+                  user={user}
+                />
 
                 {/* ── Relation filter chips ──────────────────────────────── */}
                 {memorials.length > 0 && (

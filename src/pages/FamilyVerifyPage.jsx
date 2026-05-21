@@ -25,7 +25,7 @@ export default function FamilyVerifyPage() {
   const [relation,   setRelation]   = useState('')
   const [processing, setProcessing] = useState(false)
   const [error,      setError]      = useState('')
-  const [outcome,    setOutcome]    = useState('')   // 'approved' | 'rejected'
+  const [outcome,    setOutcome]    = useState('')   // 'approved' | 'rejected' | 'suggested'
 
   // Fetch the connection by token
   useEffect(() => {
@@ -53,25 +53,30 @@ export default function FamilyVerifyPage() {
     })
   }, [token, actionFromUrl])
 
+  // Approve outright — keeps the relation the inviter chose (or auto-confirms
+  // the owner's suggestion if they approved from the change-relation step).
   async function handleApprove() {
     if (!connection) return
     setProcessing(true)
     try {
+      const finalRelation = relation || connection.relation
       await db.transact([
         db.tx.familyConnections[connection.id].update({
-          status:     'approved',
-          relation:   relation || connection.relation,
-          approvedAt: Date.now(),
+          status:            'approved',
+          relation:          finalRelation,
+          suggestedRelation: null,
+          approvedAt:        Date.now(),
         }),
       ])
-      // Send approval email to claimant
-      fetch('/api/family-connection-approved', {
+      // Notify the claimant by email
+      fetch('/api/email', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
+          action:       'family-connection-approved',
           claimerEmail: connection.fromEmail,
           claimerName:  connection.fromName,
-          relation:     relation || connection.relation,
+          relation:     finalRelation,
           ownerName:    user?.email?.split('@')[0] || 'the family',
         }),
       }).catch(() => {})
@@ -79,6 +84,41 @@ export default function FamilyVerifyPage() {
       setStep('done')
     } catch {
       setError('Could not update the request. Please try again.')
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  // Suggest a different relation — sets suggestedRelation, status STAYS
+  // 'pending', and the claimant must confirm/decline on their end.
+  async function handleSuggest() {
+    if (!connection || !relation || relation === connection.relation) return
+    setProcessing(true)
+    try {
+      await db.transact([
+        db.tx.familyConnections[connection.id].update({
+          status:            'pending',
+          suggestedRelation: relation,
+          suggestedAt:       Date.now(),
+        }),
+      ])
+      // Email the inviter so they can confirm the new relation
+      fetch('/api/email', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          action:             'family-connection-suggested',
+          claimerEmail:       connection.fromEmail,
+          claimerName:        connection.fromName,
+          originalRelation:   connection.relation,
+          suggestedRelation:  relation,
+          ownerName:          user?.email?.split('@')[0] || 'the family',
+        }),
+      }).catch(() => {})
+      setOutcome('suggested')
+      setStep('done')
+    } catch {
+      setError('Could not save the suggestion. Please try again.')
     } finally {
       setProcessing(false)
     }
@@ -181,7 +221,7 @@ export default function FamilyVerifyPage() {
                 onClick={() => setStep('change-relation')}
                 className="w-full py-3 rounded-2xl text-xs font-semibold glass border border-white/10 text-white/60 hover:text-white hover:border-white/20 transition-all"
               >
-                ✎  Change relationship first
+                ✎  Suggest a different relationship
               </button>
 
               <button
@@ -194,22 +234,29 @@ export default function FamilyVerifyPage() {
             </motion.div>
           )}
 
-          {/* ── Change relationship ───────────────────────────────────────── */}
+          {/* ── Suggest a different relationship ──────────────────────────── */}
           {step === 'change-relation' && (
             <motion.div key="change-rel" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
               className="space-y-5">
               <div className="text-center">
-                <h2 className="font-display text-xl font-bold text-white mb-2">Correct the relationship</h2>
+                <h2 className="font-display text-xl font-bold text-white mb-2">Suggest a different relationship</h2>
                 <p className="text-sm text-white/50">
                   {connection?.fromName} said they are your <strong className="text-white">{getRelationLabel(connection?.relation)}</strong>.
-                  If that's not right, choose the correct one below.
+                  Pick what you think is correct — they'll need to confirm before being added.
                 </p>
               </div>
               <RelationPicker value={relation} onChange={setRelation} />
-              <button onClick={handleApprove} disabled={processing || !relation}
+              <button onClick={handleSuggest}
+                disabled={processing || !relation || relation === connection?.relation}
                 className="w-full py-4 rounded-2xl text-sm font-bold text-black metal-btn disabled:opacity-50">
-                {processing ? 'Saving…' : `Approve as ${getRelationLabel(relation) || 'family'} →`}
+                {processing
+                  ? 'Sending…'
+                  : `Send "${getRelationLabel(relation) || 'family'}" for them to confirm →`}
               </button>
+              <p className="text-[0.65rem] text-white/30 text-center leading-relaxed">
+                If they agree, they'll be added automatically. If they decline,
+                you'll be notified and the request stays open.
+              </p>
               <button onClick={() => setStep('review')}
                 className="w-full py-3 text-xs text-white/30 hover:text-white/50 transition-colors">
                 ← Back
@@ -221,14 +268,20 @@ export default function FamilyVerifyPage() {
           {step === 'done' && (
             <motion.div key="done" initial={{ opacity:0, scale:.96 }} animate={{ opacity:1, scale:1 }}
               className="text-center space-y-5">
-              <div className="text-5xl">{outcome === 'approved' ? '✦' : '◎'}</div>
+              <div className="text-5xl">
+                {outcome === 'approved' ? '✦' : outcome === 'suggested' ? '✎' : '◎'}
+              </div>
               <h1 className="font-display text-2xl font-bold text-white">
-                {outcome === 'approved' ? 'Connection approved' : 'Request declined'}
+                {outcome === 'approved'  ? 'Connection approved'
+                 : outcome === 'suggested' ? 'Suggestion sent'
+                 : 'Request declined'}
               </h1>
               <p className="text-sm text-white/55 leading-relaxed">
                 {outcome === 'approved'
                   ? `${connection?.fromName || 'They'} has been added to your family circle. They'll receive a confirmation by email.`
-                  : 'The request has been declined. No data has been shared.'}
+                  : outcome === 'suggested'
+                    ? `We've sent ${connection?.fromName || 'them'} your suggested relationship. They'll need to confirm before being added. You'll get a notification when they respond.`
+                    : 'The request has been declined. No data has been shared.'}
               </p>
               <Link to="/family-tree"
                 className="block w-full py-4 rounded-2xl text-sm font-bold text-black metal-btn text-center">

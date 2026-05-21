@@ -286,6 +286,21 @@ export default function LandingPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>
             </Link>
+
+            {/* Creator credit — generous breathing room below the CTA */}
+            <div className="mt-20 flex flex-col items-center gap-1.5">
+              <span className="text-[0.6rem] tracking-[0.28em] uppercase text-white/55">
+                Created by
+              </span>
+              <a
+                href="https://okunolacreates.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm font-bold tracking-wider text-gold hover:text-sky transition-colors"
+              >
+                okunolacreates.com
+              </a>
+            </div>
           </motion.div>
         </div>
       </section>
@@ -307,34 +322,17 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-white/5 px-6 lg:px-12 py-8">
-        <div className="max-w-6xl mx-auto flex flex-col items-center gap-4">
-          <div className="w-full flex flex-col md:flex-row items-center justify-between gap-4">
-            <span className="text-xs tracking-wider text-white">
-              WHO WAS I &middot; whowasi.uk &middot; v2.0
-            </span>
-            <div className="flex items-center gap-6">
-              <Link to="/explore" className="text-[0.65rem] tracking-wider text-white hover:text-gold transition-colors">
-                Explore
-              </Link>
-              <Link to="/auth" className="text-[0.65rem] tracking-wider text-white hover:text-gold transition-colors">
-                Sign In
-              </Link>
-            </div>
-          </div>
-
-          {/* Creator credit */}
-          <div className="w-full pt-4 border-t border-white/5 flex items-center justify-center gap-2">
-            <span className="text-[0.65rem] tracking-[0.18em] uppercase text-white/55">
-              Created by
-            </span>
-            <a
-              href="https://okunolacreates.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[0.7rem] font-bold tracking-wider text-gold hover:text-sky transition-colors"
-            >
-              okunolacreates.com
-            </a>
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <span className="text-xs tracking-wider text-white">
+            WHO WAS I &middot; whowasi.uk &middot; v2.0
+          </span>
+          <div className="flex items-center gap-6">
+            <Link to="/explore" className="text-[0.65rem] tracking-wider text-white hover:text-gold transition-colors">
+              Explore
+            </Link>
+            <Link to="/auth" className="text-[0.65rem] tracking-wider text-white hover:text-gold transition-colors">
+              Sign In
+            </Link>
           </div>
         </div>
       </footer>

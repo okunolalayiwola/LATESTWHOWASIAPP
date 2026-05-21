@@ -155,16 +155,22 @@ const _schema = i.schema({
     familyConnections: i.entity({
       fromUserId:   i.string().indexed(),    // person claiming the relationship
       fromName:     i.string(),              // their display name
-      fromEmail:    i.string().optional(),   // their email (used for PIN sharing)
+      fromEmail:    i.string().optional(),   // their email
       fromPhoto:    i.string().optional(),   // their profile photo
       toMemorialId: i.string().indexed(),    // which memorial they're connecting to
       toUserId:     i.string().indexed(),    // memorial owner's userId
-      relation:     i.string(),              // e.g. "Son", "Daughter"
+      relation:     i.string(),              // final agreed relation
       status:       i.string().indexed(),    // 'pending' | 'approved' | 'rejected'
       verifyToken:  i.string().unique().indexed(), // one-time email verification token
       requestedAt:  i.number(),
       approvedAt:   i.number().optional(),
       approvalNote: i.string().optional(),
+      // Owner can suggest a different relation. While suggestedRelation is set
+      // + status is 'pending', the request is awaiting the INVITER's
+      // confirmation of the owner's counter-suggestion.
+      suggestedRelation:  i.string().optional(),
+      suggestedAt:        i.number().optional(),
+      inviterRespondedAt: i.number().optional(),
     }),
 
     // ─── Family Messages (private, approved-members only) ────────────────────
