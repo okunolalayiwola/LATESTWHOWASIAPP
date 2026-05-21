@@ -276,7 +276,7 @@ export default function FamilyTreeSidePanel({
             fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase',
             boxShadow: '0 6px 20px rgba(255,215,0,0.25)',
           }}>
-          ✦ Invite to circle
+          ✦ Invite family
         </button>
       )}
 

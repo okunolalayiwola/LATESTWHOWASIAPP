@@ -197,21 +197,49 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-3 gap-6">
             {[
               {
-                icon: '✦',
-                title: 'Create a Memorial',
-                desc: 'Add photos, videos, audio, and a biography. Every detail that made them who they were.',
+                // Living memorial w/ live interaction — microphone + sound waves
+                icon: (
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="2" width="6" height="11" rx="3" />
+                    <path d="M5 10v2a7 7 0 0 0 14 0v-2" />
+                    <line x1="12" y1="19" x2="12" y2="22" />
+                    <line x1="8" y1="22" x2="16" y2="22" />
+                  </svg>
+                ),
+                title: 'Living Memorial with Live Interaction',
+                desc: 'Hear them speak again, ask them questions, share a moment. A voice-cloned, AI-powered conversation drawn from their life, words, and memories.',
                 color: 'from-gold to-sky',
               },
               {
-                icon: '♡',
-                title: 'Voice & Living Memory',
-                desc: 'Upload their voice recordings. Hear them speak again — their stories, their laugh, their warmth. A real memory, preserved forever.',
+                // Digital barcode — QR code icon
+                icon: (
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="7" height="7" rx="1" />
+                    <rect x="14" y="3" width="7" height="7" rx="1" />
+                    <rect x="3" y="14" width="7" height="7" rx="1" />
+                    <line x1="14" y1="14" x2="14" y2="17" />
+                    <line x1="17" y1="14" x2="21" y2="14" />
+                    <line x1="21" y1="17" x2="17" y2="17" />
+                    <line x1="14" y1="20" x2="21" y2="20" />
+                    <line x1="17" y1="17" x2="17" y2="21" />
+                  </svg>
+                ),
+                title: 'Digital Barcode for Every Memorial',
+                desc: 'A unique QR code linked to each person. Print it on a headstone, wreath, card, or program — anyone who scans it is taken to the full living memorial.',
                 color: 'from-sky to-lavender',
               },
               {
-                icon: '✧',
-                title: 'Share & Remember',
-                desc: 'Invite family and friends. Leave tributes, share memories, and build a living legacy together.',
+                // Legacy letters + will vault — padlock over document
+                icon: (
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="4" y="10" width="16" height="11" rx="2" />
+                    <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                    <circle cx="12" cy="15.5" r="1.1" />
+                    <line x1="12" y1="16.4" x2="12" y2="18" />
+                  </svg>
+                ),
+                title: 'Legacy Vault & Family Communication',
+                desc: 'Sealed letters, wills, and time-locked documents — opened on the day you choose. A private family channel for messages only your loved ones can read.',
                 color: 'from-coral to-rose',
               },
             ].map((f, i) => (
@@ -223,10 +251,10 @@ export default function LandingPage() {
                 transition={{ duration: 0.5, delay: i * 0.1 }}
                 className="glass rounded-2xl p-8 hover:bg-white/[0.06] transition-all duration-300 group"
               >
-                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${f.color} flex items-center justify-center text-lg mb-5`}>
+                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${f.color} flex items-center justify-center text-white mb-5`}>
                   {f.icon}
                 </div>
-                <h3 className="text-lg font-bold mb-2">{f.title}</h3>
+                <h3 className="text-lg font-bold mb-2 leading-snug">{f.title}</h3>
                 <p className="text-sm text-white/50 leading-relaxed">{f.desc}</p>
               </motion.div>
             ))}
