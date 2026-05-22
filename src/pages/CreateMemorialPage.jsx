@@ -1352,6 +1352,36 @@ export default function CreateMemorialPage() {
         ...photoTxs,
       ])
 
+      // ── Fire-and-forget AI vision analysis of life photos ─────────────────
+      // The server runs Claude vision on up to 8 photos and writes a
+      // "photoContext" string back to the memorial. That string is then
+      // injected into the AI persona system prompt by ConversationPage /
+      // TalkScreen so the AI knows what the person visually looked like and
+      // what their life contained. Doesn't block memorial creation —
+      // navigation happens immediately, the analysis takes ~5-15s and the
+      // result appears on next chat open.
+      const trainingPhotoUrls = lifePhotos.filter(p => p.url).map(p => p.url)
+      if (trainingPhotoUrls.length > 0) {
+        fetch('/api/analyze-photos', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            memorialId: memId,
+            name:       form.name.trim(),
+            bio:        form.bio.trim(),
+            isSelf,
+            alive:      form.alive,
+            birthYear:  form.birthYear || undefined,
+            deathYear:  form.deathYear || undefined,
+            photoUrls:  trainingPhotoUrls,
+          }),
+        }).catch(err => {
+          // Non-blocking — failure means no photoContext; persona still works
+          // from text fields. Logged for debugging.
+          console.warn('[analyze-photos] background analysis failed', err)
+        })
+      }
+
       toast.success(isSelf
         ? copy.successText
         : `${form.name}'s ${copy.successText}`

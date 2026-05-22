@@ -115,7 +115,11 @@ ${born ? `- You were born in ${born}` : ''}
 ${memorial.location ? `- Location: ${memorial.location}` : ''}
 
 LIFE STORY (short bio):
-${bio || 'A wonderful person, deeply loved by family and friends.'}${personaBlock}
+${bio || 'A wonderful person, deeply loved by family and friends.'}${personaBlock}${
+  memorial.photoContext
+    ? `\n\nWHAT YOUR LIFE LOOKED LIKE (drawn from photos your family uploaded — use these as concrete details you can refer to naturally):\n${memorial.photoContext}`
+    : ''
+}
 
 WHAT FAMILY AND FRIENDS SAY ABOUT YOU:
 ${tributes || 'Your family and friends speak of you with great love and fondness.'}

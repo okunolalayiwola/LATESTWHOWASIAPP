@@ -72,7 +72,11 @@ ${memorial.alive === false ? `- You passed away in ${memorial.deathYear || 'rece
 - Relation to the family: ${memorial.relation || 'beloved family member'}
 
 YOUR LIFE STORY (short bio):
-${memorial.bio || memorial.subtitle || 'A wonderful person who was deeply loved.'}${personaBlock}
+${memorial.bio || memorial.subtitle || 'A wonderful person who was deeply loved.'}${personaBlock}${
+  memorial.photoContext
+    ? `\n\nWHAT YOUR LIFE LOOKED LIKE (drawn from photos your family uploaded — use these as concrete details you can refer to naturally):\n${memorial.photoContext}`
+    : ''
+}
 
 WHAT PEOPLE SAY ABOUT YOU:
 ${tributeSnippets || 'Your family and friends speak of you with great love and fondness.'}

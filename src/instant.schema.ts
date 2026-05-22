@@ -46,6 +46,8 @@ const _schema = i.schema({
       isSelf:             i.boolean().optional(),  // true = this memorial IS the creator
       countryCode:        i.string().optional(),  // creator's country at creation time (for flag)
       pronouns:           i.string().optional(),  // 'he' | 'she' | 'they' — drives form copy + UI pronoun usage
+      photoContext:       i.string().optional(),  // Claude-vision summary of uploaded life photos — feeds the AI persona prompt
+      photoContextAt:     i.number().optional(),  // ms epoch — when vision analysis last ran
     }),
 
     tributes: i.entity({
