@@ -1622,15 +1622,9 @@ export default function CreateMemorialPage() {
             </p>
             <button
               onClick={() => navigate('/auth')}
-              className="w-full py-4 rounded-2xl text-sm font-bold text-black metal-btn mb-3"
+              className="w-full py-4 rounded-2xl text-sm font-bold text-black metal-btn"
             >
               Create account / Sign in →
-            </button>
-            <button
-              onClick={() => setShowGuestGate(false)}
-              className="w-full py-3 text-xs text-white/40 hover:text-white/60 transition-colors"
-            >
-              Continue browsing as guest
             </button>
           </div>
         </div>
