@@ -33,13 +33,14 @@ export default async function handler(req, res) {
 
   const {
     memorialId,
-    name      = 'this person',
-    bio       = '',
-    isSelf    = false,
-    alive     = true,
+    name             = 'this person',
+    bio              = '',
+    isSelf           = false,
+    alive            = true,
     birthYear,
     deathYear,
-    photoUrls = [],
+    photoUrls        = [],
+    totalPhotoCount,        // total photos in DB at analysis time (for re-analysis gating)
   } = req.body || {}
 
   if (!memorialId)               return res.status(400).json({ error: 'memorialId required' })
@@ -47,7 +48,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'photoUrls array required' })
 
   // Cap, dedupe, keep order (chronological from client)
-  const urls = [...new Set(photoUrls)].slice(0, MAX_PHOTOS_FOR_VISION)
+  const urls          = [...new Set(photoUrls)].slice(0, MAX_PHOTOS_FOR_VISION)
+  const photoCountAtAnalysis = typeof totalPhotoCount === 'number' && totalPhotoCount > 0
+    ? totalPhotoCount
+    : photoUrls.length
 
   // Build the multimodal user message: a list of image blocks then a text block.
   const contentBlocks = [
@@ -102,11 +106,15 @@ export default async function handler(req, res) {
     }
 
     // ── Persist to InstantDB via admin SDK ────────────────────────────────────
+    // Save the analyzed photo count so the client can decide when to re-analyse:
+    //   - 10+ new photos since this number → trigger re-analysis
+    //   - 30+ days since photoContextAt   → trigger re-analysis
     const adminDb = init({ appId: APP_ID, adminToken: ADMIN_TOKEN })
     await adminDb.transact([
       adminDb.tx.memorials[memorialId].update({
         photoContext,
-        photoContextAt: Date.now(),
+        photoContextAt:         Date.now(),
+        photoContextPhotoCount: photoCountAtAnalysis,
       }),
     ])
 

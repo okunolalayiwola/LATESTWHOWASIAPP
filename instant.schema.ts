@@ -49,8 +49,9 @@ const _schema = i.schema({
       isSelf:             i.boolean().optional(),   // true = this memorial IS the creator
       countryCode:        i.string().optional(),   // creator's country at creation time (flag display)
       pronouns:           i.string().optional(),   // 'he' | 'she' | 'they' — drives form copy + UI pronoun usage
-      photoContext:       i.string().optional(),   // Claude-vision summary of the uploaded life photos — injected into the AI persona system prompt
-      photoContextAt:     i.number().optional(),   // when vision analysis last ran (ms epoch)
+      photoContext:           i.string().optional(),   // Claude-vision summary of the uploaded life photos — injected into the AI persona system prompt
+      photoContextAt:         i.number().optional(),   // when vision analysis last ran (ms epoch)
+      photoContextPhotoCount: i.number().optional(),   // photo count at last analysis — used to gate auto-reanalysis (≥10 more photos triggers re-run)
     }),
 
     // ─── Tributes ────────────────────────────────────────────────────────────

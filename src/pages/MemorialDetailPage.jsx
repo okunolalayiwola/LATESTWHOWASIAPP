@@ -1925,6 +1925,59 @@ function MemorialDetailPageInner() {
     [memorial]
   )
 
+  // ── Auto-reanalyse photos for the AI persona ──────────────────────────────
+  // Fires when either:
+  //   • 10+ photos have been added since the last vision analysis, OR
+  //   • 30+ days have passed since the last vision analysis (and there are photos)
+  // Only owners can trigger (avoids every visitor pinging the API). The ref
+  // guards against re-firing within the same session.
+  const reanalyseFiredRef = useRef(false)
+  useEffect(() => {
+    if (!memorial || !user) return
+    if (memorial.creatorId !== user.id) return                   // owner only
+    if (reanalyseFiredRef.current) return                        // once per session
+    const photos = memorial.photos || []
+    if (photos.length === 0) return
+
+    const lastCount  = memorial.photoContextPhotoCount || 0
+    const lastAt     = memorial.photoContextAt || 0
+    const newPhotos  = photos.length - lastCount
+    const ageMs      = Date.now() - lastAt
+    const MONTH_MS   = 30 * 24 * 60 * 60 * 1000
+    const everRan    = lastAt > 0
+    const hitCount   = newPhotos >= 10
+    const hitTime    = everRan && ageMs > MONTH_MS
+
+    if (!hitCount && !hitTime) return
+    reanalyseFiredRef.current = true
+
+    // Send the most-recent (or most-representative) photos. Cap to 8 server-side.
+    const sorted    = [...photos].sort((a, b) => (b.takenAt || b.createdAt || 0) - (a.takenAt || a.createdAt || 0))
+    const photoUrls = sorted.map(p => p.url).filter(Boolean).slice(0, 8)
+    if (photoUrls.length === 0) return
+
+    console.log(
+      `[reanalyse-photos] triggered — newPhotos=${newPhotos} (threshold 10), ` +
+      `daysSinceLast=${everRan ? Math.floor(ageMs / 86400000) : 'never'} (threshold 30)`
+    )
+
+    fetch('/api/analyze-photos', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        memorialId,
+        name:            memorial.name,
+        bio:             memorial.bio || '',
+        isSelf:          !!memorial.isSelf,
+        alive:           memorial.alive !== false,
+        birthYear:       memorial.birthYear,
+        deathYear:       memorial.deathYear,
+        photoUrls,
+        totalPhotoCount: photos.length,
+      }),
+    }).catch(err => console.warn('[reanalyse-photos] failed', err))
+  }, [memorial, user, memorialId])
+
   // SEO — must be before early returns
   useSEO({
     title:       memorial ? `${memorial.name} — WHO WAS I` : 'WHO WAS I — Living Memorials',

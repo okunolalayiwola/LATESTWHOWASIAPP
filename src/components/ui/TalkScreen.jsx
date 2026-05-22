@@ -54,7 +54,7 @@ function glassStyle(tint, extra = {}) {
 //   • persona  — full guided-interview answers from /memorial/:id/persona
 //   • tributes — what family/friends have written about this person
 // All assembled into one long system prompt sent to Claude on every turn.
-function buildSystemPrompt(memorial, persona) {
+function buildSystemPrompt(memorial, persona, comments = []) {
   const name     = memorial.name || 'this person'
   const bio      = memorial.bio || memorial.description || memorial.subtitle || ''
   const tributes = (memorial.tributes || [])
@@ -64,6 +64,15 @@ function buildSystemPrompt(memorial, persona) {
   const born  = memorial.born || memorial.dob || memorial.birthYear || ''
   const died  = memorial.died || memorial.dod || memorial.deathYear || ''
   const alive = memorial.alive !== false
+
+  // Family-only conversation under tributes. Empty for non-family chatters
+  // (perms gate it server-side). Lets the persona reference what the family
+  // is currently saying without leaking private threads to outsiders.
+  const commentSnippets = (comments || [])
+    .filter(c => c.content && c.content.length > 8)
+    .slice(0, 25)
+    .map(c => `"${c.content}" — ${c.authorName || 'family member'}`)
+    .join('\n')
 
   const p = persona || {}
   // Only include sections that have actual content
@@ -122,7 +131,11 @@ ${bio || 'A wonderful person, deeply loved by family and friends.'}${personaBloc
 }
 
 WHAT FAMILY AND FRIENDS SAY ABOUT YOU:
-${tributes || 'Your family and friends speak of you with great love and fondness.'}
+${tributes || 'Your family and friends speak of you with great love and fondness.'}${
+  commentSnippets
+    ? `\n\nWHAT YOUR FAMILY SAYS IN CONVERSATION (recent comments left under tributes — use these to know what they're still talking about, what's on their minds, who's in touch):\n${commentSnippets}`
+    : ''
+}
 
 HOW TO RESPOND:
 - Always speak in first person as ${name}. Never break character.
@@ -146,8 +159,8 @@ ${hasPersona
 }
 
 // AI call via /api/chat proxy (never exposes the API key)
-async function callAI(chatMessages, memorial, persona) {
-  const system = buildSystemPrompt(memorial, persona)
+async function callAI(chatMessages, memorial, persona, comments) {
+  const system = buildSystemPrompt(memorial, persona, comments)
   const r = await fetch('/api/chat', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -205,6 +218,15 @@ export default function TalkScreen({ memorial, memorialId, onClose }) {
     personaProfiles: { $: { where: { memorialId } } },
   } : null)
   const persona  = personaQ?.data?.personaProfiles?.[0] || null
+
+  // Family-only tribute comments — feeds the AI persona so it knows what
+  // family members are saying about the person right now. Perms restrict
+  // visibility to family, so non-family chats get an empty array and the
+  // private threads never leak into the prompt.
+  const commentsQ = db.useQuery(memorialId ? {
+    tributeComments: { $: { where: { memorialId }, limit: 60, order: { serverCreatedAt: 'desc' } } },
+  } : null)
+  const comments  = commentsQ?.data?.tributeComments || []
 
   // Keep messagesRef in sync
   useEffect(() => { messagesRef.current = messages }, [messages])
@@ -294,7 +316,7 @@ export default function TalkScreen({ memorial, memorialId, onClose }) {
     setSessionState('thinking')
 
     try {
-      const aiText = await callAI(history, memorial, persona)
+      const aiText = await callAI(history, memorial, persona, comments)
       const aiMsg  = { id: Date.now() + 1, who: 'ai', text: aiText }
       setMessages(prev => [...prev, aiMsg])
 

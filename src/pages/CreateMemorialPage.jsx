@@ -1366,14 +1366,15 @@ export default function CreateMemorialPage() {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
           body:    JSON.stringify({
-            memorialId: memId,
-            name:       form.name.trim(),
-            bio:        form.bio.trim(),
+            memorialId:      memId,
+            name:            form.name.trim(),
+            bio:             form.bio.trim(),
             isSelf,
-            alive:      form.alive,
-            birthYear:  form.birthYear || undefined,
-            deathYear:  form.deathYear || undefined,
-            photoUrls:  trainingPhotoUrls,
+            alive:           form.alive,
+            birthYear:       form.birthYear || undefined,
+            deathYear:       form.deathYear || undefined,
+            photoUrls:       trainingPhotoUrls,
+            totalPhotoCount: trainingPhotoUrls.length,
           }),
         }).catch(err => {
           // Non-blocking — failure means no photoContext; persona still works

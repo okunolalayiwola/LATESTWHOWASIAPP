@@ -20,11 +20,21 @@ import { SkeletonProfile, SkeletonListItem } from '../components/ui/Skeleton'
 
 // ─── System prompt builder ────────────────────────────────────────────────────
 
-function buildSystemPrompt(memorial, tributes, persona) {
+function buildSystemPrompt(memorial, tributes, persona, comments = []) {
   const tributeSnippets = (tributes || [])
     .filter(t => t.text)
     .slice(0, 20)
     .map(t => `"${t.text}" — ${t.authorName || 'Anonymous'}`)
+    .join('\n')
+
+  // Family-only conversation comments under tributes. These are the back-and-
+  // forth between family members about the person — rich texture the AI uses
+  // to feel current. Perm-gated server-side so only family-visible comments
+  // ever reach here.
+  const commentSnippets = (comments || [])
+    .filter(c => c.content && c.content.length > 8)
+    .slice(0, 25)
+    .map(c => `"${c.content}" — ${c.authorName || 'family member'}`)
     .join('\n')
 
   const p = persona || {}
@@ -79,7 +89,11 @@ ${memorial.bio || memorial.subtitle || 'A wonderful person who was deeply loved.
 }
 
 WHAT PEOPLE SAY ABOUT YOU:
-${tributeSnippets || 'Your family and friends speak of you with great love and fondness.'}
+${tributeSnippets || 'Your family and friends speak of you with great love and fondness.'}${
+  commentSnippets
+    ? `\n\nWHAT YOUR FAMILY SAYS IN CONVERSATION (recent comments left under tributes — use these to know what they're still talking about, what's on their minds, who's in touch):\n${commentSnippets}`
+    : ''
+}
 
 HOW TO RESPOND:
 - Always speak in first person, as ${memorial.name}. Never break character.
@@ -105,8 +119,8 @@ IMPORTANT: This is a sacred space for grieving families. Every response should f
 // Calls the /api/chat serverless proxy — the Anthropic key lives server-side
 // only and is never shipped to the browser.
 
-async function generateResponse(messages, memorial, tributes, persona) {
-  const system = buildSystemPrompt(memorial, tributes, persona)
+async function generateResponse(messages, memorial, tributes, persona, comments) {
+  const system = buildSystemPrompt(memorial, tributes, persona, comments)
 
   const response = await fetch('/api/chat', {
     method:  'POST',
@@ -240,10 +254,15 @@ export default function ConversationPage() {
       ? {
           memorials:       { $: { where: { id: memorialId } }, tributes: { $: { limit: 30 } } },
           personaProfiles: { $: { where: { memorialId } } },
+          // Family-only tribute comments. InstantDB perms ensure non-family
+          // users get an empty array here, so the AI prompt never leaks
+          // private dialogue to outsiders.
+          tributeComments: { $: { where: { memorialId }, limit: 60, order: { serverCreatedAt: 'desc' } } },
         }
       : null
   )
-  const persona = data?.personaProfiles?.[0] || null
+  const persona  = data?.personaProfiles?.[0] || null
+  const comments = data?.tributeComments     || []
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -307,6 +326,7 @@ export default function ConversationPage() {
         memorial,
         tributes,
         persona,
+        comments,
       )
       setMessages(m => [...m, { role:'assistant', content: aiText, id: Date.now() + 1 }])
     } catch {
