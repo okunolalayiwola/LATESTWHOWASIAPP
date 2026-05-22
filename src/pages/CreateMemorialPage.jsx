@@ -1384,6 +1384,7 @@ export default function CreateMemorialPage() {
   const [lifePhotos, setLifePhotos] = useState([])   // { id, preview, url, takenAt, uploading }
   const [facePhotos, setFacePhotos] = useState([])   // { id, preview, url, uploading, checking, rejected, rejectReason }
   const [saving,     setSaving]     = useState(false)
+  const [savingStep, setSavingStep] = useState('')   // granular status for the save button so it never feels frozen
   const [showGuestGate, setShowGuestGate] = useState(false)
 
   // Adaptive copy — single source of truth for every label/placeholder/helper.
@@ -1458,6 +1459,7 @@ export default function CreateMemorialPage() {
     if (!user) { toast.error('Please sign in to create a memorial'); navigate('/auth'); return }
     if (isGuest) { setShowGuestGate(true); return }
     setSaving(true)
+    setSavingStep(isSelf ? 'Creating your legacy…' : 'Creating the memorial…')
     try {
       const memId = id()
       const years = form.birthYear
@@ -1469,6 +1471,7 @@ export default function CreateMemorialPage() {
       // Capture voice via ElevenLabs if a voice recording was uploaded
       let elevenLabsVoiceId = null
       if (form.voiceUrl) {
+        setSavingStep('Cloning the voice — this takes a few seconds…')
         try {
           elevenLabsVoiceId = await cloneVoice(form.voiceUrl, form.name.trim())
           if (elevenLabsVoiceId) {
@@ -1478,6 +1481,8 @@ export default function CreateMemorialPage() {
           // Non-blocking — fall back to Web Speech API
         }
       }
+
+      setSavingStep('Saving everything…')
 
       // Build photo transactions — each uploaded photo links to the memorial.
       // Face-training URLs — only photos that uploaded successfully AND passed
@@ -1693,7 +1698,7 @@ export default function CreateMemorialPage() {
             {saving
               ? <span className="flex items-center justify-center gap-2">
                   <div className="w-4 h-4 border-2 border-black/20 border-t-black/70 rounded-full animate-spin" />
-                  {isSelf ? 'Creating your legacy…' : 'Creating memorial…'}
+                  {savingStep || (isSelf ? 'Creating your legacy…' : 'Creating memorial…')}
                 </span>
               : step < STEPS.length - 1 ? 'Continue →' : copy.ctaPublish
             }

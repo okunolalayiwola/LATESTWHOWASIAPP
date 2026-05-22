@@ -9,6 +9,7 @@ import { id } from '@instantdb/react'
 import { db } from '../lib/instant'
 import { uploadImage } from '../lib/storage'
 import useSEO from '../hooks/useSEO'
+import { useToast } from '../contexts/ToastContext'
 import InviteCodeBadge from '../components/shared/InviteCodeBadge'
 import FamilyMessagesSection from '../components/shared/FamilyMessagesSection'
 
@@ -1872,7 +1873,8 @@ function MemorialDetailPageInner() {
   const [showReelFull,    setShowReelFull]    = useState(false)
   const [showFamilyCircle, setShowFamilyCircle] = useState(false)
 
-  const { user } = db.useAuth()
+  const { user }  = db.useAuth()
+  const { toast } = useToast()
 
   const { isLoading, error, data } = db.useQuery(
     memorialId ? { memorials: { $: { where: { id: memorialId } }, tributes: {}, photos: {} } } : null
@@ -1977,6 +1979,42 @@ function MemorialDetailPageInner() {
       }),
     }).catch(err => console.warn('[reanalyse-photos] failed', err))
   }, [memorial, user, memorialId])
+
+  // ── Background-task feedback: surface the talk-portrait status transitions ─
+  // The user just created the memorial → navigation lands them here while
+  // /api/generate-talk-portrait is still running. Without this, they'd see
+  // nothing happening until the portrait silently appears (or doesn't). Toast
+  // notifications close that loop so they always know what's in progress.
+  // Owner-only — visitors don't need to see backend churn.
+  const prevPortraitStatusRef = useRef(null)
+  useEffect(() => {
+    if (!memorial || !user) return
+    if (memorial.creatorId !== user.id) return        // owner only
+    const status = memorial.talkPortraitStatus
+    const prev   = prevPortraitStatusRef.current
+
+    // First render: just remember current state, don't toast retroactively
+    if (prev === null) {
+      prevPortraitStatusRef.current = status || 'none'
+      // ...but if we land on the page with pending status, do let the user know
+      if (status === 'pending') {
+        toast.info('Building your AI portrait — takes ~15 seconds')
+      }
+      return
+    }
+
+    if (prev === status) return                       // no change
+
+    if (status === 'generated') {
+      toast.success('Talk portrait ready ✦')
+    } else if (status === 'failed') {
+      toast.error('Couldn\'t generate the portrait. Try different face photos in Edit → AI portrait.')
+    } else if (status === 'pending' && prev !== 'pending') {
+      toast.info('Generating talk portrait…')
+    }
+
+    prevPortraitStatusRef.current = status || 'none'
+  }, [memorial?.talkPortraitStatus, user, memorial?.creatorId, toast])
 
   // SEO — must be before early returns
   useSEO({

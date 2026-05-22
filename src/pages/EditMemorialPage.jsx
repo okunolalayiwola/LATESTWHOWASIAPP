@@ -16,10 +16,14 @@ import { getRelationLabel } from '../lib/relations'
 // ─── Config (shared with CreateMemorialPage) ──────────────────────────────────
 
 const STEPS = [
-  { desc: 'Edit basic info'    },
-  { desc: 'Edit story & photo' },
-  { desc: 'Privacy & save'     },
+  { desc: 'Edit basic info'      },
+  { desc: 'Edit story & photo'   },
+  { desc: 'AI portrait (talk-with)' },
+  { desc: 'Privacy & save'       },
 ]
+
+const FACE_PHOTOS_NEEDED = 5
+const MAX_FACE_PHOTOS    = 5
 
 const COLORS = [
   { value: 'from-stone-700 to-stone-900',    hex: '#57534e' },
@@ -208,7 +212,317 @@ function StepStory({ form, setForm }) {
   )
 }
 
-// ─── Step 3: Privacy ──────────────────────────────────────────────────────────
+// ─── Step 3: AI Portrait (Nano-Banana talk-with portrait management) ────────
+//
+// Doubles as both "create from scratch" (if face training was skipped at
+// memorial creation) and "regenerate" (if the existing portrait isn't good).
+// Lets the owner:
+//   • See the current portrait + status badge
+//   • Regenerate using the existing 5 face references (1 click — no re-upload)
+//   • Replace the references with new face photos (full re-upload flow)
+//   • Remove the portrait entirely (falls back to cover photo)
+
+function FacePhotoTile({ photo, onRemove }) {
+  return (
+    <div className="relative aspect-square rounded-xl overflow-hidden group">
+      <img src={photo.preview || photo.url} alt="" className="w-full h-full object-cover" />
+      {photo.checking && (
+        <div className="absolute inset-0 flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.55)' }}>
+          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+        </div>
+      )}
+      {photo.rejected && (
+        <div className="absolute inset-0 p-2 flex items-end"
+          style={{ background: 'linear-gradient(to top, rgba(200,83,31,0.92), rgba(200,83,31,0.10) 70%)' }}>
+          <p className="text-[0.55rem] text-white leading-tight">{photo.rejectReason || 'Not usable'}</p>
+        </div>
+      )}
+      <button
+        onClick={() => onRemove(photo.id)}
+        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center"
+        style={{ background: 'rgba(0,0,0,0.65)', color: '#fff', fontSize: 10 }}
+        aria-label="Remove">✕</button>
+    </div>
+  )
+}
+
+function StatusBadge({ status }) {
+  if (status === 'pending') {
+    return (
+      <span className="text-[0.55rem] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
+        <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-300 mr-1 animate-pulse" />
+        Generating
+      </span>
+    )
+  }
+  if (status === 'generated') {
+    return (
+      <span className="text-[0.55rem] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+        ✓ Generated
+      </span>
+    )
+  }
+  if (status === 'failed') {
+    return (
+      <span className="text-[0.55rem] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-red-500/15 text-red-300 border border-red-500/30">
+        ✕ Failed — try different photos
+      </span>
+    )
+  }
+  return null
+}
+
+function StepPortrait({ memorial, memorialId, toast }) {
+  const [facePhotos,  setFacePhotos]  = useState([])
+  const [working,     setWorking]     = useState(false)
+  const [workMsg,     setWorkMsg]     = useState('')
+  const fileRef = useRef()
+
+  const hasPortrait       = !!memorial?.talkPortraitUrl
+  const hasSavedFaceUrls  = Array.isArray(memorial?.faceTrainingUrls) && memorial.faceTrainingUrls.length >= FACE_PHOTOS_NEEDED
+  const status            = memorial?.talkPortraitStatus
+  const validCount        = facePhotos.filter(p => p.url && !p.rejected && !p.uploading && !p.checking).length
+
+  async function handleSelectFiles(e) {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    const slotsLeft = MAX_FACE_PHOTOS - facePhotos.length
+    const accepted  = files.slice(0, Math.max(0, slotsLeft))
+
+    for (const file of accepted) {
+      const photoId = Math.random().toString(36).slice(2)
+      const preview = URL.createObjectURL(file)
+      setFacePhotos(prev => [...prev, { id: photoId, preview, url: null, uploading: true, checking: false, rejected: false }])
+
+      try {
+        const url = await uploadImage(file, () => {}, 'memorials/face-training')
+        setFacePhotos(prev => prev.map(p => p.id === photoId ? { ...p, url, uploading: false, checking: true } : p))
+
+        const checkRes  = await fetch('/api/check-face', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ photoUrl: url }),
+        })
+        const checkData = await checkRes.json().catch(() => ({ ok: true }))
+
+        if (checkData.ok) {
+          setFacePhotos(prev => prev.map(p => p.id === photoId ? { ...p, checking: false } : p))
+        } else {
+          setFacePhotos(prev => prev.map(p => p.id === photoId
+            ? { ...p, checking: false, rejected: true, rejectReason: checkData.reason || 'Not a clear face' } : p))
+        }
+      } catch (err) {
+        setFacePhotos(prev => prev.map(p => p.id === photoId
+          ? { ...p, uploading: false, checking: false, rejected: true, rejectReason: err?.message || 'Upload failed' } : p))
+      }
+    }
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  function removePhoto(photoId) {
+    setFacePhotos(prev => prev.filter(p => p.id !== photoId))
+  }
+
+  // Trigger Nano-Banana generation with whichever URLs we have
+  async function triggerGenerate(photoUrls) {
+    setWorking(true)
+    setWorkMsg('Sending photos to AI…')
+    try {
+      // Mark pending immediately so the badge updates
+      await db.transact([db.tx.memorials[memorialId].update({
+        talkPortraitStatus: 'pending',
+        ...(photoUrls.length === FACE_PHOTOS_NEEDED ? { faceTrainingUrls: photoUrls } : {}),
+      })])
+
+      setWorkMsg('AI is drawing the portrait — this takes 10-20 seconds…')
+      const r = await fetch('/api/generate-talk-portrait', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ memorialId, name: memorial.name, photoUrls }),
+      })
+      const data = await r.json()
+
+      if (data.ok && data.portraitUrl) {
+        toast.success('Portrait ready ✦')
+        setFacePhotos([])
+      } else {
+        toast.error(data.error || 'Generation failed — try different photos')
+      }
+    } catch (err) {
+      console.error('[regenerate-portrait]', err)
+      toast.error('Generation failed. Check your connection and try again.')
+    } finally {
+      setWorking(false)
+      setWorkMsg('')
+    }
+  }
+
+  function handleRegenerateExisting() {
+    if (!hasSavedFaceUrls) return
+    triggerGenerate(memorial.faceTrainingUrls)
+  }
+
+  async function handleUploadAndGenerate() {
+    const urls = facePhotos.filter(p => p.url && !p.rejected && !p.uploading && !p.checking).map(p => p.url)
+    if (urls.length < FACE_PHOTOS_NEEDED) {
+      toast.warning(`Need ${FACE_PHOTOS_NEEDED} usable face photos (have ${urls.length})`)
+      return
+    }
+    triggerGenerate(urls)
+  }
+
+  async function handleRemovePortrait() {
+    if (!confirm('Remove the AI portrait? The talk-with screen will go back to using the cover photo.')) return
+    setWorking(true)
+    setWorkMsg('Removing portrait…')
+    try {
+      await db.transact([db.tx.memorials[memorialId].update({
+        talkPortraitUrl:    null,
+        talkPortraitAt:     null,
+        talkPortraitStatus: null,
+      })])
+      toast.success('Portrait removed')
+    } catch {
+      toast.error('Could not remove. Try again.')
+    } finally {
+      setWorking(false)
+      setWorkMsg('')
+    }
+  }
+
+  return (
+    <motion.div key="es-portrait" initial={{ opacity:0,x:30 }} animate={{ opacity:1,x:0 }} exit={{ opacity:0,x:-30 }}
+      transition={{ duration:0.25 }} className="space-y-6">
+
+      {/* Explainer */}
+      <div className="glass rounded-2xl p-5 border border-gold/15">
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gold/30 to-coral/30 flex items-center justify-center flex-shrink-0">
+            <span className="text-base">✦</span>
+          </div>
+          <div className="flex-1">
+            <p className="text-sm text-white font-semibold mb-1">AI talk-with portrait</p>
+            <p className="text-[0.7rem] text-white/55 leading-relaxed">
+              The portrait shown when family taps "Talk with {memorial?.name?.split(' ')[0] || 'them'}".
+              Built from 5 face photos by Nano-Banana so the portrait looks like the real person,
+              not a generic AI face.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Current state */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <label className="text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim">
+            Current portrait
+          </label>
+          <StatusBadge status={status} />
+        </div>
+
+        {hasPortrait ? (
+          <div className="flex gap-4">
+            <div className="w-28 h-28 rounded-2xl overflow-hidden flex-shrink-0 border border-white/10">
+              <img src={memorial.talkPortraitUrl} alt="" className="w-full h-full object-cover" />
+            </div>
+            <div className="flex-1 space-y-2 min-w-0">
+              <p className="text-[0.65rem] text-white/45 leading-relaxed">
+                {memorial.talkPortraitAt
+                  ? `Generated ${new Date(memorial.talkPortraitAt).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}.`
+                  : 'Generated.'}
+              </p>
+              {hasSavedFaceUrls && (
+                <button
+                  onClick={handleRegenerateExisting}
+                  disabled={working}
+                  className="text-[0.7rem] text-gold font-semibold hover:text-gold/80 disabled:opacity-40"
+                >↻ Regenerate (same photos, new attempt)</button>
+              )}
+              <br />
+              <button
+                onClick={handleRemovePortrait}
+                disabled={working}
+                className="text-[0.7rem] text-red-400/80 font-semibold hover:text-red-400 disabled:opacity-40"
+              >Remove portrait</button>
+            </div>
+          </div>
+        ) : (
+          <div className="glass rounded-2xl p-4 border border-white/10 text-center">
+            <p className="text-xs text-white/50">
+              No AI portrait yet. The talk-with screen is using the cover photo.
+            </p>
+            {hasSavedFaceUrls && (
+              <button
+                onClick={handleRegenerateExisting}
+                disabled={working}
+                className="mt-3 text-[0.7rem] text-gold font-semibold hover:text-gold/80 disabled:opacity-40"
+              >↻ Generate from saved face photos</button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Upload new face photos */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <label className="text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim">
+            {hasSavedFaceUrls ? 'Replace face photos' : 'Add face photos'}
+          </label>
+          <span className={`text-[0.6rem] font-bold tracking-wider uppercase ${
+            validCount >= FACE_PHOTOS_NEEDED ? 'text-emerald-400' :
+            validCount > 0 ? 'text-amber-400' : 'text-white/30'
+          }`}>
+            {validCount}/{FACE_PHOTOS_NEEDED}{validCount >= FACE_PHOTOS_NEEDED ? ' ✓' : ''}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          {facePhotos.map(photo => (
+            <FacePhotoTile key={photo.id} photo={photo} onRemove={removePhoto} />
+          ))}
+          {facePhotos.length < MAX_FACE_PHOTOS && (
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={working}
+              className="aspect-square rounded-xl border-2 border-dashed border-white/15 flex flex-col items-center justify-center cursor-pointer hover:border-gold/40 transition-all text-white/25 hover:text-white/50 disabled:opacity-40"
+            >
+              <span className="text-xl mb-1">+</span>
+              <span className="text-[0.55rem] text-center leading-tight">Add<br/>face</span>
+            </button>
+          )}
+        </div>
+
+        <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleSelectFiles} />
+
+        <p className="text-[0.6rem] text-white/25 mt-2 leading-relaxed">
+          Clear daylight or warm indoor light · face fills the frame · eyes visible (no heavy sunglasses) · one person per photo.
+          Photos auto-rejected if blurry or face-less.
+        </p>
+
+        {validCount >= FACE_PHOTOS_NEEDED && (
+          <button
+            onClick={handleUploadAndGenerate}
+            disabled={working}
+            className="w-full mt-4 py-3 rounded-2xl text-sm font-bold metal-btn text-black disabled:opacity-50"
+          >
+            {working ? 'Generating…' : '✦ Generate portrait'}
+          </button>
+        )}
+      </div>
+
+      {/* Progress feedback */}
+      {working && workMsg && (
+        <div className="glass rounded-2xl p-4 border border-gold/20 flex items-center gap-3">
+          <div className="w-5 h-5 border-2 border-gold/30 border-t-gold rounded-full animate-spin flex-shrink-0" />
+          <p className="text-xs text-white/70">{workMsg}</p>
+        </div>
+      )}
+    </motion.div>
+  )
+}
+
+// ─── Step 4: Privacy ──────────────────────────────────────────────────────────
 
 function StepPrivacy({ form, setForm }) {
   const years = form.birthYear && form.deathYear
@@ -403,16 +717,18 @@ export default function EditMemorialPage() {
           <h1 className="font-display text-[clamp(2rem,5vw,2.8rem)] font-bold leading-tight">
             {step === 0 && <>Edit <span className="text-gradient-gold">details</span></>}
             {step === 1 && <>Edit <span className="text-gradient-gold">story</span></>}
-            {step === 2 && <>Review & <span className="text-gradient-gold">save</span></>}
+            {step === 2 && <>AI <span className="text-gradient-gold">portrait</span></>}
+            {step === 3 && <>Review & <span className="text-gradient-gold">save</span></>}
           </h1>
           <p className="text-xs text-white/35 mt-1">{form.name}</p>
         </div>
 
         {/* Step content */}
         <AnimatePresence mode="wait">
-          {step === 0 && <StepPerson  key="p" form={form} setForm={setForm} />}
-          {step === 1 && <StepStory   key="s" form={form} setForm={setForm} />}
-          {step === 2 && <StepPrivacy key="r" form={form} setForm={setForm} />}
+          {step === 0 && <StepPerson   key="p" form={form} setForm={setForm} />}
+          {step === 1 && <StepStory    key="s" form={form} setForm={setForm} />}
+          {step === 2 && <StepPortrait key="t" memorial={data?.memorials?.[0]} memorialId={memorialId} toast={toast} />}
+          {step === 3 && <StepPrivacy  key="r" form={form} setForm={setForm} />}
         </AnimatePresence>
 
       </div>
