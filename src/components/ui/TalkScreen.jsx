@@ -173,7 +173,7 @@ async function callAI(chatMessages, memorial, persona, comments) {
       maxTokens: 250,
     }),
   })
-  if (!r.ok) throw new Error('AI unavailable')
+  if (!r.ok) throw new Error('Connection unavailable')
   const d = await r.json()
   return d.text || "I'm here with you, always."
 }
@@ -576,7 +576,7 @@ export default function TalkScreen({ memorial, memorialId, onClose }) {
                   <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
                     background: '#d97706', boxShadow: '0 0 8px #f3b21a',
                     animation: 'ts-livedot 1.6s ease-in-out infinite' }} />
-                  live · {hasVoice ? 'voice cloned' : 'ai generated'}
+                  live · {hasVoice ? 'voice preserved' : 'living memory'}
                 </span>
               </div>
             </div>
@@ -605,7 +605,7 @@ export default function TalkScreen({ memorial, memorialId, onClose }) {
         }}>
           <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.3em',
             textTransform: 'uppercase', color: 'rgba(255,255,255,.7)', marginBottom: 12 }}>
-            ◆ AI Memorial
+            ◆ Living Memorial
           </div>
           <h1 style={{
             fontFamily: SERIF, fontWeight: 300,
@@ -621,7 +621,7 @@ export default function TalkScreen({ memorial, memorialId, onClose }) {
               <span style={{ fontFamily: MONO, color: 'rgba(255,255,255,.85)', letterSpacing: '.06em' }}>
                 {bYear}
               </span>
-              &nbsp;·&nbsp;{hasVoice ? 'voice cloned' : 'AI companion'}
+              &nbsp;·&nbsp;{hasVoice ? 'voice preserved' : 'living memory'}
             </p>
           )}
         </div>
@@ -642,7 +642,7 @@ export default function TalkScreen({ memorial, memorialId, onClose }) {
               textTransform: 'uppercase', color: 'rgba(255,255,255,.88)',
               textShadow: '0 1px 8px rgba(0,0,0,.5)',
             }}>
-              {sessionState === 'listening' && <>AI Listening<Dots /></>}
+              {sessionState === 'listening' && <>Listening<Dots /></>}
               {sessionState === 'thinking'  && <>Thinking<Dots /></>}
               {sessionState === 'speaking'  && <>{firstName} is speaking…</>}
             </div>

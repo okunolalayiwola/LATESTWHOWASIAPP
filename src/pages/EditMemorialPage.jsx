@@ -16,10 +16,10 @@ import { getRelationLabel } from '../lib/relations'
 // ─── Config (shared with CreateMemorialPage) ──────────────────────────────────
 
 const STEPS = [
-  { desc: 'Edit basic info'      },
-  { desc: 'Edit story & photo'   },
-  { desc: 'AI portrait (talk-with)' },
-  { desc: 'Privacy & save'       },
+  { desc: 'Edit basic info'         },
+  { desc: 'Edit story & photo'      },
+  { desc: 'Talk-with portrait'      },
+  { desc: 'Privacy & save'          },
 ]
 
 const FACE_PHOTOS_NEEDED = 5
@@ -335,7 +335,7 @@ function StepPortrait({ memorial, memorialId, toast }) {
         ...(photoUrls.length === FACE_PHOTOS_NEEDED ? { faceTrainingUrls: photoUrls } : {}),
       })])
 
-      setWorkMsg('AI is drawing the portrait — this takes 10-20 seconds…')
+      setWorkMsg('Drawing the portrait — this takes 10-20 seconds…')
       const r = await fetch('/api/generate-talk-portrait', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -373,7 +373,7 @@ function StepPortrait({ memorial, memorialId, toast }) {
   }
 
   async function handleRemovePortrait() {
-    if (!confirm('Remove the AI portrait? The talk-with screen will go back to using the cover photo.')) return
+    if (!confirm('Remove the portrait? The talk-with screen will go back to using the cover photo.')) return
     setWorking(true)
     setWorkMsg('Removing portrait…')
     try {
@@ -402,11 +402,11 @@ function StepPortrait({ memorial, memorialId, toast }) {
             <span className="text-base">✦</span>
           </div>
           <div className="flex-1">
-            <p className="text-sm text-white font-semibold mb-1">AI talk-with portrait</p>
+            <p className="text-sm text-white font-semibold mb-1">Talk-with portrait</p>
             <p className="text-[0.7rem] text-white/55 leading-relaxed">
               The portrait shown when family taps "Talk with {memorial?.name?.split(' ')[0] || 'them'}".
-              Built from 5 face photos by Nano-Banana so the portrait looks like the real person,
-              not a generic AI face.
+              Drawn from 5 face photos so the portrait looks like the real person,
+              not a generic face.
             </p>
           </div>
         </div>
@@ -450,7 +450,7 @@ function StepPortrait({ memorial, memorialId, toast }) {
         ) : (
           <div className="glass rounded-2xl p-4 border border-white/10 text-center">
             <p className="text-xs text-white/50">
-              No AI portrait yet. The talk-with screen is using the cover photo.
+              No talk-with portrait yet. The talk-with screen is using the cover photo.
             </p>
             {hasSavedFaceUrls && (
               <button
@@ -717,7 +717,7 @@ export default function EditMemorialPage() {
           <h1 className="font-display text-[clamp(2rem,5vw,2.8rem)] font-bold leading-tight">
             {step === 0 && <>Edit <span className="text-gradient-gold">details</span></>}
             {step === 1 && <>Edit <span className="text-gradient-gold">story</span></>}
-            {step === 2 && <>AI <span className="text-gradient-gold">portrait</span></>}
+            {step === 2 && <>Talk-with <span className="text-gradient-gold">portrait</span></>}
             {step === 3 && <>Review & <span className="text-gradient-gold">save</span></>}
           </h1>
           <p className="text-xs text-white/35 mt-1">{form.name}</p>

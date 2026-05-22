@@ -60,13 +60,13 @@ const CHAPTERS = [
     label: 'Personality & voice',
     icon: '✦',
     intro: ({ name, isSelf, isLiving }) => isSelf
-      ? `How do you come across to others? This shapes how the AI talks back as you.`
-      : `How ${isLiving ? 'do' : 'did'} ${name || 'they'} come across to others? This shapes how the AI talks back.`,
+      ? `How do you come across to others? This shapes how you sound when family hears you speak.`
+      : `How ${isLiving ? 'do' : 'did'} ${name || 'they'} come across to others? This shapes how they sound when family hears them speak.`,
     questions: [
       { key: 'personalityTraits', label: ({ isSelf, isLiving }) => isSelf
           ? 'Describe your personality'
           : `Describe their personality`,
-        placeholder: 'Warm or guarded? Bold or careful? Patient or restless? Generous, stubborn, curious, funny, soft-spoken? Use sentences — the AI uses every word.',
+        placeholder: 'Warm or guarded? Bold or careful? Patient or restless? Generous, stubborn, curious, funny, soft-spoken? Use sentences — every word matters.',
         size: 'xl' },
       { key: 'senseOfHumor', label: () => 'What kind of humour did they have?',
         placeholder: 'Dry, slapstick, dad jokes, sarcasm, deadpan, never told jokes but laughed at everything?',
@@ -74,7 +74,7 @@ const CHAPTERS = [
       { key: 'catchphrases', label: ({ isSelf, name }) => isSelf
           ? "Phrases you say all the time"
           : `Phrases ${name || 'they'} said all the time`,
-        placeholder: '“Well, I’ll be…” / “Pass me the salt, love.” / nicknames they used. These give the AI an unmistakable voice.',
+        placeholder: '“Well, I’ll be…” / “Pass me the salt, love.” / nicknames they used. These give them an unmistakable voice.',
         size: 'md' },
       { key: 'speechStyle', label: () => 'How did they speak?',
         placeholder: 'Accent, pace, big words or plain, formal or casual, ended sentences with…? Curse words?',
@@ -90,8 +90,8 @@ const CHAPTERS = [
     label: 'Life chapters',
     icon: '☽',
     intro: ({ name, isSelf, isLiving }) => isSelf
-      ? `Walk through your life decade by decade. The richer this is, the deeper the AI's recall.`
-      : `Walk through ${name ? name + "'s" : 'their'} life chronologically. The more detail, the better the AI remembers.`,
+      ? `Walk through your life decade by decade. The richer this is, the deeper the memory.`
+      : `Walk through ${name ? name + "'s" : 'their'} life chronologically. The more detail, the deeper the memory.`,
     questions: [
       { key: 'childhood', label: ({ isSelf, name }) => isSelf
           ? 'Childhood (0–12 years)'
@@ -121,8 +121,8 @@ const CHAPTERS = [
     label: 'The people in their life',
     icon: '♡',
     intro: ({ name, isSelf, isLiving }) => isSelf
-      ? `The relationships that mattered most. Helps the AI talk to family members it doesn't yet "know".`
-      : `The people who mattered to ${name || 'them'}. Helps the AI respond differently to a child than to a sibling.`,
+      ? `The relationships that mattered most. So you can speak warmly to family members by name and history.`
+      : `The people who mattered to ${name || 'them'}. So they can speak warmly to family members by name and history.`,
     questions: [
       { key: 'spouse',         label: () => 'Spouse / partner', placeholder: 'Name, how they met, how they were together, kindest moments and the rough patches.', size: 'lg' },
       { key: 'children',       label: () => 'Children',         placeholder: 'For each child: name, what made each of them special to the parent, how they’d address them.', size: 'lg' },
@@ -138,7 +138,7 @@ const CHAPTERS = [
     icon: '✶',
     intro: ({ name, isSelf, isLiving }) => isSelf
       ? `What you believe in. What you'd tell your grandkids matters most.`
-      : `What ${name || 'they'} believed in. Helps the AI answer "what would they say about…" questions.`,
+      : `What ${name || 'they'} believed in. Helps capture the "what would they say about…" answers.`,
     questions: [
       { key: 'values',     label: () => 'Core values', placeholder: 'Honesty, family, hard work, freedom, faith, kindness, justice — and a sentence on what each one meant to them in practice.', size: 'xl' },
       { key: 'faith',      label: () => 'Faith or spirituality (optional)', placeholder: 'Religion, denomination, practices, how seriously they took it, their relationship with God or the universe.', size: 'md' },
@@ -151,8 +151,8 @@ const CHAPTERS = [
     label: 'Stories & memories',
     icon: '◈',
     intro: ({ name, isSelf, isLiving }) => isSelf
-      ? `The stories you tell and re-tell. Pure gold for the AI.`
-      : `The stories ${name || 'they'} told and re-told. Pure gold for the AI.`,
+      ? `The stories you tell and re-tell. Pure gold.`
+      : `The stories ${name || 'they'} told and re-told. Pure gold.`,
     questions: [
       { key: 'signatureStories', label: () => 'Signature stories — the ones they always retold', placeholder: 'Tell each story in their voice if you can. The funny incident at the wedding, the time they fixed the car with a coin, the year the river froze. Specific details matter.', size: 'xl' },
       { key: 'proudMoments',     label: () => 'Proudest moments', placeholder: 'The achievements, the gifts they gave, the people they helped, the days they’d relive if they could.', size: 'lg' },
@@ -366,7 +366,7 @@ export default function PersonaProfilePage() {
                     />
                     <p className="ppp-q-meta">
                       {(value || '').length} characters
-                      {value.length > 200 && ' · the more detail, the better the AI knows them'}
+                      {value.length > 200 && ' · the more detail, the deeper the memory'}
                     </p>
                   </div>
                 )
@@ -395,8 +395,8 @@ export default function PersonaProfilePage() {
               <div className="ppp-done">
                 <p className="ppp-done-eyebrow">◉ Memory profile saved</p>
                 <p>
-                  The AI will read everything you've written here when family members open the
-                  "Hear them speak" conversation. You can come back any time to add more — the
+                  Everything you've written here shapes the conversation when family opens
+                  "Hear them speak". You can come back any time to add more — the
                   more chapters you complete, the richer the conversation becomes.
                 </p>
                 <Link to={`/memorial/${memorialId}`} className="ppp-btn ppp-btn-go" style={{ marginTop: 18 }}>

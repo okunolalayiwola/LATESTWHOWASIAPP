@@ -406,7 +406,7 @@ export default function ConversationPage() {
             Speak with<br /><span className="text-gradient-gold">{memorial.name}</span>
           </h1>
           <p className="text-sm text-white/45 max-w-sm mx-auto leading-relaxed mb-10">
-            AI draws on {firstName}'s life story, voice, and everything shared on this memorial
+            Draws on {firstName}'s life story, voice, and everything shared on this memorial
             to let you have one more conversation.
           </p>
 
@@ -415,7 +415,7 @@ export default function ConversationPage() {
             <div className="flex gap-3">
               <span className="text-white/30 text-sm flex-shrink-0 mt-0.5">◎</span>
               <p className="text-xs text-white/40 leading-relaxed">
-                This experience is powered by AI and draws on the information shared on this memorial.
+                This experience draws on the voice, stories, and memories shared on this memorial.
                 It is designed as a space for reflection and comfort — not a literal communication.
                 Treat it with care.
               </p>
@@ -464,7 +464,7 @@ export default function ConversationPage() {
 
         {memorial.elevenLabsVoiceId && (
           <div className="text-[0.55rem] font-bold tracking-widest uppercase text-gold/40 glass rounded-full px-2.5 py-1 border border-gold/15">
-            AI voice
+            Voice preserved
           </div>
         )}
       </div>
@@ -528,7 +528,7 @@ export default function ConversationPage() {
         </div>
 
         <p className="text-[0.55rem] text-white/18 text-center mt-2">
-          Powered by AI · Responses are generated, not real communications
+          Responses are drawn from {firstName}'s memories — not real-time communications
         </p>
       </div>
 

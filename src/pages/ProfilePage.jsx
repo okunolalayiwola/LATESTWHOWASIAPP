@@ -36,7 +36,7 @@ const PLANS = {
     color:    '#FFD700',
     limit:    '5 memorials',
     price:    '£9 / month',
-    features: ['5 living memorials', 'Voice cloning', 'Legacy vault', 'AI conversation (20/day)', 'Unlimited family tree'],
+    features: ['5 living memorials', 'Voice preserved', 'Legacy vault', 'Talk-with (20/day)', 'Unlimited family tree'],
   },
   legacy: {
     name:     'Legacy',
@@ -45,7 +45,7 @@ const PLANS = {
     color:    '#C084FC',
     limit:    'Unlimited memorials',
     price:    '£24 / month',
-    features: ['Unlimited memorials', 'AI conversation (unlimited)', 'Will & estate builder', 'Priority support', 'Custom domain'],
+    features: ['Unlimited memorials', 'Unlimited talk-with', 'Will & estate builder', 'Priority support', 'Custom domain'],
   },
 }
 
@@ -557,7 +557,7 @@ export default function ProfilePage() {
                       {plan === 'free' ? 'Upgrade to Family' : 'Upgrade to Legacy'}
                     </p>
                     <p className="text-xs text-white/35">
-                      {plan === 'free' ? 'Unlock voice cloning, vault & more' : 'Unlimited everything'}
+                      {plan === 'free' ? 'Unlock voice preservation, vault & more' : 'Unlimited everything'}
                     </p>
                   </div>
                   <svg className="w-5 h-5 text-gold flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

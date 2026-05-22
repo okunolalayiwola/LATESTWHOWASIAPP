@@ -1824,14 +1824,14 @@ function PersonaProfileCallout({ memorial, memorialId }) {
           <h3 style={{ fontFamily: DISP, fontWeight: 700, fontSize: 18, color: C.cream,
             margin: '4px 0 4px', letterSpacing: '-.01em' }}>
             {chapters === 0
-              ? (isSelf ? 'Build the AI that will speak as you' : `Train the AI to speak as ${firstName}`)
+              ? (isSelf ? 'Build the memory that will speak as you' : `Build the memory that speaks as ${firstName}`)
               : pct === 100
                 ? `${firstName}'s memory is ready`
                 : `${pct}% — keep going`}
           </h3>
           <p style={{ margin: 0, fontSize: 13, color: 'rgba(241,236,225,.55)', lineHeight: 1.5 }}>
             {chapters === 0
-              ? `Answer a guided interview about ${isSelf ? 'yourself' : firstName} — life chapters, personality, stories, beliefs. The AI uses everything you write to power "Hear ${isSelf ? 'you' : 'them'} speak".`
+              ? `Answer a guided interview about ${isSelf ? 'yourself' : firstName} — life chapters, personality, stories, beliefs. Everything you write shapes "Hear ${isSelf ? 'you' : 'them'} speak".`
               : `Add more detail or revisit any chapter — every paragraph makes the conversation richer.`}
           </p>
         </div>
@@ -1998,7 +1998,7 @@ function MemorialDetailPageInner() {
       prevPortraitStatusRef.current = status || 'none'
       // ...but if we land on the page with pending status, do let the user know
       if (status === 'pending') {
-        toast.info('Building your AI portrait — takes ~15 seconds')
+        toast.info('Building their portrait — takes ~15 seconds')
       }
       return
     }
@@ -2006,11 +2006,11 @@ function MemorialDetailPageInner() {
     if (prev === status) return                       // no change
 
     if (status === 'generated') {
-      toast.success('Talk portrait ready ✦')
+      toast.success('Portrait ready ✦')
     } else if (status === 'failed') {
-      toast.error('Couldn\'t generate the portrait. Try different face photos in Edit → AI portrait.')
+      toast.error('Couldn\'t build the portrait. Try different face photos in Edit → Portrait.')
     } else if (status === 'pending' && prev !== 'pending') {
-      toast.info('Generating talk portrait…')
+      toast.info('Building portrait…')
     }
 
     prevPortraitStatusRef.current = status || 'none'

@@ -187,7 +187,7 @@ function AppInner() {
   // ── Global SEO defaults ─────────────────────────────────────────────────────
   useSEO({
     title:       'WHO WAS I — Living Memorial Platform',
-    description: 'Transform memories into a living digital legacy. Create AI-powered memorials with voice cloning, QR access, and family governance.',
+    description: 'Transform memories into a living digital legacy. Memorials with voice, photos, stories, QR access, and family governance — built to be remembered.',
     image:       'https://whowasi.uk/og-default.jpg',
     url:         'https://whowasi.uk' + location.pathname,
   })

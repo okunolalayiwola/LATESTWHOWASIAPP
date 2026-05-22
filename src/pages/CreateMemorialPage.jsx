@@ -66,7 +66,7 @@ function getCopy(isSelf, pronouns, alive = true) {
       stepDescs: {
         person:          'About you',
         story:           'Your life and story',
-        face:            'Your face — for the AI portrait',
+        face:            'Your face — for the talk-with portrait',
         publish:         'Privacy & publish',
       },
       stepTitles: {
@@ -133,7 +133,7 @@ function getCopy(isSelf, pronouns, alive = true) {
     stepDescs: {
       person:          `About ${obj}`,
       story:           `${Cap(poss)} life and story`,
-      face:            `${Cap(poss)} face — for the AI portrait`,
+      face:            `${Cap(poss)} face — for the talk-with portrait`,
       publish:         'Privacy & publish',
     },
     stepTitles: {
@@ -1181,7 +1181,7 @@ function StepFace({ facePhotos, setFacePhotos, isSelf, copy }) {
             </p>
             <p className="text-[0.7rem] text-white/55 leading-relaxed">
               Upload {FACE_PHOTOS_NEEDED} clear photos of {subjectPronoun} from different angles
-              (front, side, three-quarter). Our AI uses these to draw a faithful portrait for
+              (front, side, three-quarter). We use these to draw a faithful portrait for
               the "Talk with {isSelf ? 'me' : copy.firstName || subjectPronoun}" experience —
               one that actually looks like {subjectPronoun}, not a generic face.
             </p>

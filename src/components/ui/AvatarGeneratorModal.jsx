@@ -205,7 +205,7 @@ export default function AvatarGeneratorModal({ existingPhotos = [], currentPhoto
           <div className="flex items-start justify-between mb-6">
             <div>
               <p className="text-[0.6rem] font-bold tracking-[0.22em] uppercase text-cream-dim mb-1">
-                AI portrait studio
+                Portrait studio
               </p>
               <h2 className="font-display text-2xl font-bold text-white">
                 Generate portrait

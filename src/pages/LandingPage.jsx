@@ -207,7 +207,7 @@ export default function LandingPage() {
                   </svg>
                 ),
                 title: 'Living Memorial with Live Interaction',
-                desc: 'Hear them speak again, ask them questions, share a moment. A voice-cloned, AI-powered conversation drawn from their life, words, and memories.',
+                desc: 'Hear them speak again, ask them questions, share a moment. A living conversation drawn from their voice, their words, and the memories you share.',
                 color: 'from-gold to-sky',
               },
               {

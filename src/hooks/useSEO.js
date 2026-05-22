@@ -6,7 +6,7 @@ import { useEffect } from 'react'
 const DEFAULT = {
   title: 'WHO WAS I — Living Memorials',
   description:
-    'Create a living memorial with voice, AI conversation, and a QR code that brings it to life anywhere.',
+    'Create a living memorial with voice, stories, and a QR code that brings it to life anywhere.',
   image: '/og-default.jpg',
   url: 'https://whowasi.uk',
 }
