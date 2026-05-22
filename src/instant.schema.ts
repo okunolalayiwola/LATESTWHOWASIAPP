@@ -49,6 +49,10 @@ const _schema = i.schema({
       photoContext:           i.string().optional(),  // Claude-vision summary of uploaded life photos — feeds the AI persona prompt
       photoContextAt:         i.number().optional(),  // ms epoch — when vision analysis last ran
       photoContextPhotoCount: i.number().optional(),  // photos at last analysis — used to gate auto-reanalysis
+      faceTrainingUrls:       i.json().optional(),    // string[] — face reference photos for nano-banana portrait generation
+      talkPortraitUrl:        i.string().optional(),  // generated portrait for TalkScreen
+      talkPortraitAt:         i.number().optional(),  // when portrait last generated
+      talkPortraitStatus:     i.string().optional(),  // 'pending' | 'generated' | 'failed'
     }),
 
     tributes: i.entity({

@@ -66,6 +66,7 @@ function getCopy(isSelf, pronouns, alive = true) {
       stepDescs: {
         person:          'About you',
         story:           'Your life and story',
+        face:            'Your face — for the AI portrait',
         publish:         'Privacy & publish',
       },
       stepTitles: {
@@ -73,6 +74,7 @@ function getCopy(isSelf, pronouns, alive = true) {
         // as having passed — the form addresses them in 2nd person either way.
         person:          (<>Who are <span className="text-gradient-gold">you?</span></>),
         story:           (<>Your <span className="text-gradient-gold">story</span></>),
+        face:            (<>Your <span className="text-gradient-gold">face</span></>),
         publish:         (<>Ready to <span className="text-gradient-gold">publish?</span></>),
       },
       heroIntro:         alive
@@ -131,6 +133,7 @@ function getCopy(isSelf, pronouns, alive = true) {
     stepDescs: {
       person:          `About ${obj}`,
       story:           `${Cap(poss)} life and story`,
+      face:            `${Cap(poss)} face — for the AI portrait`,
       publish:         'Privacy & publish',
     },
     stepTitles: {
@@ -138,6 +141,7 @@ function getCopy(isSelf, pronouns, alive = true) {
       // they?" for deceased. Drives off the in-form alive toggle.
       person:          (<>Who {beVerb} <span className="text-gradient-gold">{p}?</span></>),
       story:           (<>{Cap(poss)} <span className="text-gradient-gold">story</span></>),
+      face:            (<>{Cap(poss)} <span className="text-gradient-gold">face</span></>),
       publish:         (<>Ready to <span className="text-gradient-gold">publish?</span></>),
     },
     heroIntro:         alive
@@ -186,6 +190,7 @@ function getCopy(isSelf, pronouns, alive = true) {
 const STEPS = [
   { key: 'person',  label: 'Person'  },
   { key: 'story',   label: 'Story'   },
+  { key: 'face',    label: 'Face'    },    // optional — face photos to train the talk-with portrait
   { key: 'publish', label: 'Publish' },
 ]
 
@@ -1058,6 +1063,178 @@ function StepStory({ form, setForm, lifePhotos, setLifePhotos, copy }) {
   )
 }
 
+// ── Step 2.5 — Face training photos for the AI talk-with portrait ───────────
+// Optional. 5 face photos from different angles → fed to Nano-Banana
+// (Gemini 2.5 Flash Image) to generate one portrait the talk-with screen
+// uses. Each photo is pre-validated via Claude vision so blurry / face-less
+// uploads get rejected before they take a slot. If the user skips this step
+// the talk-with screen falls back to the cover photo from Step 1.
+const FACE_PHOTOS_NEEDED = 5
+const MAX_FACE_PHOTOS    = 5
+
+function FacePhotoItem({ photo, onRemove }) {
+  return (
+    <div className="relative aspect-square rounded-xl overflow-hidden group">
+      <img src={photo.preview || photo.url} alt="" className="w-full h-full object-cover" />
+      {photo.checking && (
+        <div className="absolute inset-0 flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.55)' }}>
+          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+        </div>
+      )}
+      {photo.rejected && (
+        <div className="absolute inset-0 p-2 flex items-end"
+          style={{ background: 'linear-gradient(to top, rgba(200,83,31,0.92), rgba(200,83,31,0.10) 70%)' }}>
+          <p className="text-[0.55rem] text-white leading-tight">{photo.rejectReason || 'Not usable'}</p>
+        </div>
+      )}
+      {!photo.rejected && photo.uploading && !photo.checking && (
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
+          <div className="h-full bg-gold animate-pulse" style={{ width: '40%' }} />
+        </div>
+      )}
+      <button
+        onClick={() => onRemove(photo.id)}
+        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center"
+        style={{ background: 'rgba(0,0,0,0.65)', color: '#fff', fontSize: 10 }}
+        aria-label="Remove">✕</button>
+    </div>
+  )
+}
+
+function StepFace({ facePhotos, setFacePhotos, isSelf, copy }) {
+  const fileRef = useRef()
+  const validCount = facePhotos.filter(p => p.url && !p.rejected && !p.uploading && !p.checking).length
+
+  async function handleSelect(e) {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+
+    const slotsLeft = MAX_FACE_PHOTOS - facePhotos.length
+    const accepted  = files.slice(0, Math.max(0, slotsLeft))
+
+    for (const file of accepted) {
+      const photoId = Math.random().toString(36).slice(2)
+      const preview = URL.createObjectURL(file)
+
+      // Pending in UI
+      setFacePhotos(prev => [...prev, {
+        id: photoId, preview, url: null, uploading: true, checking: false, rejected: false,
+      }])
+
+      try {
+        // 1) Upload to Cloudinary first
+        const url = await uploadImage(file, () => {}, 'memorials/face-training')
+
+        // 2) Mark as checking + validate face
+        setFacePhotos(prev => prev.map(p => p.id === photoId
+          ? { ...p, url, uploading: false, checking: true } : p))
+
+        const checkRes = await fetch('/api/check-face', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ photoUrl: url }),
+        })
+        const checkData = await checkRes.json().catch(() => ({ ok: true }))
+
+        if (checkData.ok) {
+          setFacePhotos(prev => prev.map(p => p.id === photoId
+            ? { ...p, checking: false, rejected: false } : p))
+        } else {
+          setFacePhotos(prev => prev.map(p => p.id === photoId
+            ? { ...p, checking: false, rejected: true, rejectReason: checkData.reason || 'Not a clear face' }
+            : p))
+        }
+      } catch (err) {
+        console.error('[face upload]', err)
+        setFacePhotos(prev => prev.map(p => p.id === photoId
+          ? { ...p, uploading: false, checking: false, rejected: true, rejectReason: err?.message || 'Upload failed' }
+          : p))
+      }
+    }
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  function removePhoto(photoId) {
+    setFacePhotos(prev => prev.filter(p => p.id !== photoId))
+  }
+
+  const subjectPronoun = isSelf ? 'you' : (copy.pronouns === 'they' ? 'them' : copy.pronouns === 'she' ? 'her' : 'him')
+  const subjectPoss    = isSelf ? 'your' : (copy.pronouns === 'they' ? 'their' : copy.pronouns === 'she' ? 'her' : 'his')
+
+  return (
+    <motion.div
+      key="step-face"
+      initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
+      transition={{ duration: 0.28, ease: 'easeOut' }}
+      className="space-y-6"
+    >
+      {/* Explainer */}
+      <div className="glass rounded-2xl p-5 border border-gold/15">
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gold/30 to-coral/30 flex items-center justify-center flex-shrink-0">
+            <span className="text-base">✦</span>
+          </div>
+          <div className="flex-1">
+            <p className="text-sm text-white font-semibold mb-1">
+              {isSelf ? 'Help us draw your portrait' : `Help us draw ${subjectPoss} portrait`}
+            </p>
+            <p className="text-[0.7rem] text-white/55 leading-relaxed">
+              Upload {FACE_PHOTOS_NEEDED} clear photos of {subjectPronoun} from different angles
+              (front, side, three-quarter). Our AI uses these to draw a faithful portrait for
+              the "Talk with {isSelf ? 'me' : copy.firstName || subjectPronoun}" experience —
+              one that actually looks like {subjectPronoun}, not a generic face.
+            </p>
+            <p className="text-[0.6rem] text-white/35 mt-2 leading-relaxed">
+              <span className="text-amber-400/80 font-semibold">Optional.</span> If you skip,
+              the talk-with screen will use the cover photo from Step 1.
+              You can always add face photos later from the Edit screen.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Progress count */}
+      <div className="flex items-center justify-between">
+        <label className="text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim">
+          Face photos
+        </label>
+        <span className={`text-[0.6rem] font-bold tracking-wider uppercase ${
+          validCount >= FACE_PHOTOS_NEEDED ? 'text-emerald-400' :
+          validCount > 0 ? 'text-amber-400' : 'text-white/30'
+        }`}>
+          {validCount}/{FACE_PHOTOS_NEEDED}
+          {validCount >= FACE_PHOTOS_NEEDED ? ' ✓ Ready' : ''}
+        </span>
+      </div>
+
+      {/* Grid */}
+      <div className="grid grid-cols-3 gap-2">
+        {facePhotos.map(photo => (
+          <FacePhotoItem key={photo.id} photo={photo} onRemove={removePhoto} />
+        ))}
+        {facePhotos.length < MAX_FACE_PHOTOS && (
+          <button
+            onClick={() => fileRef.current?.click()}
+            className="aspect-square rounded-xl border-2 border-dashed border-white/15 flex flex-col items-center justify-center cursor-pointer hover:border-gold/40 transition-all text-white/25 hover:text-white/50"
+          >
+            <span className="text-xl mb-1">+</span>
+            <span className="text-[0.55rem] text-center leading-tight">Add<br/>face</span>
+          </button>
+        )}
+      </div>
+
+      <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleSelect} />
+
+      <p className="text-[0.6rem] text-white/25 leading-relaxed">
+        Tips: clear daylight or warm indoor light · face fills the frame · eyes visible (no heavy
+        sunglasses) · one person per photo. Blurry photos and photos without a clear face get
+        rejected automatically.
+      </p>
+    </motion.div>
+  )
+}
+
 function StepPublish({ form, setForm, isSelf, copy }) {
   const years = form.birthYear && form.deathYear
     ? `${form.birthYear} — ${form.deathYear}`
@@ -1205,6 +1382,7 @@ export default function CreateMemorialPage() {
   const [step,       setStep]       = useState(0)
   const [form,       setForm]       = useState(initForm)
   const [lifePhotos, setLifePhotos] = useState([])   // { id, preview, url, takenAt, uploading }
+  const [facePhotos, setFacePhotos] = useState([])   // { id, preview, url, uploading, checking, rejected, rejectReason }
   const [saving,     setSaving]     = useState(false)
   const [showGuestGate, setShowGuestGate] = useState(false)
 
@@ -1302,6 +1480,13 @@ export default function CreateMemorialPage() {
       }
 
       // Build photo transactions — each uploaded photo links to the memorial.
+      // Face-training URLs — only photos that uploaded successfully AND passed
+      // the Claude vision face check. Used by the Nano-Banana endpoint below.
+      const validFaceUrls = facePhotos
+        .filter(p => p.url && !p.rejected && !p.uploading && !p.checking)
+        .map(p => p.url)
+        .slice(0, FACE_PHOTOS_NEEDED)
+
       // First-batch photos are tagged usedForTraining:true so the AI persona
       // hooks (added later, not here) know which photos shape the avatar.
       // Photos added after creation will set addedAfterCreation:true instead.
@@ -1348,9 +1533,29 @@ export default function CreateMemorialPage() {
           // pronouns is only meaningful for "other" memorials — self uses
           // the creator's own profile data and addresses them in 2nd person.
           pronouns:          isSelf ? undefined : (form.pronouns || 'they'),
+          // Save the valid face-training URLs onto the memorial so re-generation
+          // (later, from Edit screen) doesn't require re-uploading.
+          ...(validFaceUrls.length > 0 ? { faceTrainingUrls: validFaceUrls } : {}),
+          // Mark the talk-portrait status so the UI can show "generating…" right away.
+          ...(validFaceUrls.length >= FACE_PHOTOS_NEEDED ? { talkPortraitStatus: 'pending' } : {}),
         }),
         ...photoTxs,
       ])
+
+      // ── Fire-and-forget Nano-Banana talk-portrait generation ──────────────
+      // Only runs if the user uploaded the full set of valid face photos.
+      // Failure is silent — talk screen falls back to memorial.photo.
+      if (validFaceUrls.length >= FACE_PHOTOS_NEEDED) {
+        fetch('/api/generate-talk-portrait', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            memorialId: memId,
+            name:       form.name.trim(),
+            photoUrls:  validFaceUrls,
+          }),
+        }).catch(err => console.warn('[generate-talk-portrait] failed', err))
+      }
 
       // ── Fire-and-forget AI vision analysis of life photos ─────────────────
       // The server runs Claude vision on up to 8 photos and writes a
@@ -1471,7 +1676,8 @@ export default function CreateMemorialPage() {
         <AnimatePresence mode="wait">
           {step === 0 && <StepPerson  key="p" form={form} setForm={setForm} isSelf={isSelf} copy={copy} />}
           {step === 1 && <StepStory   key="s" form={form} setForm={setForm} lifePhotos={lifePhotos} setLifePhotos={setLifePhotos} copy={copy} />}
-          {step === 2 && <StepPublish key="c" form={form} setForm={setForm} isSelf={isSelf} copy={copy} />}
+          {step === 2 && <StepFace    key="f" facePhotos={facePhotos} setFacePhotos={setFacePhotos} isSelf={isSelf} copy={copy} />}
+          {step === 3 && <StepPublish key="c" form={form} setForm={setForm} isSelf={isSelf} copy={copy} />}
         </AnimatePresence>
       </div>
 

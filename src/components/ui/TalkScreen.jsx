@@ -236,7 +236,11 @@ export default function TalkScreen({ memorial, memorialId, onClose }) {
   const born      = memorial.born || memorial.dob || memorial.birthYear || ''
   const bYear     = String(born).match(/\d{4}/)?.[0] || born
   const hasVoice  = !!memorial.elevenLabsVoiceId
-  const photoUrl  = memorial.photo || null
+  // Prefer the Nano-Banana-generated talk portrait if available — it was
+  // synthesized from the 5 face references and represents the person more
+  // faithfully than a single random cover shot. Falls back to memorial.photo
+  // (the user-uploaded avatar) if there's no generated portrait yet.
+  const photoUrl  = memorial.talkPortraitUrl || memorial.photo || null
 
   // ── Session timer ─────────────────────────────────────────────────────────
   useEffect(() => {
