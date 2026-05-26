@@ -614,35 +614,40 @@ function VoiceSection({ memorial, onOpenTalk }) {
 
         {/* Right — saffron play disc → opens TalkScreen */}
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          {/* Modern saffron play orb per design handoff —
+              flat gradient disc + soft halo + bold white play triangle.
+              No mic icon, no inner highlights, no bevels. */}
           <motion.button
-            whileHover={{ translateY: -2, scale: 1.03 }}
-            whileTap={{ scale: 0.96 }}
+            whileHover={{ translateY: -2, scale: 1.02 }}
+            whileTap={{ scale: 0.97 }}
             onClick={() => onOpenTalk?.()}
-            aria-label={`Talk with ${firstName}`}
+            aria-label={`Hear ${firstName}`}
             style={{
               position: 'relative', width: 160, height: 160, borderRadius: '50%',
               background: 'linear-gradient(155deg, #ffd166 0%, #f3b21a 45%, #d99206 100%)',
               border: 'none',
-              boxShadow: '0 24px 48px -8px rgba(243,178,26,.55), 0 10px 24px -6px rgba(0,0,0,.45)',
+              boxShadow: [
+                '0 24px 48px -8px rgba(243,178,26,.55)',
+                '0 10px 24px -6px rgba(0,0,0,.45)',
+                '0 2px 6px rgba(0,0,0,.25)',
+              ].join(', '),
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexDirection: 'column', gap: 8,
             }}>
-            {/* Ambient glow halo */}
-            <div style={{ position: 'absolute', inset: -22, borderRadius: '50%', zIndex: -1,
+            {/* Soft outer halo */}
+            <span aria-hidden="true" style={{
+              position: 'absolute', inset: -22, borderRadius: '50%', zIndex: -1,
               background: 'radial-gradient(circle, rgba(243,178,26,.30) 0%, rgba(243,178,26,.08) 45%, transparent 70%)',
-              pointerEvents: 'none' }} />
-            {/* Mic icon */}
-            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-              style={{ width: 32, height: 32, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,.25))' }}>
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-              <line x1="12" y1="19" x2="12" y2="23"/>
-              <line x1="8" y1="23" x2="16" y2="23"/>
-            </svg>
-            <span style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '.18em', textTransform: 'uppercase',
-              color: 'rgba(255,255,255,.85)', fontWeight: 600 }}>
-              Hear {firstName}
-            </span>
+              pointerEvents: 'none',
+            }} />
+            {/* White play triangle — pure CSS borders, no SVG */}
+            <span aria-hidden="true" style={{
+              width: 0, height: 0,
+              borderLeft:   '32px solid #ffffff',
+              borderTop:    '20px solid transparent',
+              borderBottom: '20px solid transparent',
+              marginLeft: 10,
+              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.18)) drop-shadow(0 0 16px rgba(255,255,255,.30))',
+            }} />
           </motion.button>
         </div>
       </div>
@@ -757,13 +762,18 @@ function StoryCard({ memorial }) {
         </span>
       </div>
       <div style={{ padding: '22px 28px 14px' }}>
-        <p style={{ fontFamily: SERIF, fontWeight: 300, fontStyle: 'italic', fontSize: 26,
-          lineHeight: 1.22, color: C.ink, marginBottom: 16, letterSpacing: '-.01em',
-          backgroundImage: `linear-gradient(135deg, ${C.saffronDeep}, ${C.ink})`,
-          WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent',
+        {/* Lead paragraph per design handoff: Fraunces 300 italic, 28px,
+            ink colour, with a saffron-deep first-letter drop-cap. The
+            ::first-letter rule lives in the page-level <style> tag below. */}
+        <p className="story-lead" style={{
+          fontFamily: SERIF, fontWeight: 300, fontStyle: 'italic',
+          fontSize: 28, lineHeight: 1.22,
+          color: C.ink, margin: '0 0 16px',
+          letterSpacing: '-.01em',
         }}>{lead}</p>
-        {body && <p style={{ fontFamily: DISP, fontSize: 15, lineHeight: 1.75, color: C.ink2 }}>{body}</p>}
+        {body && <p style={{ fontFamily: DISP, fontSize: 15, lineHeight: 1.75, color: C.ink2, margin: 0 }}>{body}</p>}
       </div>
+      <style>{`.story-lead::first-letter { color: ${C.saffronDeep}; font-size: 1.1em; }`}</style>
       <div style={{ padding: '14px 22px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         fontFamily: MONO, fontSize: 11, letterSpacing: '.22em', textTransform: 'uppercase', color: C.muted }}>
         <span style={{ color: C.ink }}>edition · 01 / 01</span>
