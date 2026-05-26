@@ -38,9 +38,11 @@ const C = {
   inkSoft:     '#423a31',
   muted:       '#7a7164',
   muted2:      '#948a7a',
-  saffron:     '#f3b21a',
-  saffron2:    '#ffce5a',
-  saffronDeep: '#d99206',
+  // Recoloured to match the "age display" neutral light-grey aesthetic —
+  // these three keys used to be gold/saffron. Names kept for compat.
+  saffron:     '#c4bdb0',  // soft warm light grey (was #c4bdb0)
+  saffron2:    '#d8d2c4',  // lighter warm grey (was #d8d2c4)
+  saffronDeep: '#8e8678',  // mid warm grey (was #8e8678)
   rust:        '#c8531f',
   moss:        '#5e7a3e',
 }
@@ -113,7 +115,7 @@ function Card({ variant = 'paper', className = '', style = {}, children, ...rest
   const base = {
     paper:   { background: C.cream,  border: '1px solid rgba(21,18,14,.06)', boxShadow: '0 1px 0 rgba(255,255,255,.6) inset, 0 4px 18px rgba(21,18,14,.04)', color: C.ink },
     ink:     { background: C.ink,    border: '1px solid rgba(241,236,225,.10)', boxShadow: '0 14px 30px rgba(21,18,14,.22)', color: C.cream },
-    saffron: { background: C.saffron,border: '1px solid rgba(21,18,14,.10)', boxShadow: '0 8px 22px rgba(243,178,26,.28)', color: C.ink },
+    saffron: { background: C.saffron,border: '1px solid rgba(21,18,14,.10)', boxShadow: '0 8px 22px rgba(196,189,176,.28)', color: C.ink },
   }
   return (
     <div className={`rounded-[26px] overflow-hidden ${className}`} style={{ ...base[variant], ...style }} {...rest}>
@@ -196,9 +198,10 @@ function Hero({ memorial, memorialId, isOwner, navigate }) {
       <div style={{ position: 'absolute', inset: 0,
         background: `linear-gradient(135deg, ${C.ink2} 0%, ${C.ink} 100%)` }} />
 
-      {/* Photo — confined to the left ~62%, portrait-style */}
+      {/* Photo — confined to the left ~62%, portrait-style.
+          This is the hero image, so eager + high fetch priority for LCP. */}
       {memorial.photo && (
-        <img src={memorial.photo} alt={memorial.name}
+        <img fetchpriority="high" decoding="async" src={memorial.photo} alt={memorial.name}
           className="hero-photo"
           style={{
             position: 'absolute',
@@ -250,7 +253,7 @@ function Hero({ memorial, memorialId, isOwner, navigate }) {
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 14px',
             borderRadius: 999, fontFamily: MONO, fontSize: 11, letterSpacing: '.22em', textTransform: 'uppercase',
             color: C.ink, background: alive ? C.moss : C.saffron,
-            border: '1px solid rgba(21,18,14,.15)', boxShadow: `0 2px 10px ${alive ? 'rgba(94,122,62,.4)' : 'rgba(243,178,26,.32)'}`,
+            border: '1px solid rgba(21,18,14,.15)', boxShadow: `0 2px 10px ${alive ? 'rgba(94,122,62,.4)' : 'rgba(196,189,176,.32)'}`,
             color: alive ? '#fff' : C.ink }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: alive ? '#fff' : C.ink,
               animation: 'livepulse 2s infinite', display: 'inline-block' }} />
@@ -407,7 +410,7 @@ function ActionsCard({ onTribute, onShare, onQR }) {
         width: '100%', padding: 0, border: 'none', cursor: 'pointer',
         background: C.saffron, color: C.ink, borderRadius: 26, overflow: 'hidden',
         display: 'grid', gridTemplateColumns: '1fr 96px', alignItems: 'stretch',
-        boxShadow: '0 8px 22px rgba(243,178,26,.28), 0 1px 0 rgba(255,255,255,.5) inset',
+        boxShadow: '0 8px 22px rgba(196,189,176,.28), 0 1px 0 rgba(255,255,255,.5) inset',
         transition: 'transform .15s', textAlign: 'left', fontFamily: DISP,
       }}>
         <div style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 4, justifyContent: 'center' }}>
@@ -417,7 +420,7 @@ function ActionsCard({ onTribute, onShare, onQR }) {
         <div style={{ background: C.ink, color: C.saffron, display: 'flex', alignItems: 'center',
           justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', inset: 'auto 0 0 0', height: '35%',
-            backgroundImage: 'repeating-linear-gradient(135deg, transparent 0 7px, rgba(243,178,26,.7) 7px 8px)' }} />
+            backgroundImage: 'repeating-linear-gradient(135deg, transparent 0 7px, rgba(196,189,176,.7) 7px 8px)' }} />
           <div style={{ position: 'relative', zIndex: 1, width: 44, height: 44, borderRadius: '50%',
             background: C.saffron, color: C.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
@@ -511,7 +514,7 @@ function LegacyVaultCard({ memorialId, letterCount, sealedCount, hasWill }) {
       }}>
         {/* Ambient glows */}
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: 'radial-gradient(circle at 90% -10%, rgba(243,178,26,.20), transparent 55%), radial-gradient(circle at -10% 110%, rgba(200,83,31,.12), transparent 55%)' }} />
+          background: 'radial-gradient(circle at 90% -10%, rgba(196,189,176,.20), transparent 55%), radial-gradient(circle at -10% 110%, rgba(200,83,31,.12), transparent 55%)' }} />
         {/* Stripe accent */}
         <div style={{ position: 'absolute', right: -10, bottom: -10, width: 200, height: 200,
           backgroundImage: STRIPE, opacity: .10, pointerEvents: 'none', transform: 'rotate(8deg)' }} />
@@ -579,7 +582,7 @@ function VoiceSection({ memorial, onOpenTalk }) {
       {/* Ambient glow */}
       <div style={{ position: 'absolute', top: '-30%', right: '30%', left: 'auto',
         width: 340, height: 340, borderRadius: '50%',
-        background: `radial-gradient(circle at 35% 35%, rgba(243,178,26,.35), transparent 60%)`,
+        background: `radial-gradient(circle at 35% 35%, rgba(196,189,176,.35), transparent 60%)`,
         filter: 'blur(8px)', pointerEvents: 'none' }} />
       {/* Stripe */}
       <div style={{ position: 'absolute', inset: 'auto 0 0 0', height: '60%',
@@ -621,15 +624,15 @@ function VoiceSection({ memorial, onOpenTalk }) {
             aria-label={`Talk with ${firstName}`}
             style={{
               position: 'relative', width: 160, height: 160, borderRadius: '50%',
-              background: 'linear-gradient(155deg, #ffd166 0%, #f3b21a 45%, #d99206 100%)',
+              background: 'linear-gradient(155deg, #c4bdb0 0%, #c4bdb0 45%, #8e8678 100%)',
               border: 'none',
-              boxShadow: '0 24px 48px -8px rgba(243,178,26,.55), 0 10px 24px -6px rgba(0,0,0,.45)',
+              boxShadow: '0 24px 48px -8px rgba(196,189,176,.55), 0 10px 24px -6px rgba(0,0,0,.45)',
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
               flexDirection: 'column', gap: 8,
             }}>
             {/* Ambient glow halo */}
             <div style={{ position: 'absolute', inset: -22, borderRadius: '50%', zIndex: -1,
-              background: 'radial-gradient(circle, rgba(243,178,26,.30) 0%, rgba(243,178,26,.08) 45%, transparent 70%)',
+              background: 'radial-gradient(circle, rgba(196,189,176,.30) 0%, rgba(196,189,176,.08) 45%, transparent 70%)',
               pointerEvents: 'none' }} />
             {/* Mic icon */}
             <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
@@ -674,9 +677,9 @@ function ReelViewport({ memorial, photos, onExpand }) {
           <Label onInk>Life Reel of {firstName}</Label>
           <span style={{
             fontFamily: MONO, fontSize: 9.5, letterSpacing: '.18em', textTransform: 'uppercase',
-            color: 'rgba(243,178,26,.85)',
-            background: 'rgba(243,178,26,.10)',
-            border: '1px solid rgba(243,178,26,.25)',
+            color: 'rgba(196,189,176,.85)',
+            background: 'rgba(196,189,176,.10)',
+            border: '1px solid rgba(196,189,176,.25)',
             padding: '3px 8px', borderRadius: 999,
           }}>
             ◆ Cinematic
@@ -687,9 +690,9 @@ function ReelViewport({ memorial, photos, onExpand }) {
           onClick={onExpand}
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
-            background: 'rgba(243,178,26,.12)',
+            background: 'rgba(196,189,176,.12)',
             color: C.saffron,
-            border: '1px solid rgba(243,178,26,.30)',
+            border: '1px solid rgba(196,189,176,.30)',
             borderRadius: 999,
             padding: '7px 14px',
             cursor: 'pointer',
@@ -799,7 +802,7 @@ function TributeCard({ tribute, variant = 'light', onLike, onDelete, canDelete, 
           fontFamily: MONO, fontWeight: 700, fontSize: 12,
           border: '1px solid rgba(21,18,14,.12)', ...avatarS }}>
           {tribute.authorPhoto
-            ? <img src={tribute.authorPhoto} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+            ? <img loading="lazy" decoding="async" src={tribute.authorPhoto} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
             : initials(tribute.authorName || 'Anon')}
         </div>
         <div style={{ flex: 1 }}>
@@ -828,7 +831,7 @@ function TributeCard({ tribute, variant = 'light', onLike, onDelete, canDelete, 
       {/* Attached photo */}
       {tribute.photoUrl && (
         <div style={{ borderRadius: 16, overflow: 'hidden', marginTop: 4 }}>
-          <img src={tribute.photoUrl} alt="Tribute photo"
+          <img loading="lazy" decoding="async" src={tribute.photoUrl} alt="Tribute photo"
             style={{ width: '100%', maxHeight: 260, objectFit: 'cover', display: 'block' }} />
         </div>
       )}
@@ -979,12 +982,12 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
         </div>
         <div onClick={() => fileRef.current?.click()}
           style={{ margin: 18, padding: '28px 0', borderRadius: 18, cursor: 'pointer',
-            border: '2px dashed rgba(243,178,26,.30)',
+            border: '2px dashed rgba(196,189,176,.30)',
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-            background: 'rgba(243,178,26,.04)' }}>
-          <span style={{ fontSize: 28, color: 'rgba(243,178,26,.55)' }}>✿</span>
+            background: 'rgba(196,189,176,.04)' }}>
+          <span style={{ fontSize: 28, color: 'rgba(196,189,176,.55)' }}>✿</span>
           <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.18em',
-            textTransform: 'uppercase', color: 'rgba(243,178,26,.85)', fontWeight: 700 }}>
+            textTransform: 'uppercase', color: 'rgba(196,189,176,.85)', fontWeight: 700 }}>
             {uploading ? `Uploading ${pct}%` : 'Add photos to the gallery'}
           </span>
           <span style={{ fontSize: 11, color: 'rgba(241,236,225,.40)', textAlign: 'center', padding: '0 20px' }}>
@@ -1015,12 +1018,12 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
         {isOwner && !preview && (
           <div onClick={() => fileRef.current?.click()}
             style={{ padding: '18px 0', borderRadius: 16, marginBottom: 12,
-              border: `2px dashed rgba(243,178,26,.30)`,
-              background: 'rgba(243,178,26,.04)',
+              border: `2px dashed rgba(196,189,176,.30)`,
+              background: 'rgba(196,189,176,.04)',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-            <span style={{ fontSize: 22, color: 'rgba(243,178,26,.55)' }}>✿</span>
+            <span style={{ fontSize: 22, color: 'rgba(196,189,176,.55)' }}>✿</span>
             <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.18em',
-              textTransform: 'uppercase', color: 'rgba(243,178,26,.85)', fontWeight: 700 }}>
+              textTransform: 'uppercase', color: 'rgba(196,189,176,.85)', fontWeight: 700 }}>
               {uploading ? `Uploading ${pct}%` : 'Add photos'}
             </span>
           </div>
@@ -1050,7 +1053,7 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
                 background: 'rgba(241,236,225,.04)',
                 border: '1px solid rgba(241,236,225,.08)',
               }}>
-              <img src={photo.url} alt={photo.caption || ''}
+              <img loading="lazy" decoding="async" src={photo.url} alt={photo.caption || ''}
                 style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform .4s' }} />
               {photo.caption && (
                 <span style={{ position: 'absolute', left: 8, top: 8, fontFamily: MONO, fontSize: 9,
@@ -1075,8 +1078,8 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
             style={{
               width: '100%', marginTop: 12,
               padding: '11px 0', borderRadius: 14,
-              background: 'rgba(243,178,26,.10)',
-              border: '1px solid rgba(243,178,26,.25)',
+              background: 'rgba(196,189,176,.10)',
+              border: '1px solid rgba(196,189,176,.25)',
               color: C.saffron, cursor: 'pointer',
               fontFamily: MONO, fontSize: 10.5, letterSpacing: '.18em',
               textTransform: 'uppercase', fontWeight: 700,
@@ -1187,7 +1190,7 @@ function TributeFormModal({ onClose, onSubmit, submitting }) {
           {/* Photo attachment */}
           {photoPreview ? (
             <div style={{ marginTop: 12, position: 'relative', borderRadius: 14, overflow: 'hidden', maxHeight: 180 }}>
-              <img src={photoPreview} alt="" style={{ width: '100%', height: 180, objectFit: 'cover', display: 'block' }} />
+              <img loading="lazy" decoding="async" src={photoPreview} alt="" style={{ width: '100%', height: 180, objectFit: 'cover', display: 'block' }} />
               <button onClick={removePhoto}
                 style={{ position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: '50%',
                   background: 'rgba(21,18,14,.7)', border: 'none', cursor: 'pointer', color: '#fff', fontSize: 13 }}>✕</button>
@@ -1221,7 +1224,7 @@ function TributeFormModal({ onClose, onSubmit, submitting }) {
               cursor: text.trim() && !submitting && !uploading ? 'pointer' : 'default', fontFamily: MONO, fontSize: 11,
               letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 700, transition: 'all .2s',
               background: text.trim() ? C.saffron : C.cream2, color: text.trim() ? C.ink : C.muted2,
-              boxShadow: text.trim() ? '0 4px 14px rgba(243,178,26,.25)' : 'none' }}>
+              boxShadow: text.trim() ? '0 4px 14px rgba(196,189,176,.25)' : 'none' }}>
             {uploading ? 'Uploading photo…' : submitting ? 'Submitting…' : '♡  Post Tribute'}
           </button>
         </motion.div>
@@ -1290,7 +1293,7 @@ function TributeComments({ tributeId, memorialId, user, userProfile, isFamilyMem
                   justifyContent: 'center', fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.muted,
                   overflow: 'hidden' }}>
                   {c.authorPhoto
-                    ? <img src={c.authorPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ? <img loading="lazy" decoding="async" src={c.authorPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     : (c.authorName?.[0] || '?').toUpperCase()}
                 </div>
                 <div style={{ flex: 1, background: C.cream, borderRadius: '12px 12px 12px 4px',
@@ -1313,7 +1316,7 @@ function TributeComments({ tributeId, memorialId, user, userProfile, isFamilyMem
                   justifyContent: 'center', fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.muted,
                   overflow: 'hidden' }}>
                   {userProfile?.photoUrl
-                    ? <img src={userProfile.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ? <img loading="lazy" decoding="async" src={userProfile.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     : (userProfile?.displayName?.[0] || user.email?.[0] || '?').toUpperCase()}
                 </div>
                 <input
@@ -1362,14 +1365,14 @@ function TabBar({ tabs, active, onChange }) {
               border: 'none', cursor: 'pointer', fontFamily: DISP, fontWeight: 600,
               fontSize: 13.5, padding: '10px 16px', borderRadius: 12,
               background: isActive ? C.ink : 'transparent',
-              color: isActive ? 'var(--theme, #f3b21a)' : C.ink2, letterSpacing: '.01em', transition: 'all .15s',
+              color: isActive ? 'var(--theme, #c4bdb0)' : C.ink2, letterSpacing: '.01em', transition: 'all .15s',
               boxShadow: isActive ? '0 4px 14px rgba(21,18,14,.2)' : 'none',
               display: 'inline-flex', alignItems: 'center', gap: 8,
               whiteSpace: 'nowrap',
             }}>
             {label}
             <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.06em',
-              background: isActive ? 'var(--theme, #f3b21a)' : 'rgba(21,18,14,.08)',
+              background: isActive ? 'var(--theme, #c4bdb0)' : 'rgba(21,18,14,.08)',
               color: isActive ? C.ink : C.muted,
               padding: '2px 7px', borderRadius: 999 }}>
               {String(count).padStart(2, '0')}
@@ -1562,15 +1565,15 @@ function MemorialFamilyCircle({ memorial, memorialId, user, isOwner, onClose }) 
           {isOwner && pendingConns.length > 0 && (
             <button onClick={() => setShowPending(true)}
               style={{
-                background:'rgba(243,178,26,0.18)', backdropFilter:'blur(20px)',
-                border:'1px solid rgba(243,178,26,0.40)',
+                background:'rgba(196,189,176,0.18)', backdropFilter:'blur(20px)',
+                border:'1px solid rgba(196,189,176,0.40)',
                 borderRadius:999, padding:'8px 14px',
-                color:'#FFD700', cursor:'pointer',
+                color:'#c4bdb0', cursor:'pointer',
                 fontFamily:"'Inter',sans-serif", fontSize:11, fontWeight:700,
                 display:'flex', alignItems:'center', gap:6,
               }}>
               <span style={{ display:'inline-flex', width:18, height:18, borderRadius:999,
-                background:'rgba(243,178,26,0.30)', alignItems:'center', justifyContent:'center', fontSize:10 }}>
+                background:'rgba(196,189,176,0.30)', alignItems:'center', justifyContent:'center', fontSize:10 }}>
                 {pendingConns.length}
               </span>
               {pendingConns.length === 1 ? 'request' : 'requests'}
@@ -1580,7 +1583,7 @@ function MemorialFamilyCircle({ memorial, memorialId, user, isOwner, onClose }) 
           {isOwner && (
             <button onClick={() => setShowInvite(true)}
               style={{
-                background:'linear-gradient(135deg,#FFD700,#38BDF8)',
+                background:'linear-gradient(135deg,#c4bdb0,#38BDF8)',
                 border:'none', borderRadius:999, padding:'9px 18px',
                 color:'#0a0a12', cursor:'pointer',
                 fontFamily:"'Inter',sans-serif", fontSize:11, fontWeight:700, letterSpacing:'.06em',
@@ -1598,7 +1601,7 @@ function MemorialFamilyCircle({ memorial, memorialId, user, isOwner, onClose }) 
       }}>
         <p style={{
           fontFamily:MONO, fontSize:9.5, letterSpacing:'.30em', textTransform:'uppercase',
-          color:'rgba(255,215,0,0.60)', margin:0,
+          color:'rgba(196,189,176,0.60)', margin:0,
         }}>
           ◉ Family Circle of {memorial?.name?.split(' ')[0]}
         </p>
@@ -1625,7 +1628,7 @@ function MemorialFamilyCircle({ memorial, memorialId, user, isOwner, onClose }) 
               bottom: 'calc(76px + env(safe-area-inset-bottom))',
               zIndex: 30,
               background:'rgba(10,10,15,0.92)', backdropFilter:'blur(24px)',
-              border:'1px solid rgba(255,215,0,0.25)',
+              border:'1px solid rgba(196,189,176,0.25)',
               borderRadius: 22, padding:'14px 18px',
               minWidth: 260, maxWidth:'92vw',
               boxShadow:'0 12px 40px rgba(0,0,0,0.5)',
@@ -1633,13 +1636,13 @@ function MemorialFamilyCircle({ memorial, memorialId, user, isOwner, onClose }) 
             <div style={{ display:'flex', alignItems:'center', gap:12 }}>
               <div style={{
                 width:48, height:48, borderRadius:'50%', flexShrink:0,
-                background:'linear-gradient(135deg,rgba(255,215,0,.20),rgba(56,189,248,.16))',
-                border:'1.5px solid rgba(255,215,0,0.35)',
+                background:'linear-gradient(135deg,rgba(196,189,176,.20),rgba(56,189,248,.16))',
+                border:'1.5px solid rgba(196,189,176,0.35)',
                 overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center',
-                fontFamily:"'Cormorant Garamond',serif", fontWeight:700, fontSize:18, color:'#FFD700',
+                fontFamily:"'Cormorant Garamond',serif", fontWeight:700, fontSize:18, color:'#c4bdb0',
               }}>
                 {selected.photo
-                  ? <img src={selected.photo} alt={selected.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                  ? <img loading="lazy" decoding="async" src={selected.photo} alt={selected.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
                   : (selected.name?.[0] || '?').toUpperCase()
                 }
               </div>
@@ -1648,7 +1651,7 @@ function MemorialFamilyCircle({ memorial, memorialId, user, isOwner, onClose }) 
                   {selected.name}
                 </p>
                 <p style={{ fontFamily:MONO, fontSize:9.5, letterSpacing:'.12em', textTransform:'uppercase',
-                  color:'rgba(255,215,0,.75)', margin:'4px 0 0' }}>
+                  color:'rgba(196,189,176,.75)', margin:'4px 0 0' }}>
                   {selected.relation || 'family'}
                 </p>
               </div>
@@ -1687,7 +1690,7 @@ function MemorialFamilyCircle({ memorial, memorialId, user, isOwner, onClose }) 
                 position:'fixed', bottom:0, left:0, right:0, zIndex:100,
                 background:'#0d0d12', borderTopLeftRadius:24, borderTopRightRadius:24,
                 padding:'16px 18px 30px', maxWidth:560, margin:'0 auto',
-                borderTop:'1px solid rgba(255,215,0,0.20)',
+                borderTop:'1px solid rgba(196,189,176,0.20)',
                 maxHeight:'80vh', overflowY:'auto',
               }}>
               <div style={{ width:40, height:4, background:'rgba(255,255,255,.18)', borderRadius:2, margin:'0 auto 14px' }} />
@@ -1714,13 +1717,13 @@ function MemorialFamilyCircle({ memorial, memorialId, user, isOwner, onClose }) 
                       <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:10 }}>
                         <div style={{
                           width:44, height:44, borderRadius:'50%', flexShrink:0,
-                          background:'linear-gradient(135deg,rgba(255,215,0,.15),rgba(56,189,248,.10))',
+                          background:'linear-gradient(135deg,rgba(196,189,176,.15),rgba(56,189,248,.10))',
                           border:'1px solid rgba(255,255,255,.10)',
                           overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center',
                           fontFamily:"'Inter',sans-serif", fontWeight:700, fontSize:15, color:'rgba(255,255,255,.5)',
                         }}>
                           {c.fromPhoto
-                            ? <img src={c.fromPhoto} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                            ? <img loading="lazy" decoding="async" src={c.fromPhoto} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
                             : (c.fromName?.[0] || '?').toUpperCase()
                           }
                         </div>
@@ -1734,7 +1737,7 @@ function MemorialFamilyCircle({ memorial, memorialId, user, isOwner, onClose }) 
                             </p>
                           )}
                           <p style={{ fontFamily:MONO, fontSize:9.5, letterSpacing:'.16em', textTransform:'uppercase',
-                            color:'#FFD700', margin:'4px 0 0' }}>
+                            color:'#c4bdb0', margin:'4px 0 0' }}>
                             claims: {getRelationLabel(c.relation) || c.relation}
                           </p>
                         </div>
@@ -1749,7 +1752,7 @@ function MemorialFamilyCircle({ memorial, memorialId, user, isOwner, onClose }) 
                         </button>
                         <button onClick={() => handleApprovePending(c)}
                           style={{ flex:2, padding:'10px 0', borderRadius:12,
-                            border:'none', background:'linear-gradient(90deg,#FFD700,#38BDF8)',
+                            border:'none', background:'linear-gradient(90deg,#c4bdb0,#38BDF8)',
                             color:'#0a0a12', cursor:'pointer',
                             fontFamily:MONO, fontSize:10, letterSpacing:'.14em', textTransform:'uppercase', fontWeight:700 }}>
                           ✓ Approve to circle
@@ -1800,8 +1803,8 @@ function PersonaProfileCallout({ memorial, memorialId }) {
     <Link to={`/memorial/${memorialId}/persona`}
       style={{
         display: 'block', textDecoration: 'none',
-        background: 'linear-gradient(135deg, rgba(243,178,26,0.10), rgba(56,189,248,0.06))',
-        border: '1px solid rgba(243,178,26,0.28)',
+        background: 'linear-gradient(135deg, rgba(196,189,176,0.10), rgba(56,189,248,0.06))',
+        border: '1px solid rgba(196,189,176,0.28)',
         borderRadius: 22,
         padding: '18px 22px',
         position: 'relative',
@@ -1810,10 +1813,10 @@ function PersonaProfileCallout({ memorial, memorialId }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
         <div style={{
           width: 44, height: 44, borderRadius: 14, flexShrink: 0,
-          background: 'linear-gradient(135deg, #FFD700, #38BDF8)',
+          background: 'linear-gradient(135deg, #c4bdb0, #38BDF8)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 22, color: '#0a0a12', fontWeight: 800,
-          boxShadow: '0 6px 18px rgba(243,178,26,.30)',
+          boxShadow: '0 6px 18px rgba(196,189,176,.30)',
         }}>
           ◆
         </div>
@@ -1841,7 +1844,7 @@ function PersonaProfileCallout({ memorial, memorialId }) {
           background: C.saffron, color: C.ink,
           fontFamily: MONO, fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase',
           fontWeight: 800, flexShrink: 0,
-          boxShadow: '0 4px 14px rgba(243,178,26,.30)',
+          boxShadow: '0 4px 14px rgba(196,189,176,.30)',
         }}>
           {chapters === 0 ? 'Start' : 'Continue'} →
         </div>
@@ -1849,9 +1852,9 @@ function PersonaProfileCallout({ memorial, memorialId }) {
       {/* Progress bar */}
       {chapters > 0 && (
         <div style={{ marginTop: 14, height: 3, borderRadius: 2,
-          background: 'rgba(243,178,26,.10)', overflow: 'hidden' }}>
+          background: 'rgba(196,189,176,.10)', overflow: 'hidden' }}>
           <div style={{ width: `${pct}%`, height: '100%',
-            background: 'linear-gradient(90deg, #FFD700, #38BDF8)',
+            background: 'linear-gradient(90deg, #c4bdb0, #38BDF8)',
             transition: 'width 0.4s ease' }} />
         </div>
       )}
@@ -2119,7 +2122,7 @@ function MemorialDetailPageInner() {
   ]
 
   // Theme color from memorial — drive CSS custom properties
-  const themeHex     = memorial.themeHex || '#f3b21a'   // fallback to saffron
+  const themeHex     = memorial.themeHex || '#c4bdb0'   // fallback to saffron
   const themeLight   = themeHex + '22'                  // ~13% opacity
   const themeMedium  = themeHex + '55'                  // ~33% opacity
 
@@ -2162,7 +2165,7 @@ function MemorialDetailPageInner() {
                   background: C.ink, borderRadius:20, textDecoration:'none',
                   border:`1px solid rgba(241,236,225,.06)`,
                 }}>
-                <span style={{ fontFamily:'serif', fontSize:20, color:'rgba(243,178,26,.7)' }}>✦</span>
+                <span style={{ fontFamily:'serif', fontSize:20, color:'rgba(196,189,176,.7)' }}>✦</span>
                 <div>
                   <p style={{ fontFamily:DISP, fontSize:13, fontWeight:600, color:C.cream, margin:0 }}>
                     Join the family circle
@@ -2243,9 +2246,9 @@ function MemorialDetailPageInner() {
                         <Label onInk>Family circle</Label>
                         <span style={{
                           fontFamily: MONO, fontSize: 9.5, letterSpacing: '.18em', textTransform: 'uppercase',
-                          color: 'rgba(243,178,26,.85)',
-                          background: 'rgba(243,178,26,.10)',
-                          border: '1px solid rgba(243,178,26,.25)',
+                          color: 'rgba(196,189,176,.85)',
+                          background: 'rgba(196,189,176,.10)',
+                          border: '1px solid rgba(196,189,176,.25)',
                           padding: '3px 8px', borderRadius: 999,
                         }}>
                           ◉ Infinite web
@@ -2255,9 +2258,9 @@ function MemorialDetailPageInner() {
                       <button onClick={() => setShowFamilyCircle(true)}
                         style={{
                           display: 'flex', alignItems: 'center', gap: 6,
-                          background: 'rgba(243,178,26,.12)',
+                          background: 'rgba(196,189,176,.12)',
                           color: C.saffron,
-                          border: '1px solid rgba(243,178,26,.30)',
+                          border: '1px solid rgba(196,189,176,.30)',
                           borderRadius: 999, padding: '7px 14px',
                           cursor: 'pointer',
                           fontFamily: MONO, fontSize: 10, letterSpacing: '.18em',
@@ -2292,13 +2295,13 @@ function MemorialDetailPageInner() {
                           {approvedFamilyForMemorial.slice(0, 8).map(c => (
                             <div key={c.id} style={{
                               width: 36, height: 36, borderRadius: '50%', overflow: 'hidden',
-                              background: 'linear-gradient(135deg,rgba(255,215,0,.18),rgba(56,189,248,.12))',
-                              border: '1.5px solid rgba(255,215,0,0.30)',
+                              background: 'linear-gradient(135deg,rgba(196,189,176,.18),rgba(56,189,248,.12))',
+                              border: '1.5px solid rgba(196,189,176,0.30)',
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
                               fontSize: 11, fontWeight: 700, color: C.saffron,
                             }} title={`${c.fromName} · ${getRelationLabel(c.relation) || c.relation}`}>
                               {c.fromPhoto
-                                ? <img src={c.fromPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ? <img loading="lazy" decoding="async" src={c.fromPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                 : (c.fromName?.[0] || '?').toUpperCase()
                               }
                             </div>
@@ -2316,15 +2319,15 @@ function MemorialDetailPageInner() {
                         <button onClick={() => setShowFamilyCircle(true)}
                           style={{
                             width: '100%', marginBottom: 10,
-                            background: 'rgba(243,178,26,.10)',
-                            border: '1px solid rgba(243,178,26,.30)',
+                            background: 'rgba(196,189,176,.10)',
+                            border: '1px solid rgba(196,189,176,.30)',
                             borderRadius: 14, padding: '10px 14px',
                             display: 'flex', alignItems: 'center', gap: 10,
                             cursor: 'pointer',
                           }}>
                           <span style={{
                             display: 'inline-flex', width: 24, height: 24, borderRadius: 12,
-                            background: 'rgba(243,178,26,.25)', color: '#FFD700',
+                            background: 'rgba(196,189,176,.25)', color: '#c4bdb0',
                             alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 11,
                           }}>
                             {pendingFamilyCount}
@@ -2362,9 +2365,9 @@ function MemorialDetailPageInner() {
                         {/* Living / Passed badge */}
                         <div style={{ flexShrink: 0, fontFamily: MONO, fontSize: 11, letterSpacing: '.18em',
                           textTransform: 'uppercase', padding: '8px 14px', borderRadius: 999,
-                          background: memorial.alive !== false ? 'rgba(94,122,62,.25)' : 'rgba(243,178,26,.15)',
+                          background: memorial.alive !== false ? 'rgba(94,122,62,.25)' : 'rgba(196,189,176,.15)',
                           color: memorial.alive !== false ? '#88c069' : C.saffron,
-                          border: `1px solid ${memorial.alive !== false ? 'rgba(94,122,62,.35)' : 'rgba(243,178,26,.25)'}` }}>
+                          border: `1px solid ${memorial.alive !== false ? 'rgba(94,122,62,.35)' : 'rgba(196,189,176,.25)'}` }}>
                           {memorial.alive !== false ? '● Living' : '◎ Passed'}
                         </div>
                       </div>
@@ -2544,7 +2547,7 @@ function MemorialDetailPageInner() {
 
             {/* Full-viewport reel player — fill=true makes it cover the entire overlay */}
             <div style={{ position:'relative', width:'100%', height:'100%' }}>
-              <Suspense fallback={<div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', width:40, height:40, borderRadius:'50%', border:'2px solid rgba(255,215,0,.3)', borderTopColor:'#FFD700', animation:'spin 0.8s linear infinite' }} />}>
+              <Suspense fallback={<div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', width:40, height:40, borderRadius:'50%', border:'2px solid rgba(196,189,176,.3)', borderTopColor:'#c4bdb0', animation:'spin 0.8s linear infinite' }} />}>
                 <LifeReel
                   photos={photos}
                   memorial={memorial}
