@@ -661,7 +661,7 @@ function VoiceSection({ memorial, onOpenTalk }) {
 // Cinematic Life Reel rendered as a small inline viewport directly under the
 // "Hear them speak" voice section. Includes an Expand button that opens the
 // full theater overlay (showReelFull state in the parent).
-function ReelViewport({ memorial, photos, onExpand }) {
+function ReelViewport({ memorial, photos, tributes, onExpand }) {
   const firstName = memorial?.name?.split(' ')[0] || 'them'
   const frameCount = photos?.length || 0
 
@@ -732,6 +732,7 @@ function ReelViewport({ memorial, photos, onExpand }) {
           <LifeReel
             photos={photos}
             memorial={memorial}
+            tributes={tributes}
             compact
             onExpand={onExpand}
           />
@@ -2198,7 +2199,7 @@ function MemorialDetailPageInner() {
                   {isOwner && (
                     <PersonaProfileCallout memorial={memorial} memorialId={memorialId} />
                   )}
-                  <ReelViewport memorial={memorial} photos={photos} onExpand={() => setShowReelFull(true)} />
+                  <ReelViewport memorial={memorial} photos={photos} tributes={tributes} onExpand={() => setShowReelFull(true)} />
                   {/* Gallery preview — sits directly under the Reel as photo browse entry.
                       Renders even with no photos so owners always see "Add photos". */}
                   {(photos.length > 0 || isOwner) && (
@@ -2558,6 +2559,7 @@ function MemorialDetailPageInner() {
                 <LifeReel
                   photos={photos}
                   memorial={memorial}
+                  tributes={tributes}
                   fill
                   onEnd={() => setShowReelFull(false)}
                 />

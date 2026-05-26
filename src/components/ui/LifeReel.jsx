@@ -31,14 +31,18 @@ import gsap from 'gsap'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const MAX_RUNTIME_MS   = 120_000   // 2 min hard cap on total reel duration
-const TITLE_HOLD_MS    = 5400      // how long the title overlay sits on first photo
-const PHOTO_DURATION   = 5400      // default — recalculated dynamically below
-const PHOTO_MIN_DUR    = 2800
-const PHOTO_MAX_DUR    = 6200
+// Timing — locked to a uniform 3-second beat per slide so the reel reads as
+// a continuous loop instead of a cinematic one-shot. Earlier values held the
+// title overlay for 5.4s and let per-photo durations balloon to 6.2s, which
+// felt slow when nothing else was happening on the page.
+const MAX_RUNTIME_MS   = 120_000   // (unused once we loop, kept for safety)
+const TITLE_HOLD_MS    = 0         // no extra hold on the first photo — uniform beat
+const PHOTO_DURATION   = 3000      // exactly 3s per image
+const PHOTO_MIN_DUR    = 3000
+const PHOTO_MAX_DUR    = 3000
 const CHAPTER_DURATION = 3000
-const CLOSING_DURATION = 5400
-const FADE_DURATION    = 1300
+const CLOSING_DURATION = 3000
+const FADE_DURATION    = 600       // shorter crossfade so 3s slides don't feel sluggish
 
 const GRAIN_FPS     = 24
 const GRAIN_OPACITY = 0.045
@@ -403,7 +407,7 @@ function ChapterCard({ year, label }) {
 
 // ─── Photo slide with Ken Burns ───────────────────────────────────────────────
 
-function PhotoSlide({ media, moveIdx, memorial, dateRaw, caption, showText, showOpeningTitle }) {
+function PhotoSlide({ media, moveIdx, memorial, dateRaw, caption, tribute, showText, showOpeningTitle }) {
   const imgRef  = useRef(null)
   const gsapRef = useRef(null)
   const move    = KB_MOVES[(moveIdx || 0) % KB_MOVES.length]
@@ -463,6 +467,84 @@ function PhotoSlide({ media, moveIdx, memorial, dateRaw, caption, showText, show
       <div style={{ position:'absolute',insetInline:0,bottom:0,height:'260px',background:'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.5) 50%, transparent 100%)',pointerEvents:'none' }} />
       <div style={{ position:'absolute',insetBlock:0,left:0,width:'80px',background:'linear-gradient(to right, rgba(0,0,0,0.35), transparent)',pointerEvents:'none' }} />
       <div style={{ position:'absolute',insetBlock:0,right:0,width:'80px',background:'linear-gradient(to left, rgba(0,0,0,0.35), transparent)',pointerEvents:'none' }} />
+
+      {/* ── Cinematic tribute overlay ─────────────────────────────────────
+          One tribute per photo, randomly assigned in buildStoryboard from
+          the 15 most recent tributes. Skipped on the very first photo so
+          it doesn't fight with the opening-title nameplate. Fades in
+          0.45s after slide mount, holds for the rest of the 3s beat, then
+          the parent slide crossfade carries it out. */}
+      {showText && !showOpeningTitle && tribute?.text && (
+        <motion.div
+          key={`trib-${moveIdx}`}
+          initial={{ opacity: 0, y: 14, filter: 'blur(6px)' }}
+          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+          transition={{ delay: 0.45, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+          className="absolute inset-x-0 z-20 pointer-events-none"
+          style={{
+            top: '50%',
+            transform: 'translateY(-50%)',
+            padding: '0 8%',
+            textAlign: 'center',
+          }}
+        >
+          {/* Decorative top mark */}
+          <motion.span
+            initial={{ opacity: 0, scaleX: 0 }}
+            animate={{ opacity: 1, scaleX: 1 }}
+            transition={{ delay: 0.35, duration: 0.6, ease: 'easeOut' }}
+            style={{
+              display: 'block',
+              width: 36,
+              height: 1,
+              background: 'linear-gradient(to right, transparent, rgba(255,215,0,0.8), transparent)',
+              margin: '0 auto 18px',
+              transformOrigin: 'center',
+            }}
+          />
+          <p
+            style={{
+              fontFamily: "'Fraunces', Georgia, serif",
+              fontStyle: 'italic',
+              fontWeight: 300,
+              color: 'rgba(255,255,255,0.94)',
+              fontSize: 'clamp(1.05rem, 2.6vw, 1.95rem)',
+              lineHeight: 1.32,
+              letterSpacing: '-0.005em',
+              textShadow: '0 2px 18px rgba(0,0,0,0.85), 0 0 36px rgba(0,0,0,0.55)',
+              margin: 0,
+              maxWidth: '720px',
+              marginInline: 'auto',
+              // Keep long tributes contained — 4 lines max
+              display: '-webkit-box',
+              WebkitBoxOrient: 'vertical',
+              WebkitLineClamp: 4,
+              overflow: 'hidden',
+            }}
+          >
+            “{tribute.text.length > 220 ? `${tribute.text.slice(0, 217).trimEnd()}…` : tribute.text}”
+          </p>
+          {tribute.author && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1.0, duration: 0.6 }}
+              style={{
+                fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+                fontSize: '0.7rem',
+                letterSpacing: '0.22em',
+                textTransform: 'uppercase',
+                color: 'rgba(255,215,0,0.78)',
+                textShadow: '0 1px 8px rgba(0,0,0,0.85)',
+                margin: '14px 0 0',
+                fontWeight: 600,
+              }}
+            >
+              — {tribute.author}
+            </motion.p>
+          )}
+        </motion.div>
+      )}
 
       {/* Year badge — top right (giant cinematic year if available) */}
       {showText && yearOnly && (
@@ -626,6 +708,7 @@ function RenderSlide({ slide, idx, memorial, showText }) {
       memorial={memorial}
       dateRaw={slide.date}
       caption={slide.caption}
+      tribute={slide.tribute}
       showText={showText}
       showOpeningTitle={slide.showTitle === true}
     />
@@ -703,7 +786,7 @@ function useMusicPlayer(src) {
 // Total runtime is capped at MAX_RUNTIME_MS (2 min). Per-photo duration scales
 // down as the number of photos grows. Chapter markers count toward the budget.
 
-function buildStoryboard(photos, memorial) {
+function buildStoryboard(photos, memorial, tributes = []) {
   const sorted = (photos || [])
     .filter(p => p.url)
     .map(p => ({ ...p, date: getDate(p) }))
@@ -714,10 +797,29 @@ function buildStoryboard(photos, memorial) {
     return [{ kind: 'title-only', duration: 8000 }]
   }
 
+  // Normalise tributes — newest first, then take the latest 15 and shuffle
+  // so each session's reel pulls a fresh random pairing of tribute → photo.
+  // Within a single lap the order is fixed (the storyboard is memoised), so
+  // the user gets a coherent sequence rather than the text re-shuffling
+  // mid-play.
+  const tributeItems = (tributes || [])
+    .filter(t => (t?.text || t?.content || t?.message || '').trim())
+    .map(t => ({
+      text: (t.text || t.content || t.message || '').trim(),
+      author: (t.authorName || t.author || '').trim(),
+      createdAt: t.createdAt || 0,
+    }))
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, 15)
+  // Fisher–Yates shuffle so the assignment to photos is random each build
+  for (let i = tributeItems.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[tributeItems[i], tributeItems[j]] = [tributeItems[j], tributeItems[i]]
+  }
+
   const slides = []
 
   // ── Plan chapter markers ──────────────────────────────────────────────────
-  // Identify year transitions (skip first), so we can budget time for them.
   const chapterIndexes = []
   let lastYear = null
   sorted.forEach((p, i) => {
@@ -734,6 +836,7 @@ function buildStoryboard(photos, memorial) {
 
   // ── Emit slides ───────────────────────────────────────────────────────────
   lastYear = null
+  let photoIdx = 0
   sorted.forEach((p, i) => {
     const year = pickYear(p.date)
     if (year && lastYear !== null && year !== lastYear) {
@@ -741,6 +844,9 @@ function buildStoryboard(photos, memorial) {
     }
     // First photo carries the opening title overlay + extra hold
     const isFirst = i === 0
+    const tribute = tributeItems.length
+      ? tributeItems[photoIdx % tributeItems.length]
+      : null
     slides.push({
       kind: 'photo',
       url: p.url,
@@ -748,7 +854,9 @@ function buildStoryboard(photos, memorial) {
       caption: p.caption,
       duration: isFirst ? perPhoto + TITLE_HOLD_MS : perPhoto,
       showTitle: isFirst,
+      tribute,
     })
+    photoIdx += 1
     if (year) lastYear = year
   })
 
@@ -761,6 +869,7 @@ function buildStoryboard(photos, memorial) {
 export default function LifeReel({
   photos    = [],
   memorial  = {},
+  tributes  = [],
   musicUrl  = null,
   onEnd     = null,
   onExpand  = null,
@@ -779,15 +888,20 @@ export default function LifeReel({
 
   const { playing: musicPlaying, toggle: toggleMusic } = useMusicPlayer(musicUrl)
 
-  // Build storyboard (title + photos + chapters + closing)
-  const slides = useMemo(() => buildStoryboard(photos, memorial), [photos, memorial])
+  // Build storyboard (title + photos + chapters + closing). Tributes are
+  // assigned per-photo inside buildStoryboard so each slide carries its own
+  // line — see the cinematic overlay in <PhotoSlide />.
+  const slides = useMemo(() => buildStoryboard(photos, memorial, tributes), [photos, memorial, tributes])
 
-  // Auto-advance
+  // Auto-advance — continuous loop. On the last slide we wrap back to 0
+  // instead of firing onEnd, so the reel plays forever at a steady 3s beat.
+  // onEnd is still called once per pass (when wrapping) for any callers that
+  // want to react (e.g. the fullscreen theater closes on its first lap).
   const advance = useCallback(() => {
     if (slides.length === 0) return
     const isLast = current === slides.length - 1
-    if (isLast) { onEnd?.(); return }
-    const next = current + 1
+    const next   = isLast ? 0 : current + 1
+    if (isLast) onEnd?.()
     setPrev(current)
     setIsExiting(true)
     setTimeout(() => {
