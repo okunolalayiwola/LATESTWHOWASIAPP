@@ -170,7 +170,186 @@ function useVoice(voiceUrl) {
   return { state, toggle }
 }
 
+// ─── Compact profile portrait ─────────────────────────────────────────────────
+// Sits at the top of the right column (no longer a full-bleed hero). Portrait
+// photo + name + dates + relation + status badge. Smooth bottom dissolve so
+// the photo blends into the dark cabinet rather than ending on a hard line.
+function ProfilePortrait({ memorial, memorialId, isOwner, navigate }) {
+  const alive    = memorial.alive !== false
+  const born     = memorial.born || memorial.dob || memorial.birthYear || ''
+  const died     = memorial.died || memorial.dod || memorial.deathYear || ''
+  const age      = calcAge(born, died, memorial.alive)
+  const relation = memorial.relation || memorial.relationship || ''
+  const bYear    = String(born).match(/\d{4}/)?.[0] || born
+  const dYear    = String(died).match(/\d{4}/)?.[0] || died
+
+  return (
+    <Card variant="ink" style={{ padding: 0, overflow: 'hidden', position: 'relative' }}>
+      {/* ── Photo region (portrait, 220px tall) ───────────────────────────── */}
+      <div style={{
+        position: 'relative',
+        height: 220,
+        overflow: 'hidden',
+        background: `linear-gradient(135deg, ${C.ink2} 0%, ${C.ink} 100%)`,
+      }}>
+        {memorial.photo && (
+          <img
+            fetchpriority="high" decoding="async"
+            src={memorial.photo}
+            alt={memorial.name}
+            style={{
+              position: 'absolute', inset: 0,
+              width: '100%', height: '100%',
+              objectFit: 'cover',
+              objectPosition: 'center 22%',
+              filter: 'saturate(.92) contrast(1.04)',
+              animation: 'pp-slowzoom 1.8s ease-out both',
+            }}
+          />
+        )}
+
+        {/* Soft bottom dissolve — photo blends into the meta strip instead of
+            ending on a hard edge. Goes deeper (60% of photo height) and uses
+            multiple stops so the gradient never reads as a band. */}
+        <div style={{
+          position: 'absolute', inset: 'auto 0 0 0', height: '60%',
+          background: `linear-gradient(to bottom,
+            transparent 0%,
+            rgba(21,18,14,.30) 35%,
+            rgba(21,18,14,.75) 75%,
+            ${C.ink} 100%)`,
+          pointerEvents: 'none',
+        }} />
+
+        {/* Top scrim — keeps the back/edit chips legible */}
+        <div style={{
+          position: 'absolute', inset: '0 0 auto 0', height: 110,
+          background: 'linear-gradient(to bottom, rgba(0,0,0,.50), transparent)',
+          pointerEvents: 'none',
+        }} />
+
+        {/* Inner hairline border for "film cell" feel */}
+        <div style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          boxShadow: 'inset 0 0 0 1px rgba(241,236,225,.14)',
+        }} />
+
+        {/* Top controls — back + edit */}
+        <div style={{
+          position: 'absolute', top: 12, left: 12, right: 12,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          zIndex: 3,
+        }}>
+          <button onClick={() => navigate(-1)} aria-label="Back"
+            style={{
+              width: 36, height: 36, borderRadius: 999,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(241,236,225,.92)', color: C.ink,
+              border: '1px solid rgba(21,18,14,.12)',
+              backdropFilter: 'blur(8px)',
+              cursor: 'pointer',
+            }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '6px 11px', borderRadius: 999,
+              fontFamily: MONO, fontSize: 10, letterSpacing: '.20em', textTransform: 'uppercase',
+              color: alive ? '#fff' : C.ink,
+              background: alive ? 'rgba(94,122,62,.65)' : C.saffron,
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(21,18,14,.15)',
+              boxShadow: `0 2px 10px ${alive ? 'rgba(94,122,62,.35)' : 'rgba(243,178,26,.30)'}`,
+              fontWeight: 700,
+            }}>
+              <span style={{
+                width: 6, height: 6, borderRadius: '50%',
+                background: alive ? '#fff' : C.ink,
+                animation: 'pp-livepulse 2s infinite',
+              }} />
+              {alive ? 'Living' : 'In memory'}
+            </span>
+            {isOwner && (
+              <Link to={`/memorial/${memorialId}/edit`} aria-label="Edit"
+                style={{
+                  width: 36, height: 36, borderRadius: 999,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'rgba(241,236,225,.92)', color: C.ink,
+                  border: '1px solid rgba(21,18,14,.12)',
+                  backdropFilter: 'blur(8px)',
+                  textDecoration: 'none',
+                }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              </Link>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Meta strip below the photo ────────────────────────────────────── */}
+      <div style={{ padding: '14px 22px 18px' }}>
+        {relation && (
+          <div style={{
+            fontFamily: MONO, fontSize: 10, letterSpacing: '.28em', textTransform: 'uppercase',
+            color: C.saffron, display: 'inline-flex', alignItems: 'center', gap: 8,
+            marginBottom: 8, fontWeight: 600,
+          }}>
+            <span>◆</span>{relation}
+          </div>
+        )}
+        <h1 style={{
+          fontFamily: DISP, fontWeight: 700,
+          fontSize: 'clamp(24px, 4vw, 36px)', lineHeight: 1.0,
+          letterSpacing: '-.025em',
+          color: C.cream, textTransform: 'lowercase',
+          margin: 0,
+          wordBreak: 'break-word',
+        }}>
+          <StyledName name={memorial.name || ''} />
+        </h1>
+        <div style={{
+          display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 10,
+          fontFamily: MONO, fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase',
+          color: 'rgba(241,236,225,.75)',
+        }}>
+          {bYear && (
+            <span>
+              <strong style={{ fontFamily: DISP, fontWeight: 600, fontSize: 12, color: '#fff' }}>
+                {bYear}
+              </strong>
+              {' — '}{alive ? 'present' : (dYear || '†')}
+            </span>
+          )}
+          {age && (
+            <>
+              <span style={{ color: 'rgba(241,236,225,.3)' }}>·</span>
+              <span>{age} years {alive ? 'young' : 'lived'}</span>
+            </>
+          )}
+          {memorial.location && (
+            <>
+              <span style={{ color: 'rgba(241,236,225,.3)' }}>·</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                {memorial.location}
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes pp-slowzoom { from { transform: scale(1.06); } to { transform: scale(1); } }
+        @keyframes pp-livepulse{ 0%,100%{ opacity:1; transform:scale(1); } 50%{ opacity:.4; transform:scale(.85); } }
+      `}</style>
+    </Card>
+  )
+}
+
 // ─── Hero ─────────────────────────────────────────────────────────────────────
+// (Kept for legacy uses; the main detail page no longer renders this. The
+//  compact ProfilePortrait above lives in the right column instead.)
 function Hero({ memorial, memorialId, isOwner, navigate }) {
   const alive    = memorial.alive !== false
   const born     = memorial.born || memorial.dob || memorial.birthYear || ''
@@ -567,12 +746,35 @@ function LegacyVaultCard({ memorialId, letterCount, sealedCount, hasWill }) {
 // ─── Voice section ────────────────────────────────────────────────────────────
 // Play disc now opens TalkScreen — the cinematic AI conversation overlay.
 function VoiceSection({ memorial, onOpenTalk }) {
-  const hasVoice  = !!(memorial.voiceUrl || memorial.elevenLabsVoiceId)
-  const bio       = memorial.bio || memorial.description || memorial.subtitle || ''
-  const firstName = memorial.name?.split(' ')[0] || 'them'
-  const alive     = memorial.alive !== false
+  const [recordingPlaying, setRecordingPlaying] = useState(false)
+  const voiceRef = useRef(null)
+
+  const hasVoice    = !!(memorial.voiceUrl || memorial.elevenLabsVoiceId)
+  const hasClip     = !!memorial.voiceUrl
+  const bio         = memorial.bio || memorial.description || memorial.subtitle || ''
+  const firstName   = memorial.name?.split(' ')[0] || 'them'
+  const alive       = memorial.alive !== false
 
   if (!hasVoice && !bio && !memorial.name) return null
+
+  // Toggle the original recording (separate from the AI talk screen).
+  function toggleRecording() {
+    if (!hasClip) return
+    if (voiceRef.current && !voiceRef.current.paused) {
+      voiceRef.current.pause()
+      setRecordingPlaying(false)
+      return
+    }
+    if (!voiceRef.current) {
+      voiceRef.current = new Audio(memorial.voiceUrl)
+      voiceRef.current.onended = () => setRecordingPlaying(false)
+      voiceRef.current.onerror = () => setRecordingPlaying(false)
+    }
+    voiceRef.current.play()
+      .then(() => setRecordingPlaying(true))
+      .catch(() => setRecordingPlaying(false))
+  }
+  useEffect(() => () => { voiceRef.current?.pause() }, [])
 
   return (
     <Card variant="ink" style={{ padding: 0, position: 'relative', overflow: 'hidden' }}>
@@ -609,21 +811,60 @@ function VoiceSection({ memorial, onOpenTalk }) {
               ? `A living voice experience drawing on ${firstName}'s life, recorded voice and memories.`
               : `A living memory experience drawing on ${firstName}'s life story and tributes.`}
           </p>
-          <WaveformBars playing={false} />
+          <WaveformBars playing={recordingPlaying} />
+
+          {/* ── Play recording button (the original audio, not the AI clone) ─
+              Only rendered when there's an actual voice file uploaded. The
+              big saffron orb to the right handles the AI talk screen. */}
+          {hasClip && (
+            <button
+              onClick={toggleRecording}
+              aria-label={recordingPlaying ? 'Pause recording' : 'Play original recording'}
+              style={{
+                marginTop: 6,
+                display: 'inline-flex', alignItems: 'center', gap: 9,
+                alignSelf: 'flex-start',
+                padding: '9px 16px', borderRadius: 999,
+                background: recordingPlaying ? C.saffron : 'transparent',
+                color: recordingPlaying ? C.ink : C.saffron2,
+                border: `1px solid ${recordingPlaying ? C.saffron : 'rgba(243,178,26,.45)'}`,
+                cursor: 'pointer',
+                fontFamily: MONO, fontSize: 10.5, letterSpacing: '.20em',
+                textTransform: 'uppercase', fontWeight: 700,
+                boxShadow: recordingPlaying ? '0 6px 16px rgba(243,178,26,.40)' : 'none',
+                transition: 'all .15s',
+              }}
+            >
+              {recordingPlaying ? (
+                <>
+                  <span style={{ display: 'inline-flex', gap: 2, alignItems: 'center' }}>
+                    <span style={{ width: 3, height: 11, background: 'currentColor', borderRadius: 1, animation: 'vs-pulse 1s ease-in-out infinite' }} />
+                    <span style={{ width: 3, height: 11, background: 'currentColor', borderRadius: 1, animation: 'vs-pulse 1s ease-in-out infinite .15s' }} />
+                    <span style={{ width: 3, height: 11, background: 'currentColor', borderRadius: 1, animation: 'vs-pulse 1s ease-in-out infinite .3s' }} />
+                  </span>
+                  Playing recording
+                </>
+              ) : (
+                <>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                  Play recording
+                </>
+              )}
+            </button>
+          )}
         </div>
 
-        {/* Right — saffron play disc → opens TalkScreen */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          {/* Modern saffron play orb per design handoff —
-              flat gradient disc + soft halo + bold white play triangle.
-              No mic icon, no inner highlights, no bevels. */}
+        {/* Right — saffron play disc + caption → opens AI TalkScreen.
+            This is the "Speak to {name}" action. The Play recording button
+            on the left handles the original audio clip. */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
           <motion.button
             whileHover={{ translateY: -2, scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => onOpenTalk?.()}
-            aria-label={`Hear ${firstName}`}
+            aria-label={`Speak to ${firstName}`}
             style={{
-              position: 'relative', width: 160, height: 160, borderRadius: '50%',
+              position: 'relative', width: 144, height: 144, borderRadius: '50%',
               background: 'linear-gradient(155deg, #ffd166 0%, #f3b21a 45%, #d99206 100%)',
               border: 'none',
               boxShadow: [
@@ -642,16 +883,23 @@ function VoiceSection({ memorial, onOpenTalk }) {
             {/* White play triangle — pure CSS borders, no SVG */}
             <span aria-hidden="true" style={{
               width: 0, height: 0,
-              borderLeft:   '32px solid #ffffff',
-              borderTop:    '20px solid transparent',
-              borderBottom: '20px solid transparent',
-              marginLeft: 10,
+              borderLeft:   '28px solid #ffffff',
+              borderTop:    '18px solid transparent',
+              borderBottom: '18px solid transparent',
+              marginLeft: 9,
               filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.18)) drop-shadow(0 0 16px rgba(255,255,255,.30))',
             }} />
           </motion.button>
+          <span style={{
+            fontFamily: MONO, fontSize: 9.5, letterSpacing: '.24em',
+            textTransform: 'uppercase', color: C.saffron, fontWeight: 700,
+          }}>
+            ◆ Speak to {firstName}
+          </span>
         </div>
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes vs-pulse { 0%,100% { transform: scaleY(1); } 50% { transform: scaleY(.35); } }
         @media (max-width: 600px) { .voice-grid { grid-template-columns: 1fr !important; }}`}</style>
     </Card>
   )
@@ -743,15 +991,11 @@ function ReelViewport({ memorial, photos, tributes, onExpand }) {
 }
 
 // ─── Story card ───────────────────────────────────────────────────────────────
-// Now shows just the lead + a short teaser, with two controls:
-//  • Read full bio → opens a scrollable modal with the complete text
-//  • Hear voice    → plays the original recorded/uploaded voice clip (the
-//                    same audio that's used to train the AI clone)
-// Both are no-ops if the memorial has no bio / no voiceUrl.
+// Shows the lead sentence + a short teaser, with a "Read full bio" pill
+// that opens a scrollable modal with the complete text. The original voice
+// recording lives on the VoiceSection card now, not here.
 function StoryCard({ memorial }) {
-  const [showFull,     setShowFull]     = useState(false)
-  const [voicePlaying, setVoicePlaying] = useState(false)
-  const voiceRef = useRef(null)
+  const [showFull, setShowFull] = useState(false)
 
   const bio = memorial.bio || memorial.description || ''
   if (!bio) return null
@@ -768,26 +1012,6 @@ function StoryCard({ memorial }) {
         sentences.slice(1, 3).join(' ').length > 180 ? '…' : ''
       )
     : ''
-
-  const voiceUrl = memorial.voiceUrl
-  function toggleVoice() {
-    if (!voiceUrl) return
-    if (voiceRef.current && !voiceRef.current.paused) {
-      voiceRef.current.pause()
-      setVoicePlaying(false)
-      return
-    }
-    if (!voiceRef.current) {
-      voiceRef.current = new Audio(voiceUrl)
-      voiceRef.current.onended = () => setVoicePlaying(false)
-      voiceRef.current.onerror = () => setVoicePlaying(false)
-    }
-    voiceRef.current.play()
-      .then(() => setVoicePlaying(true))
-      .catch(() => setVoicePlaying(false))
-  }
-  // Stop audio on unmount
-  useEffect(() => () => { voiceRef.current?.pause() }, [])
 
   return (
     <>
@@ -817,7 +1041,7 @@ function StoryCard({ memorial }) {
       </div>
       <style>{`.story-lead::first-letter { color: ${C.saffronDeep}; font-size: 1.1em; }`}</style>
 
-      {/* ── Action row: Read full bio + (optional) Hear voice ───────────── */}
+      {/* ── Action row: Read full bio ───────────────────────────────────── */}
       <div style={{ padding: '4px 22px 18px',
         display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
         <button
@@ -841,42 +1065,6 @@ function StoryCard({ memorial }) {
           Read full bio
         </button>
 
-        {voiceUrl && (
-          <button
-            onClick={toggleVoice}
-            aria-label={voicePlaying ? 'Pause voice' : 'Play voice'}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
-              padding: '10px 18px', borderRadius: 999,
-              background: voicePlaying ? C.saffron : 'transparent',
-              color: voicePlaying ? C.ink : C.saffronDeep,
-              border: `1px solid ${voicePlaying ? C.saffron : 'rgba(217,146,6,.45)'}`,
-              cursor: 'pointer',
-              fontFamily: MONO, fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 600,
-              boxShadow: voicePlaying ? '0 6px 18px rgba(243,178,26,.40)' : 'none',
-              transition: 'all .15s',
-            }}
-          >
-            {voicePlaying ? (
-              <>
-                <span style={{ display: 'inline-flex', gap: 2, alignItems: 'center' }}>
-                  <span style={{ width: 3, height: 11, background: 'currentColor', borderRadius: 1, animation: 'voice-pulse 1s ease-in-out infinite' }} />
-                  <span style={{ width: 3, height: 11, background: 'currentColor', borderRadius: 1, animation: 'voice-pulse 1s ease-in-out infinite .15s' }} />
-                  <span style={{ width: 3, height: 11, background: 'currentColor', borderRadius: 1, animation: 'voice-pulse 1s ease-in-out infinite .3s' }} />
-                </span>
-                Playing
-              </>
-            ) : (
-              <>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M8 5v14l11-7z"/>
-                </svg>
-                Hear voice
-              </>
-            )}
-          </button>
-        )}
-
         <span style={{
           marginLeft: 'auto',
           fontFamily: MONO, fontSize: 11, letterSpacing: '.22em', textTransform: 'uppercase', color: C.muted,
@@ -884,7 +1072,6 @@ function StoryCard({ memorial }) {
           {readMins} min read · {wordCount} words
         </span>
       </div>
-      <style>{`@keyframes voice-pulse { 0%,100% { transform: scaleY(1); } 50% { transform: scaleY(.35); } }`}</style>
     </Card>
 
     {/* ── Full-bio modal ─────────────────────────────────────────────── */}
@@ -2396,15 +2583,15 @@ function MemorialDetailPageInner() {
       '--theme-md': themeMedium,
     }}>
 
-      {/* ── Hero ──────────────────────────────────────────────────────────── */}
-      <Hero memorial={memorial} memorialId={memorialId} isOwner={isOwner} navigate={navigate} />
-
-      {/* ── Body grid ─────────────────────────────────────────────────────── */}
+      {/* ── Body grid (no more full-width hero — the profile portrait now
+            lives at the top of the right column, with the static rail on
+            the left holding everything else) ─────────────────────────── */}
       <div style={{ maxWidth: 1400, margin: '0 auto', padding: '1.5rem 1rem 0' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '400px 1fr', gap: 24, alignItems: 'start' }}
           className="page-grid">
 
-          {/* ── Left rail (sticky) ───────────────────────────────────────── */}
+          {/* ── Left rail (sticky · static): age, tribute/share/QR, life
+                record, vault, join family ──────────────────────────────── */}
           <aside style={{ position: 'sticky', top: '1rem', display: 'flex', flexDirection: 'column', gap: 16 }}>
             <LifeGaugeCard memorial={memorial} tributeCount={tributeCount} candleCount={candleCount} memoryCount={memoryCount} />
             <ActionsCard onTribute={() => setShowTributeForm(true)} onShare={handleShare} onQR={() => setShowQR(true)} />
@@ -2438,60 +2625,50 @@ function MemorialDetailPageInner() {
             )}
           </aside>
 
-          {/* ── Right column ─────────────────────────────────────────────── */}
+          {/* ── Right column — single scroll feed, no tabs ────────────────
+                Order: portrait → cinematic story → bio → voice+speak → photos
+                Then tributes + family follow as continuation sections. */}
           <main style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: '4rem' }}>
-            <TabBar tabs={tabDefs} active={activeTab} onChange={setActiveTab} />
 
-            <AnimatePresence mode="wait">
-              {activeTab === 'Story' && (
-                <motion.div key="story" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                  style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <VoiceSection memorial={memorial} onOpenTalk={() => setShowTalkScreen(true)} />
-                  {isOwner && (
-                    <PersonaProfileCallout memorial={memorial} memorialId={memorialId} />
-                  )}
-                  <ReelViewport memorial={memorial} photos={photos} tributes={tributes} onExpand={() => setShowReelFull(true)} />
-                  {/* Gallery preview — sits directly under the Reel as photo browse entry.
-                      Renders even with no photos so owners always see "Add photos". */}
-                  {(photos.length > 0 || isOwner) && (
-                    <GallerySection photos={photos} memorialId={memorialId} isOwner={isOwner} preview />
-                  )}
-                  <StoryCard memorial={memorial} />
-                  {tributes.length > 0 && (
-                    <TributesSection tributes={tributes} onLike={handleLikeTribute} onDelete={handleDeleteTribute}
-                      isOwner={isOwner} currentUserId={user?.id} memorialId={memorialId}
-                      user={user} userProfile={userProfile} isFamilyMember={isFamilyMember} preview />
-                  )}
-                </motion.div>
-              )}
+            {/* 1. Compact profile portrait (replaces the old full-width hero) */}
+            <ProfilePortrait memorial={memorial} memorialId={memorialId} isOwner={isOwner} navigate={navigate} />
 
-              {activeTab === 'Tributes' && (
-                <motion.div key="tributes" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                  <TributesSection tributes={tributes} onLike={handleLikeTribute} onDelete={handleDeleteTribute}
-                    isOwner={isOwner} currentUserId={user?.id} memorialId={memorialId}
-                    user={user} userProfile={userProfile} isFamilyMember={isFamilyMember} />
-                  {tributes.length === 0 && (
-                    <div style={{ textAlign: 'center', marginTop: 24 }}>
-                      <button onClick={() => setShowTributeForm(true)}
-                        style={{ padding: '12px 28px', borderRadius: 999, border: `1px solid ${C.saffron}`,
-                          background: 'transparent', color: C.saffronDeep, cursor: 'pointer',
-                          fontFamily: MONO, fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase' }}>
-                        Leave the first tribute
-                      </button>
-                    </div>
-                  )}
-                </motion.div>
-              )}
+            {/* 2. Cinematic story — the Life Reel */}
+            <ReelViewport memorial={memorial} photos={photos} tributes={tributes} onExpand={() => setShowReelFull(true)} />
 
-              {activeTab === 'Gallery' && (
-                <motion.div key="gallery" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                  <GallerySection photos={photos} memorialId={memorialId} isOwner={isOwner} />
-                </motion.div>
-              )}
+            {/* 3. Bio — story card with "Read full bio" modal */}
+            <StoryCard memorial={memorial} />
 
-              {activeTab === 'Family' && (isOwner || isFamilyMember) && (
-                <motion.div key="family" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                  style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {/* 4. Voice + Speak to {name} — combined card */}
+            <VoiceSection memorial={memorial} onOpenTalk={() => setShowTalkScreen(true)} />
+            {isOwner && (
+              <PersonaProfileCallout memorial={memorial} memorialId={memorialId} />
+            )}
+
+            {/* 5. Photos — full gallery */}
+            {(photos.length > 0 || isOwner) && (
+              <GallerySection photos={photos} memorialId={memorialId} isOwner={isOwner} />
+            )}
+
+            {/* Tributes follow photos as a continuation feed */}
+            <TributesSection tributes={tributes} onLike={handleLikeTribute} onDelete={handleDeleteTribute}
+              isOwner={isOwner} currentUserId={user?.id} memorialId={memorialId}
+              user={user} userProfile={userProfile} isFamilyMember={isFamilyMember} />
+            {tributes.length === 0 && (
+              <div style={{ textAlign: 'center', marginTop: 4 }}>
+                <button onClick={() => setShowTributeForm(true)}
+                  style={{ padding: '12px 28px', borderRadius: 999, border: `1px solid ${C.saffron}`,
+                    background: 'transparent', color: C.saffronDeep, cursor: 'pointer',
+                    fontFamily: MONO, fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase' }}>
+                  Leave the first tribute
+                </button>
+              </div>
+            )}
+
+            {/* Family circle + private messages — owner / approved family only */}
+            {(isOwner || isFamilyMember) && (
+              <motion.div key="family" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
                   {/* ── Family Circle preview ──────────────────────────────── */}
                   <Card variant="ink" style={{ padding: 0, overflow: 'hidden' }}>
@@ -2718,9 +2895,8 @@ function MemorialDetailPageInner() {
                       userProfile={userProfile}
                     />
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+              </motion.div>
+            )}
           </main>
         </div>
 
