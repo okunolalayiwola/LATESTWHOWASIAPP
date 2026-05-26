@@ -107,7 +107,11 @@ const _schema = i.schema({
       notifyAnniversaries: i.boolean().optional(),
       notifyTributes:      i.boolean().optional(),
       notifyFamily:        i.boolean().optional(),
-      intent:              i.string().optional(),    // 'self' | 'other'
+      intent:              i.string().optional(),
+      // Email-change verification (set when user requests a new email, cleared on confirm)
+      pendingEmail:           i.string().optional(),  // the email the user wants to change TO
+      emailChangeCodeHash:    i.string().optional(),  // SHA-256 of the 6-digit code (never store plain)
+      emailChangeExpiresAt:   i.number().optional(),  // ms epoch — codes valid 15 min    // 'self' | 'other'
     }),
 
     // ─── Photos ──────────────────────────────────────────────────────────────

@@ -320,6 +320,173 @@ const actions = {
     return { json: { ok: true } }
   },
 
+  // ── Contact support (from the Profile → Contact support form) ─────────
+  // Forwards a user's message to admin@whowasi.uk with their account context
+  // so support can identify them without playing detective.
+  async 'contact-support'(body) {
+    const { fromEmail, fromName, subject, message, userId } = body
+    if (!fromEmail || !message?.trim() || !subject?.trim()) {
+      return { status: 400, json: { error: 'Missing fromEmail, subject, or message' } }
+    }
+    const safeSubject = String(subject).slice(0, 120).trim()
+    const safeBody    = String(message).slice(0, 5000).trim()
+    const safeName    = (fromName || '').slice(0, 80).trim() || 'Anonymous user'
+
+    await resend.emails.send({
+      from:     'WHO WAS I <admin@whowasi.uk>',
+      to:       ['admin@whowasi.uk'],
+      reply_to: fromEmail,
+      subject:  `[Support] ${safeSubject}`,
+      html: buildHtml({
+        body: `
+          <h2 style="color:#15120e;margin:0 0 16px">Support request</h2>
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <tr><td style="padding:6px 0;color:#7a7164;width:120px">From</td><td><strong>${safeName}</strong></td></tr>
+            <tr><td style="padding:6px 0;color:#7a7164">Email</td><td><a href="mailto:${fromEmail}" style="color:#d99206">${fromEmail}</a></td></tr>
+            ${userId ? `<tr><td style="padding:6px 0;color:#7a7164">User ID</td><td style="font-family:monospace;font-size:11px;color:#948a7a">${userId}</td></tr>` : ''}
+            <tr><td style="padding:6px 0;color:#7a7164">Subject</td><td>${safeSubject}</td></tr>
+          </table>
+          <div style="margin-top:20px;padding:16px;background:#f7f3ea;border-left:4px solid #f3b21a;border-radius:4px;white-space:pre-wrap;font-size:14px;line-height:1.6;color:#15120e">${safeBody}</div>
+          <p style="margin-top:20px;font-size:12px;color:#7a7164">Reply directly to this email — it goes back to the user.</p>`,
+        footer: 'WHO WAS I · Support inbox · whowasi.uk',
+      }),
+    })
+
+    // Send the user a polite ack so they know the message landed
+    await resend.emails.send({
+      from:     'WHO WAS I <admin@whowasi.uk>',
+      to:       [fromEmail],
+      subject:  `We got your message — WHO WAS I`,
+      html: buildHtml({
+        body: `
+          <h2 style="color:#15120e;margin:0 0 16px">Message received ✦</h2>
+          <p style="font-size:14px;line-height:1.6;color:#4a4030;margin:0 0 16px">
+            Hi <strong>${safeName}</strong>, thanks for reaching out. We've received your message and someone from the team will reply within 1-2 working days.
+          </p>
+          <div style="margin:20px 0;padding:16px;background:#f7f3ea;border-left:4px solid #f3b21a;border-radius:4px;white-space:pre-wrap;font-size:13px;line-height:1.6;color:#15120e">
+            <p style="margin:0 0 8px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#948a7a">Your message · ${safeSubject}</p>
+            ${safeBody}
+          </div>
+          <p style="font-size:12px;color:#7a7164;margin:20px 0 0">If your question is urgent (vault access, login issues, abuse reports), reply to this email and we'll see it sooner.</p>`,
+        footer: 'WHO WAS I · whowasi.uk · You will hear from us soon.',
+      }),
+    })
+
+    return { json: { ok: true } }
+  },
+
+  // ── Change email — Step 1: send a 6-digit code to the NEW email ───────
+  // The code is stored as a SHA-256 hash on profile (never plaintext). The
+  // user submits the code in Step 2 below to confirm they own the address.
+  async 'change-email-send'(body) {
+    const { userId, newEmail } = body
+    if (!userId || !newEmail || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(newEmail)) {
+      return { status: 400, json: { error: 'Missing or invalid userId / newEmail' } }
+    }
+    const target = String(newEmail).toLowerCase().trim()
+
+    // Make sure the target email isn't already in use by another account
+    try {
+      const r = await instantQuery({ $users: { $: { where: { email: target } } } })
+      const existing = r?.$users?.[0]
+      if (existing && existing.id !== userId) {
+        return { status: 409, json: { error: 'That email is already linked to another account.' } }
+      }
+    } catch {}
+
+    // 6-digit code, hashed before storage
+    const { createHash } = await import('node:crypto')
+    const code     = Math.floor(100000 + Math.random() * 900000).toString()
+    const codeHash = createHash('sha256').update(code).digest('hex')
+    const expires  = Date.now() + 15 * 60 * 1000
+
+    // Save to profile via admin SDK
+    const { init } = await import('@instantdb/admin')
+    const adminDb  = init({
+      appId:      process.env.VITE_INSTANT_APP_ID,
+      adminToken: process.env.INSTANTDB_ADMIN_TOKEN,
+    })
+    const pq = await instantQuery({ profiles: { $: { where: { userId } } } })
+    const profile = pq?.profiles?.[0]
+    if (!profile) return { status: 404, json: { error: 'Profile not found' } }
+    await adminDb.transact([
+      adminDb.tx.profiles[profile.id].update({
+        pendingEmail:         target,
+        emailChangeCodeHash:  codeHash,
+        emailChangeExpiresAt: expires,
+      }),
+    ])
+
+    // Send the code to the NEW email (this is the address being verified)
+    await resend.emails.send({
+      from:    'WHO WAS I <admin@whowasi.uk>',
+      to:      [target],
+      subject: 'Confirm your new email — WHO WAS I',
+      html: buildHtml({
+        body: `
+          <h2 style="color:#15120e;margin:0 0 12px">Confirm your new email</h2>
+          <p style="font-size:14px;line-height:1.6;color:#4a4030;margin:0 0 20px">
+            Someone (hopefully you) asked to change the email on their WHO WAS I account to this address.
+            Enter this code in the app to confirm:
+          </p>
+          <div style="background:#fff8e6;border:1px solid #f3b21a40;border-radius:14px;padding:24px;text-align:center;margin:0 0 24px">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:38px;font-weight:800;letter-spacing:10px;color:#d99206">${code}</span>
+          </div>
+          <p style="font-size:12px;color:#7a7164;margin:0">
+            This code expires in 15 minutes. If you didn't request this, ignore this email — nothing will change.
+          </p>`,
+        footer: 'WHO WAS I · whowasi.uk',
+      }),
+    })
+
+    return { json: { ok: true } }
+  },
+
+  // ── Change email — Step 2: verify the code & swap $users.email ────────
+  // Updates the canonical email on $users via admin so future logins,
+  // verifications, and vault PIN resets all go to the new address.
+  async 'change-email-verify'(body) {
+    const { userId, code } = body
+    if (!userId || !code || !/^\d{6}$/.test(String(code))) {
+      return { status: 400, json: { error: 'Missing or invalid code' } }
+    }
+
+    const { createHash } = await import('node:crypto')
+    const codeHash = createHash('sha256').update(String(code)).digest('hex')
+
+    const pq = await instantQuery({ profiles: { $: { where: { userId } } } })
+    const profile = pq?.profiles?.[0]
+    if (!profile) return { status: 404, json: { error: 'Profile not found' } }
+
+    if (!profile.pendingEmail || !profile.emailChangeCodeHash) {
+      return { status: 400, json: { error: 'No pending email change for this account.' } }
+    }
+    if (profile.emailChangeExpiresAt && profile.emailChangeExpiresAt < Date.now()) {
+      return { status: 400, json: { error: 'The code has expired. Please request a new one.' } }
+    }
+    if (profile.emailChangeCodeHash !== codeHash) {
+      return { status: 400, json: { error: 'That code is incorrect. Check the email and try again.' } }
+    }
+
+    // Update $users.email via admin SDK, clear pending fields on profile
+    const { init } = await import('@instantdb/admin')
+    const adminDb  = init({
+      appId:      process.env.VITE_INSTANT_APP_ID,
+      adminToken: process.env.INSTANTDB_ADMIN_TOKEN,
+    })
+
+    await adminDb.transact([
+      adminDb.tx.$users[userId].update({ email: profile.pendingEmail }),
+      adminDb.tx.profiles[profile.id].update({
+        pendingEmail:         null,
+        emailChangeCodeHash:  null,
+        emailChangeExpiresAt: null,
+      }),
+    ])
+
+    return { json: { ok: true, newEmail: profile.pendingEmail } }
+  },
+
   // ── Report tribute ──────────────────────────────────────────────────────
   async 'report-tribute'(body) {
     const { tributeId, tributeText, authorName, memorialName, reason, note } = body

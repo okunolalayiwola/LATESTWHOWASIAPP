@@ -17,6 +17,9 @@ import { uploadImage } from '../lib/storage'
 import { COUNTRIES, countryFlag, findCountry } from '../lib/countries'
 import { SkeletonProfile, SkeletonStats, SkeletonListItem } from '../components/ui/Skeleton'
 import ToggleRow from '../components/ui/ToggleRow'
+import { useToast } from '../contexts/ToastContext'
+import ContactSupportModal from '../components/ui/ContactSupportModal'
+import EmailChangeModal    from '../components/ui/EmailChangeModal'
 
 // ─── Plan config ──────────────────────────────────────────────────────────────
 
@@ -239,6 +242,7 @@ function EditNameModal({ profile, onSave, onClose }) {
 
 export default function ProfilePage() {
   const navigate        = useNavigate()
+  const { toast }       = useToast()
   const { user, isLoading: authLoading } = db.useAuth()
   const avatarRef       = useRef()
   const [uploading,     setUploading]     = useState(false)
@@ -246,6 +250,8 @@ export default function ProfilePage() {
   const [uploadError,   setUploadError]   = useState('')
   const [showEditName,    setShowEditName]    = useState(false)
   const [showEditCountry, setShowEditCountry] = useState(false)
+  const [showEditEmail,   setShowEditEmail]   = useState(false)
+  const [showContact,     setShowContact]     = useState(false)
   const [confirmSignOut,  setConfirmSignOut]  = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting,      setDeleting]      = useState(false)
@@ -375,7 +381,7 @@ export default function ProfilePage() {
       await db.auth.signOut()
       navigate('/')
     } catch (err) {
-      alert('Could not delete account. Please contact support.')
+      toast.error('Could not delete account. Please contact support.')
     } finally {
       setDeleting(false)
       setConfirmDelete(false)
@@ -723,9 +729,8 @@ export default function ProfilePage() {
               value={profile?.country || 'Not set'}
               onClick={() => setShowEditCountry(true)}
             />
-            <SettingsRow icon="📧" label="Email address" value={user?.email}      onClick={() => {}} />
+            <SettingsRow icon="📧" label="Email address" value={user?.email}      onClick={() => setShowEditEmail(true)} />
             <SettingsRow icon="🔒" label="Privacy settings"                       onClick={() => navigate('/settings')} />
-            <SettingsRow icon="🌍" label="Language"         value="English"       onClick={() => {}} />
           </div>
         </div>
 
@@ -751,7 +756,7 @@ export default function ProfilePage() {
           <div className="metal-card rounded-2xl overflow-hidden">
             <SettingsRow icon="📄" label="Privacy Policy" onClick={() => navigate('/privacy')} />
             <SettingsRow icon="📋" label="Terms of Service" onClick={() => navigate('/terms')} />
-            <SettingsRow icon="✉" label="Contact support" value="admin@whowasi.uk" onClick={() => {}} />
+            <SettingsRow icon="✉" label="Contact support & FAQ"                  onClick={() => setShowContact(true)} />
           </div>
         </div>
 
@@ -810,7 +815,7 @@ export default function ProfilePage() {
 
       </div>
 
-      {/* ── Edit name modal ──────────────────────────────────────────────── */}
+      {/* ── Edit modals ──────────────────────────────────────────────────── */}
       <AnimatePresence>
         {showEditName && (
           <EditNameModal
@@ -824,6 +829,25 @@ export default function ProfilePage() {
             current={profile?.countryCode}
             onSave={saveCountry}
             onClose={() => setShowEditCountry(false)}
+          />
+        )}
+        {showEditEmail && (
+          <EmailChangeModal
+            user={user}
+            currentEmail={user?.email}
+            onClose={() => setShowEditEmail(false)}
+            onSuccess={() => {
+              // $users.email updated server-side; db.useAuth re-syncs and the
+              // header shows the new address shortly after this toast.
+              toast.success('Email changed ✦ Future sign-ins and vault resets now use the new address.')
+            }}
+          />
+        )}
+        {showContact && (
+          <ContactSupportModal
+            user={user}
+            profile={profile}
+            onClose={() => setShowContact(false)}
           />
         )}
       </AnimatePresence>

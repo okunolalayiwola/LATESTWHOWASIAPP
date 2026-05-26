@@ -90,6 +90,10 @@ const _schema = i.schema({
       notifyTributes:      i.boolean().optional(),
       notifyFamily:        i.boolean().optional(),
       intent:              i.string().optional(),   // 'self' | 'other'
+      // Email-change verification flow
+      pendingEmail:           i.string().optional(),
+      emailChangeCodeHash:    i.string().optional(),
+      emailChangeExpiresAt:   i.number().optional(),
     }),
 
     photos: i.entity({
