@@ -461,12 +461,62 @@ function PhotoSlide({ media, moveIdx, memorial, dateRaw, caption, tribute, showT
         />
       )}
 
-      {/* Cinematic vignettes */}
+      {/* ── Cinematic FX layers ─────────────────────────────────────────────
+          Stacked, all pointer-events:none, all behind the text overlays.
+          Combined they give the slide the feel of a film projection —
+          breathing vignette, soft warm light leak that drifts across, a
+          subtle bloom, plus the original edge gradients for legibility. */}
+
+      {/* Base vignette */}
       <div style={{ position:'absolute',inset:0,background:'radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.5) 100%)',pointerEvents:'none' }} />
-      <div style={{ position:'absolute',insetInline:0,top:0,height:'150px',background:'linear-gradient(to bottom, rgba(0,0,0,0.55), transparent)',pointerEvents:'none' }} />
+
+      {/* Breathing inner glow — gently pulses warm at slide center to
+          mimic a projector lamp warming up. Keyframes defined below. */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: [0, 0.35, 0.2, 0.35, 0] }}
+        transition={{ delay: 0.15, duration: 3.2, ease: 'easeInOut' }}
+        style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          background: 'radial-gradient(ellipse 70% 60% at 50% 45%, rgba(255,196,120,.18), transparent 65%)',
+          mixBlendMode: 'screen',
+        }}
+      />
+
+      {/* Light leak — a warm streak that drifts across the frame, once
+          per slide entry. Mimics 16mm gate flare. */}
+      <motion.div
+        initial={{ opacity: 0, x: '-25%' }}
+        animate={{ opacity: [0, 0.45, 0.32, 0], x: '40%' }}
+        transition={{ delay: 0.25, duration: 2.4, ease: 'easeOut' }}
+        style={{
+          position: 'absolute',
+          top: '-10%', bottom: '-10%',
+          left: 0,
+          width: '55%',
+          pointerEvents: 'none',
+          background: 'linear-gradient(95deg, transparent 0%, rgba(255,196,120,.22) 30%, rgba(255,235,180,.35) 50%, rgba(255,196,120,.18) 70%, transparent 100%)',
+          filter: 'blur(28px)',
+          mixBlendMode: 'screen',
+          transform: 'skewX(-12deg)',
+        }}
+      />
+
+      {/* Top/bottom dramatic letterbox-ish gradients (the dark bars under text) */}
+      <div style={{ position:'absolute',insetInline:0,top:0,height:'150px',background:'linear-gradient(to bottom, rgba(0,0,0,0.65), transparent)',pointerEvents:'none' }} />
       <div style={{ position:'absolute',insetInline:0,bottom:0,height:'260px',background:'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.5) 50%, transparent 100%)',pointerEvents:'none' }} />
-      <div style={{ position:'absolute',insetBlock:0,left:0,width:'80px',background:'linear-gradient(to right, rgba(0,0,0,0.35), transparent)',pointerEvents:'none' }} />
-      <div style={{ position:'absolute',insetBlock:0,right:0,width:'80px',background:'linear-gradient(to left, rgba(0,0,0,0.35), transparent)',pointerEvents:'none' }} />
+      <div style={{ position:'absolute',insetBlock:0,left:0,width:'80px',background:'linear-gradient(to right, rgba(0,0,0,0.40), transparent)',pointerEvents:'none' }} />
+      <div style={{ position:'absolute',insetBlock:0,right:0,width:'80px',background:'linear-gradient(to left, rgba(0,0,0,0.40), transparent)',pointerEvents:'none' }} />
+
+      {/* Subtle bloom at the corners — gives the photo "weight" sitting in a
+          dark cabinet. */}
+      <div style={{
+        position:'absolute', inset:0, pointerEvents:'none',
+        background:
+          'radial-gradient(circle at 0% 100%, rgba(243,178,26,.08), transparent 35%),' +
+          'radial-gradient(circle at 100% 0%, rgba(255,180,90,.06), transparent 30%)',
+        mixBlendMode: 'screen',
+      }} />
 
       {/* ── Cinematic tribute overlay ─────────────────────────────────────
           One tribute per photo, randomly assigned in buildStoryboard from
@@ -477,15 +527,19 @@ function PhotoSlide({ media, moveIdx, memorial, dateRaw, caption, tribute, showT
       {showText && !showOpeningTitle && tribute?.text && (
         <motion.div
           key={`trib-${moveIdx}`}
-          initial={{ opacity: 0, y: 14, filter: 'blur(6px)' }}
-          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-          transition={{ delay: 0.45, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+          // Enter: blurred + lifted + slightly larger so it falls into focus.
+          // Hold: subtle upward parallax drift while the photo Ken-Burns
+          // beneath, so the text feels weightless and the frame feels alive.
+          initial={{ opacity: 0, y: 24, filter: 'blur(8px)', scale: 1.03 }}
+          animate={{ opacity: [0, 1, 1, 0.9], y: [24, 0, -6, -10], filter: ['blur(8px)','blur(0px)','blur(0px)','blur(0px)'], scale: [1.03, 1, 1, 1] }}
+          transition={{ delay: 0.45, duration: 2.5, times: [0, 0.4, 0.85, 1], ease: [0.16, 1, 0.3, 1] }}
           className="absolute inset-x-0 z-20 pointer-events-none"
           style={{
             top: '50%',
             transform: 'translateY(-50%)',
             padding: '0 8%',
             textAlign: 'center',
+            willChange: 'transform, opacity, filter',
           }}
         >
           {/* Decorative top mark */}

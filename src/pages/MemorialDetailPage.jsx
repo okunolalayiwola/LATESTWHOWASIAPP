@@ -743,20 +743,57 @@ function ReelViewport({ memorial, photos, tributes, onExpand }) {
 }
 
 // ─── Story card ───────────────────────────────────────────────────────────────
+// Now shows just the lead + a short teaser, with two controls:
+//  • Read full bio → opens a scrollable modal with the complete text
+//  • Hear voice    → plays the original recorded/uploaded voice clip (the
+//                    same audio that's used to train the AI clone)
+// Both are no-ops if the memorial has no bio / no voiceUrl.
 function StoryCard({ memorial }) {
+  const [showFull,     setShowFull]     = useState(false)
+  const [voicePlaying, setVoicePlaying] = useState(false)
+  const voiceRef = useRef(null)
+
   const bio = memorial.bio || memorial.description || ''
   if (!bio) return null
 
   const sentences = bio.split(/(?<=[.!?])\s+/)
   const lead      = sentences[0] || bio.slice(0, 120)
-  const body      = sentences.length > 1 ? sentences.slice(1).join(' ') : ''
   const wordCount = bio.split(/\s+/).filter(Boolean).length
   const readMins  = Math.max(1, Math.ceil(wordCount / 200))
 
+  // Short teaser — second + third sentence (if present), otherwise none.
+  // Keeps the card to a single screenful and pushes the rest into the modal.
+  const teaser = sentences.length > 1
+    ? sentences.slice(1, 3).join(' ').slice(0, 180) + (
+        sentences.slice(1, 3).join(' ').length > 180 ? '…' : ''
+      )
+    : ''
+
+  const voiceUrl = memorial.voiceUrl
+  function toggleVoice() {
+    if (!voiceUrl) return
+    if (voiceRef.current && !voiceRef.current.paused) {
+      voiceRef.current.pause()
+      setVoicePlaying(false)
+      return
+    }
+    if (!voiceRef.current) {
+      voiceRef.current = new Audio(voiceUrl)
+      voiceRef.current.onended = () => setVoicePlaying(false)
+      voiceRef.current.onerror = () => setVoicePlaying(false)
+    }
+    voiceRef.current.play()
+      .then(() => setVoicePlaying(true))
+      .catch(() => setVoicePlaying(false))
+  }
+  // Stop audio on unmount
+  useEffect(() => () => { voiceRef.current?.pause() }, [])
+
   return (
+    <>
     <Card variant="paper" style={{ padding: 0, background: C.cream2 }}>
       <div style={{ padding: '18px 22px', borderBottom: '1px solid rgba(21,18,14,.08)',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <Label>Life story</Label>
         <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.22em', textTransform: 'uppercase', color: C.muted }}>
           written · {memorial.relation || 'family'} · {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}
@@ -769,18 +806,232 @@ function StoryCard({ memorial }) {
         <p className="story-lead" style={{
           fontFamily: SERIF, fontWeight: 300, fontStyle: 'italic',
           fontSize: 28, lineHeight: 1.22,
-          color: C.ink, margin: '0 0 16px',
+          color: C.ink, margin: '0 0 14px',
           letterSpacing: '-.01em',
         }}>{lead}</p>
-        {body && <p style={{ fontFamily: DISP, fontSize: 15, lineHeight: 1.75, color: C.ink2, margin: 0 }}>{body}</p>}
+        {teaser && (
+          <p style={{ fontFamily: DISP, fontSize: 15, lineHeight: 1.7, color: C.ink2, margin: 0 }}>
+            {teaser}
+          </p>
+        )}
       </div>
       <style>{`.story-lead::first-letter { color: ${C.saffronDeep}; font-size: 1.1em; }`}</style>
-      <div style={{ padding: '14px 22px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        fontFamily: MONO, fontSize: 11, letterSpacing: '.22em', textTransform: 'uppercase', color: C.muted }}>
-        <span style={{ color: C.ink }}>edition · 01 / 01</span>
-        <span>{readMins} min read · {wordCount} words</span>
+
+      {/* ── Action row: Read full bio + (optional) Hear voice ───────────── */}
+      <div style={{ padding: '4px 22px 18px',
+        display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button
+          onClick={() => setShowFull(true)}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            padding: '10px 18px', borderRadius: 999,
+            background: C.ink, color: C.cream,
+            border: 'none', cursor: 'pointer',
+            fontFamily: MONO, fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 600,
+            boxShadow: '0 6px 16px rgba(21,18,14,.18)',
+            transition: 'transform .15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)' }}
+          onMouseLeave={e => { e.currentTarget.style.transform = '' }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+          </svg>
+          Read full bio
+        </button>
+
+        {voiceUrl && (
+          <button
+            onClick={toggleVoice}
+            aria-label={voicePlaying ? 'Pause voice' : 'Play voice'}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '10px 18px', borderRadius: 999,
+              background: voicePlaying ? C.saffron : 'transparent',
+              color: voicePlaying ? C.ink : C.saffronDeep,
+              border: `1px solid ${voicePlaying ? C.saffron : 'rgba(217,146,6,.45)'}`,
+              cursor: 'pointer',
+              fontFamily: MONO, fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 600,
+              boxShadow: voicePlaying ? '0 6px 18px rgba(243,178,26,.40)' : 'none',
+              transition: 'all .15s',
+            }}
+          >
+            {voicePlaying ? (
+              <>
+                <span style={{ display: 'inline-flex', gap: 2, alignItems: 'center' }}>
+                  <span style={{ width: 3, height: 11, background: 'currentColor', borderRadius: 1, animation: 'voice-pulse 1s ease-in-out infinite' }} />
+                  <span style={{ width: 3, height: 11, background: 'currentColor', borderRadius: 1, animation: 'voice-pulse 1s ease-in-out infinite .15s' }} />
+                  <span style={{ width: 3, height: 11, background: 'currentColor', borderRadius: 1, animation: 'voice-pulse 1s ease-in-out infinite .3s' }} />
+                </span>
+                Playing
+              </>
+            ) : (
+              <>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+                Hear voice
+              </>
+            )}
+          </button>
+        )}
+
+        <span style={{
+          marginLeft: 'auto',
+          fontFamily: MONO, fontSize: 11, letterSpacing: '.22em', textTransform: 'uppercase', color: C.muted,
+        }}>
+          {readMins} min read · {wordCount} words
+        </span>
       </div>
+      <style>{`@keyframes voice-pulse { 0%,100% { transform: scaleY(1); } 50% { transform: scaleY(.35); } }`}</style>
     </Card>
+
+    {/* ── Full-bio modal ─────────────────────────────────────────────── */}
+    <AnimatePresence>
+      {showFull && (
+        <FullBioModal
+          memorial={memorial}
+          bio={bio}
+          wordCount={wordCount}
+          readMins={readMins}
+          onClose={() => setShowFull(false)}
+        />
+      )}
+    </AnimatePresence>
+    </>
+  )
+}
+
+// ─── Full-bio modal ───────────────────────────────────────────────────────────
+// Scrollable popup for the entire bio. Closes on backdrop click, the X
+// button, or Escape. Body scroll is locked while the modal is open.
+function FullBioModal({ memorial, bio, wordCount, readMins, onClose }) {
+  // Lock background scroll while modal is up
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    function onKey(e) { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = prev
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [onClose])
+
+  // Split into paragraphs on double-newlines for readable formatting.
+  // Falls back to one paragraph for bios written as a single block.
+  const paragraphs = bio.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean)
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 200,
+        background: 'rgba(21,18,14,.78)',
+        backdropFilter: 'blur(6px)',
+        WebkitBackdropFilter: 'blur(6px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 20,
+      }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 16, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 16, scale: 0.98 }}
+        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: C.cream2,
+          borderRadius: 24,
+          maxWidth: 720,
+          width: '100%',
+          maxHeight: 'calc(100vh - 40px)',
+          display: 'flex', flexDirection: 'column',
+          overflow: 'hidden',
+          boxShadow: '0 30px 80px rgba(21,18,14,.45)',
+          border: '1px solid rgba(21,18,14,.10)',
+        }}
+      >
+        {/* Sticky header */}
+        <div style={{
+          padding: '18px 24px',
+          borderBottom: '1px solid rgba(21,18,14,.10)',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16,
+          background: C.cream2,
+          flexShrink: 0,
+        }}>
+          <div>
+            <div style={{
+              fontFamily: MONO, fontSize: 10.5, fontWeight: 600,
+              letterSpacing: '.22em', textTransform: 'uppercase',
+              color: C.muted, marginBottom: 4,
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+            }}>
+              <span style={{ color: C.saffronDeep }}>◆</span> Life story · {memorial.name?.split(' ')[0] || 'memorial'}
+            </div>
+            <div style={{
+              fontFamily: MONO, fontSize: 10, letterSpacing: '.18em',
+              textTransform: 'uppercase', color: C.muted2,
+            }}>
+              {readMins} min read · {wordCount} words
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              width: 36, height: 36, borderRadius: 999, flexShrink: 0,
+              background: C.ink, color: C.cream,
+              border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'transform .15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.06)' }}
+            onMouseLeave={e => { e.currentTarget.style.transform = '' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Scrollable body */}
+        <div style={{
+          padding: '28px 32px 32px',
+          overflowY: 'auto',
+          flex: 1,
+          // Soft cream gradient at the top and bottom to hint at more content
+          background: `linear-gradient(${C.cream2}, ${C.cream2}) padding-box`,
+        }}>
+          {paragraphs.map((p, i) => (
+            <p
+              key={i}
+              className={i === 0 ? 'modal-bio-lead' : ''}
+              style={
+                i === 0 ? {
+                  fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300,
+                  fontSize: 22, lineHeight: 1.4, color: C.ink,
+                  margin: '0 0 18px',
+                  letterSpacing: '-.005em',
+                } : {
+                  fontFamily: DISP, fontSize: 15.5, lineHeight: 1.75,
+                  color: C.ink2,
+                  margin: '0 0 14px',
+                }
+              }
+            >
+              {p}
+            </p>
+          ))}
+        </div>
+        <style>{`.modal-bio-lead::first-letter { color: ${C.saffronDeep}; font-size: 1.15em; }`}</style>
+      </motion.div>
+    </motion.div>
   )
 }
 

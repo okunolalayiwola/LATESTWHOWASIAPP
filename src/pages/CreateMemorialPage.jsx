@@ -226,6 +226,10 @@ const VISIBILITY_OPTIONS = [
 ]
 
 // ─── Voice Recorder Component ─────────────────────────────────────────────────
+// Audio limits — voice cloning works well with ~30–60s of clean speech, and
+// long uploads waste storage + slow down clone training. We cap both paths.
+const VOICE_MAX_SECONDS = 120                 // 2 min recording auto-stop
+const VOICE_MAX_BYTES   = 15 * 1024 * 1024    // 15 MB upload ceiling
 
 function VoiceRecorder({ form, setForm }) {
   const [recording, setRecording] = useState(false)
@@ -282,7 +286,19 @@ function VoiceRecorder({ form, setForm }) {
       setVoiceError('')
       setTimer(0)
       timerRef.current = setInterval(() => {
-        setTimer(t => t + 1)
+        setTimer(t => {
+          const next = t + 1
+          // Hard cap — stop the recorder once we hit the limit so the
+          // mic doesn't keep capturing past what we can actually use.
+          if (next >= VOICE_MAX_SECONDS) {
+            if (mediaRecorder.current && mediaRecorder.current.state !== 'inactive') {
+              mediaRecorder.current.stop()
+            }
+            setRecording(false)
+            clearInterval(timerRef.current)
+          }
+          return next
+        })
       }, 1000)
     } catch (err) {
       console.error('[mic access]', err)
@@ -311,6 +327,18 @@ function VoiceRecorder({ form, setForm }) {
   function handleFileUpload(e) {
     const file = e.target.files[0]
     if (!file) return
+    // Pre-flight: reject files that are obviously too big before we tie up
+    // a Cloudinary slot uploading them.
+    if (file.size > VOICE_MAX_BYTES) {
+      const mb = (file.size / 1024 / 1024).toFixed(1)
+      setVoiceError(
+        `That file is ${mb} MB — please upload audio under ${(VOICE_MAX_BYTES / 1024 / 1024) | 0} MB. ` +
+        `A 1–2 minute MP3 or M4A is ideal.`
+      )
+      // Reset the input so picking the same file again triggers onChange
+      if (fileRef.current) fileRef.current.value = ''
+      return
+    }
     setUploading(true)
     setVoiceError('')
     uploadAudio(file, setUploadPct, 'memorials/voice')
@@ -338,7 +366,7 @@ function VoiceRecorder({ form, setForm }) {
         Voice recording
       </label>
       <p className="text-[0.6rem] text-white/30 mb-3 leading-relaxed">
-        Record a message in their voice, or upload an existing audio clip. Visitors can hear it on the memorial page.
+        Record a message in their voice, or upload an existing audio clip — up to {Math.floor(VOICE_MAX_SECONDS / 60)} minutes or {(VOICE_MAX_BYTES / 1024 / 1024) | 0} MB. Visitors can play it on the memorial page; we also use it to train the AI voice.
       </p>
 
       {recorded ? (
@@ -370,7 +398,9 @@ function VoiceRecorder({ form, setForm }) {
                 </motion.div>
                 <div className="flex-1">
                   <div className="text-sm text-white font-medium">Recording...</div>
-                  <div className="text-xs text-red-400/70 font-mono">{formatTime(timer)}</div>
+                  <div className="text-xs text-red-400/70 font-mono">
+                    {formatTime(timer)} <span className="text-white/30"> / {formatTime(VOICE_MAX_SECONDS)}</span>
+                  </div>
                 </div>
                 <button onClick={stopRecording} className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0 hover:bg-red-600 transition-colors">
                   <div className="w-3 h-3 bg-white" />
