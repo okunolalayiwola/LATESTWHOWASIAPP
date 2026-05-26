@@ -236,13 +236,13 @@ function ProfilePortrait({ memorial, memorialId, isOwner, navigate }) {
 
   return (
     <Card variant="ink" style={{ padding: 0, overflow: 'hidden', position: 'relative' }}>
-      {/* ── Photo region — generous portrait so the face actually shows.
-            Was 220px (chins/foreheads cropped); now 320px with a more
-            forgiving object-position (center 30%) that frames typical
-            headshots without cutting the top of the head. ───────────── */}
+      {/* ── Full-bleed portrait — text sits ON the photo. No meta strip,
+            no demarcation line: the name, dates and relation are
+            absolutely positioned over the lower third of the image. Taller
+            (480px) so there's room for the photo AND the type to breathe. */}
       <div style={{
         position: 'relative',
-        height: 320,
+        height: 480,
         overflow: 'hidden',
         background: `linear-gradient(135deg, ${C.ink2} 0%, ${C.ink} 100%)`,
       }}>
@@ -266,23 +266,23 @@ function ProfilePortrait({ memorial, memorialId, isOwner, navigate }) {
           />
         )}
 
-        {/* Multi-stop bottom dissolve — was 4 stops, now 5 for a longer
-            visual handoff into the meta strip. The cubic curve makes the
-            transition feel more like film falloff than a CSS gradient. */}
+        {/* Deeper bottom scrim — text-on-photo demands more legibility,
+            so the gradient pulls darker at the bottom but stays subtle
+            through the upper half (face area). */}
         <div style={{
-          position: 'absolute', inset: 'auto 0 0 0', height: '55%',
+          position: 'absolute', inset: 'auto 0 0 0', height: '70%',
           background: `linear-gradient(to bottom,
             transparent 0%,
-            rgba(21,18,14,.12) 25%,
-            rgba(21,18,14,.45) 55%,
-            rgba(21,18,14,.82) 80%,
-            ${C.ink} 100%)`,
+            rgba(21,18,14,.10) 25%,
+            rgba(21,18,14,.40) 50%,
+            rgba(21,18,14,.78) 78%,
+            rgba(21,18,14,.95) 100%)`,
           pointerEvents: 'none',
         }} />
 
         {/* Top scrim — keeps the back/edit chips legible */}
         <div style={{
-          position: 'absolute', inset: '0 0 auto 0', height: 130,
+          position: 'absolute', inset: '0 0 auto 0', height: 140,
           background: 'linear-gradient(to bottom, rgba(0,0,0,.55), transparent 80%)',
           pointerEvents: 'none',
         }} />
@@ -290,7 +290,7 @@ function ProfilePortrait({ memorial, memorialId, isOwner, navigate }) {
         {/* Editorial vignette — soft corner darkening for depth */}
         <div style={{
           position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: 'radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.32) 100%)',
+          background: 'radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,.30) 100%)',
         }} />
 
         {/* Inner hairline border for "film cell" feel */}
@@ -350,57 +350,66 @@ function ProfilePortrait({ memorial, memorialId, isOwner, navigate }) {
             )}
           </div>
         </div>
-      </div>
 
-      {/* ── Meta strip below the photo ────────────────────────────────────── */}
-      <div style={{ padding: '14px 22px 18px' }}>
-        {relation && (
-          <div style={{
-            fontFamily: MONO, fontSize: 10, letterSpacing: '.28em', textTransform: 'uppercase',
-            color: C.saffron, display: 'inline-flex', alignItems: 'center', gap: 8,
-            marginBottom: 8, fontWeight: 600,
-          }}>
-            <span>◆</span>{relation}
-          </div>
-        )}
-        <h1 style={{
-          fontFamily: DISP, fontWeight: 700,
-          fontSize: 'clamp(24px, 4vw, 36px)', lineHeight: 1.0,
-          letterSpacing: '-.025em',
-          color: C.cream, textTransform: 'lowercase',
-          margin: 0,
-          wordBreak: 'break-word',
-        }}>
-          <StyledName name={memorial.name || ''} />
-        </h1>
+        {/* ── Name + dates overlay — sits ON the photo, no separator line.
+              Anchored to the bottom of the image and reads against the
+              deep scrim above. */}
         <div style={{
-          display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 10,
-          fontFamily: MONO, fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase',
-          color: 'rgba(241,236,225,.75)',
+          position: 'absolute', left: 0, right: 0, bottom: 0,
+          padding: '0 28px 28px',
+          zIndex: 3,
         }}>
-          {bYear && (
-            <span>
-              <strong style={{ fontFamily: DISP, fontWeight: 600, fontSize: 12, color: '#fff' }}>
-                {bYear}
-              </strong>
-              {' — '}{alive ? 'present' : (dYear || '†')}
-            </span>
+          {relation && (
+            <div style={{
+              fontFamily: MONO, fontSize: 10, letterSpacing: '.28em', textTransform: 'uppercase',
+              color: C.saffron, display: 'inline-flex', alignItems: 'center', gap: 8,
+              marginBottom: 12, fontWeight: 700,
+              textShadow: '0 2px 8px rgba(0,0,0,.55)',
+            }}>
+              <span>◆</span>{relation}
+            </div>
           )}
-          {age && (
-            <>
-              <span style={{ color: 'rgba(241,236,225,.3)' }}>·</span>
-              <span>{age} years {alive ? 'young' : 'lived'}</span>
-            </>
-          )}
-          {memorial.location && (
-            <>
-              <span style={{ color: 'rgba(241,236,225,.3)' }}>·</span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                {memorial.location}
+          <h1 style={{
+            fontFamily: DISP, fontWeight: 700,
+            fontSize: 'clamp(32px, 5vw, 52px)', lineHeight: .95,
+            letterSpacing: '-.035em',
+            color: '#fff', textTransform: 'lowercase',
+            margin: 0,
+            wordBreak: 'break-word',
+            textShadow: '0 4px 24px rgba(0,0,0,.55)',
+          }}>
+            <StyledName name={memorial.name || ''} />
+          </h1>
+          <div style={{
+            display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 14,
+            fontFamily: MONO, fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase',
+            color: 'rgba(255,255,255,.82)',
+            textShadow: '0 2px 8px rgba(0,0,0,.55)',
+          }}>
+            {bYear && (
+              <span>
+                <strong style={{ fontFamily: DISP, fontWeight: 600, fontSize: 12.5, color: '#fff' }}>
+                  {bYear}
+                </strong>
+                {' — '}{alive ? 'present' : (dYear || '†')}
               </span>
-            </>
-          )}
+            )}
+            {age && (
+              <>
+                <span style={{ color: 'rgba(255,255,255,.4)' }}>·</span>
+                <span>{age} years {alive ? 'young' : 'lived'}</span>
+              </>
+            )}
+            {memorial.location && (
+              <>
+                <span style={{ color: 'rgba(255,255,255,.4)' }}>·</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  {memorial.location}
+                </span>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1487,116 +1496,124 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
   const shown    = photos.slice(0, PREVIEW_COUNT)
   const overflow = photos.length - shown.length
 
+  // ── Borderless header used by every state ────────────────────────────
+  // Gallery now sits directly on the page background — no card wrapper,
+  // no tile borders. Just an eyebrow, a count, and the photos.
+  const Header = () => (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      gap: 12, flexWrap: 'wrap',
+      padding: '0 4px 14px',
+    }}>
+      <Label>Gallery</Label>
+      <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.22em', textTransform: 'uppercase',
+        color: C.muted }}>
+        {photos.length} photo{photos.length !== 1 ? 's' : ''}
+      </span>
+    </div>
+  )
+
   // Empty + guest → small inline tease so the section doesn't vanish
   if (photos.length === 0 && !isOwner) {
     return (
-      <Card variant="ink" style={{ padding: '24px', textAlign: 'center' }}>
-        <div style={{ fontSize: 28, marginBottom: 10, color: 'rgba(241,236,225,.18)' }}>✿</div>
-        <p style={{ fontFamily: DISP, color: 'rgba(241,236,225,.45)', fontSize: 13, margin: 0 }}>
-          No photos in the gallery yet.
-        </p>
-      </Card>
+      <section style={{ padding: '12px 2px 4px' }}>
+        <Header />
+        <div style={{ padding: '32px 0', textAlign: 'center' }}>
+          <div style={{ fontSize: 28, marginBottom: 10, color: 'rgba(21,18,14,.20)' }}>✿</div>
+          <p style={{ fontFamily: DISP, color: C.muted, fontSize: 13, margin: 0 }}>
+            No photos in the gallery yet.
+          </p>
+        </div>
+      </section>
     )
   }
 
-  // Owner with no photos — friendly upload card matching the rest of the page
+  // Owner with no photos — friendly upload prompt, borderless
   if (photos.length === 0 && isOwner) {
     return (
-      <Card variant="ink" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ padding: '18px 24px 14px',
-          borderBottom: '1px solid rgba(241,236,225,.06)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Label onInk>Gallery</Label>
-          <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.22em', textTransform: 'uppercase',
-            color: 'rgba(241,236,225,.3)' }}>0 photos</span>
-        </div>
+      <section style={{ padding: '12px 2px 4px' }}>
+        <Header />
         <div onClick={() => fileRef.current?.click()}
-          style={{ margin: 18, padding: '28px 0', borderRadius: 18, cursor: 'pointer',
-            border: '2px dashed rgba(243,178,26,.30)',
+          style={{
+            padding: '36px 0', borderRadius: 18, cursor: 'pointer',
+            border: '2px dashed rgba(217,146,6,.30)',
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-            background: 'rgba(243,178,26,.04)' }}>
-          <span style={{ fontSize: 28, color: 'rgba(243,178,26,.55)' }}>✿</span>
+            background: 'rgba(243,178,26,.04)',
+          }}>
+          <span style={{ fontSize: 28, color: 'rgba(217,146,6,.65)' }}>✿</span>
           <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.18em',
-            textTransform: 'uppercase', color: 'rgba(243,178,26,.85)', fontWeight: 700 }}>
+            textTransform: 'uppercase', color: C.saffronDeep, fontWeight: 700 }}>
             {uploading ? `Uploading ${pct}%` : 'Add photos to the gallery'}
           </span>
-          <span style={{ fontSize: 11, color: 'rgba(241,236,225,.40)', textAlign: 'center', padding: '0 20px' }}>
+          <span style={{ fontSize: 11, color: C.muted, textAlign: 'center', padding: '0 20px' }}>
             Add more memories any time. These appear here and don't change the reel.
           </span>
         </div>
         <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
-      </Card>
+      </section>
     )
   }
 
   return (
-    <Card variant="ink" style={{ padding: 0, overflow: 'hidden' }}>
-      <div style={{
-        padding: '18px 24px 14px',
-        borderBottom: '1px solid rgba(241,236,225,.06)',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        gap: 12, flexWrap: 'wrap',
-      }}>
-        <Label onInk>Gallery</Label>
-        <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.22em', textTransform: 'uppercase',
-          color: 'rgba(241,236,225,.3)' }}>
-          {photos.length} photo{photos.length !== 1 ? 's' : ''}
-        </span>
-      </div>
+    <section style={{ padding: '12px 2px 4px' }}>
+      <Header />
 
-      <div style={{ padding: '14px 16px 16px' }}>
-        {/* Owner upload chip — always reachable. Memorials can be edited
-            after publish, so the gallery stays editable forever. */}
-        {isOwner && (
-          <div onClick={() => fileRef.current?.click()}
-            style={{ padding: '14px 0', borderRadius: 16, marginBottom: 12,
-              border: `2px dashed rgba(243,178,26,.30)`,
-              background: 'rgba(243,178,26,.04)',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
-            <span style={{ fontSize: 20, color: 'rgba(243,178,26,.55)' }}>✿</span>
-            <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.18em',
-              textTransform: 'uppercase', color: 'rgba(243,178,26,.85)', fontWeight: 700 }}>
-              {uploading ? `Uploading ${pct}%` : 'Add photos'}
-            </span>
-          </div>
-        )}
-        <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
-
-        {uploadError && (
-          <div style={{
-            padding: 12, marginBottom: 12, borderRadius: 12,
-            background: 'rgba(255,107,107,0.10)', border: '1px solid rgba(255,107,107,0.30)',
+      {/* Owner upload chip — borderless dashed dropzone on the page bg */}
+      {isOwner && (
+        <div onClick={() => fileRef.current?.click()}
+          style={{
+            padding: '14px 0', borderRadius: 16, marginBottom: 12,
+            border: '2px dashed rgba(217,146,6,.30)',
+            background: 'rgba(243,178,26,.04)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, cursor: 'pointer',
           }}>
-            <p style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.rust, margin: 0 }}>
-              {failedCount === 1 ? '1 photo failed to upload' : `${failedCount} photos failed`}
-            </p>
-            <p style={{ fontSize: 10.5, color: 'rgba(255,107,107,0.80)', marginTop: 4, lineHeight: 1.5 }}>{uploadError}</p>
-          </div>
-        )}
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}
-          className="gallery-grid">
-          {shown.map((photo, i) => (
-            <motion.div key={photo.id || i} whileHover={{ scale: .98 }}
-              onClick={() => setSelected(photo)}
-              style={{
-                position: 'relative', overflow: 'hidden', borderRadius: 14, cursor: 'pointer',
-                aspectRatio: '1 / 1',
-                background: 'rgba(241,236,225,.04)',
-                border: '1px solid rgba(241,236,225,.08)',
-              }}>
-              <img src={photo.url} alt={photo.caption || ''}
-                style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform .4s' }} />
-              {photo.caption && (
-                <span style={{ position: 'absolute', left: 8, top: 8, fontFamily: MONO, fontSize: 9,
-                  letterSpacing: '.14em', textTransform: 'uppercase', color: C.cream,
-                  background: 'rgba(21,18,14,.7)', padding: '2px 6px', borderRadius: 999, backdropFilter: 'blur(4px)' }}>
-                  {photo.caption}
-                </span>
-              )}
-            </motion.div>
-          ))}
+          <span style={{ fontSize: 20, color: 'rgba(217,146,6,.65)' }}>✿</span>
+          <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.18em',
+            textTransform: 'uppercase', color: C.saffronDeep, fontWeight: 700 }}>
+            {uploading ? `Uploading ${pct}%` : 'Add photos'}
+          </span>
         </div>
+      )}
+      <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
+
+      {uploadError && (
+        <div style={{
+          padding: 12, marginBottom: 12, borderRadius: 12,
+          background: 'rgba(255,107,107,0.10)', border: '1px solid rgba(255,107,107,0.30)',
+        }}>
+          <p style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.rust, margin: 0 }}>
+            {failedCount === 1 ? '1 photo failed to upload' : `${failedCount} photos failed`}
+          </p>
+          <p style={{ fontSize: 10.5, color: 'rgba(255,107,107,0.80)', marginTop: 4, lineHeight: 1.5 }}>{uploadError}</p>
+        </div>
+      )}
+
+      {/* Photos sit directly on the page bg — no individual borders,
+          slightly more space between tiles so they read as discrete
+          objects, not a panel. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}
+        className="gallery-grid">
+        {shown.map((photo, i) => (
+          <motion.div key={photo.id || i} whileHover={{ scale: .98 }}
+            onClick={() => setSelected(photo)}
+            style={{
+              position: 'relative', overflow: 'hidden', borderRadius: 16, cursor: 'pointer',
+              aspectRatio: '1 / 1',
+              background: 'transparent',
+              boxShadow: '0 4px 14px -4px rgba(21,18,14,.18)',
+            }}>
+            <img src={photo.url} alt={photo.caption || ''}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform .4s' }} />
+            {photo.caption && (
+              <span style={{ position: 'absolute', left: 8, top: 8, fontFamily: MONO, fontSize: 9,
+                letterSpacing: '.14em', textTransform: 'uppercase', color: C.cream,
+                background: 'rgba(21,18,14,.7)', padding: '2px 6px', borderRadius: 999, backdropFilter: 'blur(4px)' }}>
+                {photo.caption}
+              </span>
+            )}
+          </motion.div>
+        ))}
+      </div>
 
         {/* View-all CTA — opens an overlay with the whole gallery */}
         {overflow > 0 && (
@@ -1621,7 +1638,6 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
             View all {photos.length} photos
           </button>
         )}
-      </div>
       {/* keep 3-col preview on mobile so the 3-photo preview never orphans */}
 
       {/* ── View-all overlay — scrollable grid of every photo ─────────── */}
@@ -1732,7 +1748,7 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
           </motion.div>
         )}
       </AnimatePresence>
-    </Card>
+    </section>
   )
 }
 
@@ -2023,7 +2039,7 @@ function LoadingSkeleton() {
             <div style={{ height: 200, ...pulse }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ height: 56, width: 380, ...pulse }} />
+            <div style={{ height: 480, ...pulse }} />
             <div style={{ height: 320, ...pulse }} />
             <div style={{ height: 300, ...pulse }} />
           </div>
