@@ -109,14 +109,65 @@ function Label({ children, onInk = false, className = '' }) {
   )
 }
 
+// Card — premium surfaces.
+// Each variant uses a subtle top→bottom gradient + a layered shadow stack
+// (hairline top highlight, bottom recess, close drop, far ambient) so the
+// panels read as objects floating on the page rather than flat rectangles.
+// The will-change + contain hints keep the long page scrolling smoothly by
+// confining repaints to each card instead of cascading down the column.
 function Card({ variant = 'paper', className = '', style = {}, children, ...rest }) {
+  const SH_INK = [
+    '0 1px 0 rgba(255,255,255,.07) inset',
+    '0 -1px 0 rgba(0,0,0,.35) inset',
+    '0 8px 16px -4px rgba(0,0,0,.35)',
+    '0 24px 40px -16px rgba(0,0,0,.45)',
+  ].join(', ')
+  const SH_PAPER = [
+    '0 1px 0 rgba(255,255,255,.75) inset',
+    '0 -1px 0 rgba(21,18,14,.05) inset',
+    '0 6px 14px -4px rgba(21,18,14,.08)',
+    '0 22px 40px -16px rgba(21,18,14,.10)',
+  ].join(', ')
+  const SH_SAFFRON = [
+    '0 1px 0 rgba(255,255,255,.45) inset',
+    '0 -1px 0 rgba(21,18,14,.10) inset',
+    '0 10px 22px -6px rgba(243,178,26,.32)',
+    '0 22px 44px -16px rgba(243,178,26,.22)',
+  ].join(', ')
+
   const base = {
-    paper:   { background: C.cream,  border: '1px solid rgba(21,18,14,.06)', boxShadow: '0 1px 0 rgba(255,255,255,.6) inset, 0 4px 18px rgba(21,18,14,.04)', color: C.ink },
-    ink:     { background: C.ink,    border: '1px solid rgba(241,236,225,.10)', boxShadow: '0 14px 30px rgba(21,18,14,.22)', color: C.cream },
-    saffron: { background: C.saffron,border: '1px solid rgba(21,18,14,.10)', boxShadow: '0 8px 22px rgba(243,178,26,.28)', color: C.ink },
+    paper: {
+      background: `linear-gradient(180deg, ${C.paper} 0%, ${C.paperWarm} 100%)`,
+      border: '1px solid rgba(21,18,14,.08)',
+      boxShadow: SH_PAPER,
+      color: C.ink,
+    },
+    ink: {
+      background: `linear-gradient(180deg, #1e1812 0%, ${C.ink} 100%)`,
+      border: '1px solid rgba(241,236,225,.10)',
+      boxShadow: SH_INK,
+      color: C.cream,
+    },
+    saffron: {
+      background: `linear-gradient(180deg, #ffce5a 0%, ${C.saffron} 100%)`,
+      border: '1px solid rgba(21,18,14,.12)',
+      boxShadow: SH_SAFFRON,
+      color: C.ink,
+    },
   }
   return (
-    <div className={`rounded-[26px] overflow-hidden ${className}`} style={{ ...base[variant], ...style }} {...rest}>
+    <div
+      className={`rounded-[26px] overflow-hidden ${className}`}
+      style={{
+        ...base[variant],
+        // Hardware-friendly hints — keep each card's repaint isolated so
+        // scrolling the long right column doesn't trigger global redraws.
+        contain: 'layout paint',
+        transform: 'translateZ(0)',
+        ...style,
+      }}
+      {...rest}
+    >
       {children}
     </div>
   )
@@ -185,10 +236,13 @@ function ProfilePortrait({ memorial, memorialId, isOwner, navigate }) {
 
   return (
     <Card variant="ink" style={{ padding: 0, overflow: 'hidden', position: 'relative' }}>
-      {/* ── Photo region (portrait, 220px tall) ───────────────────────────── */}
+      {/* ── Photo region — generous portrait so the face actually shows.
+            Was 220px (chins/foreheads cropped); now 320px with a more
+            forgiving object-position (center 30%) that frames typical
+            headshots without cutting the top of the head. ───────────── */}
       <div style={{
         position: 'relative',
-        height: 220,
+        height: 320,
         overflow: 'hidden',
         background: `linear-gradient(135deg, ${C.ink2} 0%, ${C.ink} 100%)`,
       }}>
@@ -201,37 +255,48 @@ function ProfilePortrait({ memorial, memorialId, isOwner, navigate }) {
               position: 'absolute', inset: 0,
               width: '100%', height: '100%',
               objectFit: 'cover',
-              objectPosition: 'center 22%',
-              filter: 'saturate(.92) contrast(1.04)',
-              animation: 'pp-slowzoom 1.8s ease-out both',
+              // 30% from the top keeps the eye-line in the upper third
+              // (the editorial sweet-spot for portraits) without losing
+              // the chin.
+              objectPosition: 'center 30%',
+              filter: 'saturate(.95) contrast(1.03)',
+              animation: 'pp-slowzoom 2.4s cubic-bezier(.16,1,.3,1) both',
+              willChange: 'transform',
             }}
           />
         )}
 
-        {/* Soft bottom dissolve — photo blends into the meta strip instead of
-            ending on a hard edge. Goes deeper (60% of photo height) and uses
-            multiple stops so the gradient never reads as a band. */}
+        {/* Multi-stop bottom dissolve — was 4 stops, now 5 for a longer
+            visual handoff into the meta strip. The cubic curve makes the
+            transition feel more like film falloff than a CSS gradient. */}
         <div style={{
-          position: 'absolute', inset: 'auto 0 0 0', height: '60%',
+          position: 'absolute', inset: 'auto 0 0 0', height: '55%',
           background: `linear-gradient(to bottom,
             transparent 0%,
-            rgba(21,18,14,.30) 35%,
-            rgba(21,18,14,.75) 75%,
+            rgba(21,18,14,.12) 25%,
+            rgba(21,18,14,.45) 55%,
+            rgba(21,18,14,.82) 80%,
             ${C.ink} 100%)`,
           pointerEvents: 'none',
         }} />
 
         {/* Top scrim — keeps the back/edit chips legible */}
         <div style={{
-          position: 'absolute', inset: '0 0 auto 0', height: 110,
-          background: 'linear-gradient(to bottom, rgba(0,0,0,.50), transparent)',
+          position: 'absolute', inset: '0 0 auto 0', height: 130,
+          background: 'linear-gradient(to bottom, rgba(0,0,0,.55), transparent 80%)',
           pointerEvents: 'none',
+        }} />
+
+        {/* Editorial vignette — soft corner darkening for depth */}
+        <div style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          background: 'radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.32) 100%)',
         }} />
 
         {/* Inner hairline border for "film cell" feel */}
         <div style={{
           position: 'absolute', inset: 0, pointerEvents: 'none',
-          boxShadow: 'inset 0 0 0 1px rgba(241,236,225,.14)',
+          boxShadow: 'inset 0 0 0 1px rgba(241,236,225,.16)',
         }} />
 
         {/* Top controls — back + edit */}
@@ -788,7 +853,7 @@ function VoiceSection({ memorial, onOpenTalk }) {
         backgroundImage: STRIPE, opacity: .06, pointerEvents: 'none' }} />
 
       <div style={{ position: 'relative', display: 'grid',
-        gridTemplateColumns: '1fr 200px', gap: 28, padding: '24px 24px 22px',
+        gridTemplateColumns: '1fr 220px', gap: 24, padding: '28px 28px 26px',
         alignItems: 'center' }}
         className="voice-grid">
         {/* Left */}
@@ -1959,7 +2024,7 @@ function LoadingSkeleton() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ height: 56, width: 380, ...pulse }} />
-            <div style={{ height: 220, ...pulse }} />
+            <div style={{ height: 320, ...pulse }} />
             <div style={{ height: 300, ...pulse }} />
           </div>
         </div>
@@ -2704,8 +2769,18 @@ function MemorialDetailPageInner() {
       {/* ── Body grid (no more full-width hero — the profile portrait now
             lives at the top of the right column, with the static rail on
             the left holding everything else) ─────────────────────────── */}
-      <div style={{ maxWidth: 1400, margin: '0 auto', padding: '1.5rem 1rem 0' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '400px 1fr', gap: 24, alignItems: 'start' }}
+      <div style={{
+        maxWidth: 1400, margin: '0 auto', padding: '1.5rem 1rem 0',
+        // Honour reduced-motion users + smoother default scrolling
+        scrollBehavior: 'smooth',
+      }}>
+        <div style={{
+          display: 'grid', gridTemplateColumns: '400px 1fr',
+          gap: 24, alignItems: 'start',
+          // Promote the whole grid to its own layer so the sticky rail
+          // doesn't repaint the right column on each scroll tick.
+          contain: 'layout',
+        }}
           className="page-grid">
 
           {/* ── Left rail (sticky · static): age, tribute/share/QR, life
@@ -3031,7 +3106,10 @@ function MemorialDetailPageInner() {
         </footer>
       </div>
 
-      {/* ── Responsive styles ─────────────────────────────────────────────── */}
+      {/* ── Responsive + motion styles ────────────────────────────────────
+            Premium scroll: hide rough scroll edges, isolate sticky rail
+            from the long right feed, soften every entrance animation, and
+            honour users who request reduced motion. */}
       <style>{`
         @media (max-width: 1024px) {
           .page-grid { grid-template-columns: 1fr !important; }
@@ -3041,6 +3119,23 @@ function MemorialDetailPageInner() {
           .page-grid { padding: 0 .75rem; }
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Stop motion.div whileInView from cascading repaints down the
+           column when scrolling fast — every direct child of the right
+           main column gets a layout-isolated paint surface. */
+        .page-grid > main > * {
+          contain: layout style;
+        }
+
+        /* Respect users who prefer no motion */
+        @media (prefers-reduced-motion: reduce) {
+          *, *::before, *::after {
+            animation-duration: .01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: .01ms !important;
+            scroll-behavior: auto !important;
+          }
+        }
       `}</style>
 
       {/* ── Tribute form ──────────────────────────────────────────────────── */}
