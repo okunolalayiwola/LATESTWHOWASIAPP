@@ -17,6 +17,7 @@
 //   Mode toggle — Voice / Type
 
 import { useState, useEffect, useRef } from 'react'
+import { Link }                        from 'react-router-dom'
 import { motion }                       from 'framer-motion'
 import { generateSpeech }               from '../../lib/elevenlabs'
 import { db }                           from '../../lib/instant'
@@ -593,6 +594,60 @@ export default function TalkScreen({ memorial, memorialId, onClose }) {
           </div>
         </header>
 
+        {/* ── No-voice notice ─────────────────────────────────────────────
+            When the memorial has no trained ElevenLabs voice, the AI can
+            still hold a conversation (text in, text out, or voice in →
+            text out) but it can't speak aloud. Surface this clearly so
+            users don't tap a silent Pause button and wonder why nothing
+            played. Owners get a one-click route to /memorial/:id/edit to
+            record or upload the voice clip. */}
+        {!hasVoice && (
+          <div className="ts-novoice" style={{
+            position: 'absolute', top: 84, left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 5,
+            maxWidth: 'min(620px, 92vw)',
+            padding: '11px 16px',
+            display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+            justifyContent: 'center',
+            background: 'rgba(20,8,48,.62)',
+            border: '1px solid rgba(255,215,0,.30)',
+            borderRadius: 999,
+            backdropFilter: 'blur(14px) saturate(1.4)',
+            WebkitBackdropFilter: 'blur(14px) saturate(1.4)',
+            boxShadow: '0 10px 28px rgba(0,0,0,.35)',
+            animation: 'ts-fadeup .9s ease-out .35s both',
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,215,0,.85)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+              <line x1="2" y1="2" x2="22" y2="22"/>
+            </svg>
+            <span style={{
+              fontFamily: MONO, fontSize: 10.5, letterSpacing: '.18em',
+              textTransform: 'uppercase', fontWeight: 600,
+              color: 'rgba(255,255,255,.80)',
+            }}>
+              No voice trained · text replies only
+            </span>
+            <Link
+              to={`/memorial/${memorialId}/edit`}
+              onClick={() => onClose?.()}
+              style={{
+                fontFamily: MONO, fontSize: 10.5, letterSpacing: '.18em',
+                textTransform: 'uppercase', fontWeight: 700,
+                color: '#1a0f2a', textDecoration: 'none',
+                padding: '6px 12px', borderRadius: 999,
+                background: 'rgba(255,215,0,.85)',
+                border: '1px solid rgba(255,215,0,.55)',
+              }}>
+              ◆ Train voice
+            </Link>
+          </div>
+        )}
+
         {/* ════════════════════════════════════════════════════════════════
             CENTER NAME LOCKUP
         ════════════════════════════════════════════════════════════════ */}
@@ -732,16 +787,21 @@ export default function TalkScreen({ memorial, memorialId, onClose }) {
           animation: 'ts-fadeup 1s ease-out .65s both',
         }}>
           {[
-            {
-              tint: 'lavender', label: 'Pause',
-              icon: ICONS.pause, fill: 'currentColor',
-              onClick: () => { audioRef.current?.pause(); setSessionState('idle'); busyRef.current = false },
-            },
-            {
-              tint: 'mint', label: 'Volume',
-              icon: ICONS.volume, fill: 'none',
-              onClick: () => {},
-            },
+            // Pause + Volume only make sense when there's a trained voice
+            // (otherwise the AI never speaks aloud). Hide them when no
+            // voice rather than leaving silent dead controls.
+            ...(hasVoice ? [
+              {
+                tint: 'lavender', label: 'Pause',
+                icon: ICONS.pause, fill: 'currentColor',
+                onClick: () => { audioRef.current?.pause(); setSessionState('idle'); busyRef.current = false },
+              },
+              {
+                tint: 'mint', label: 'Volume',
+                icon: ICONS.volume, fill: 'none',
+                onClick: () => {},
+              },
+            ] : []),
             {
               tint: 'rose', label: 'End session',
               icon: ICONS.close, fill: 'none',

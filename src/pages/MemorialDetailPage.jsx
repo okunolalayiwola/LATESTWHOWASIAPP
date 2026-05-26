@@ -893,8 +893,12 @@ function VoiceSection({ memorial, onOpenTalk }) {
           <span style={{
             fontFamily: MONO, fontSize: 9.5, letterSpacing: '.24em',
             textTransform: 'uppercase', color: C.saffron, fontWeight: 700,
+            display: 'inline-flex', alignItems: 'center', gap: 7,
           }}>
-            ◆ Speak to {firstName}
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            Speak to {firstName}
           </span>
         </div>
       </div>
@@ -1355,11 +1359,25 @@ function TributesSection({ tributes, onLike, onDelete, isOwner, currentUserId, m
 // ─── Gallery section ──────────────────────────────────────────────────────────
 function GallerySection({ photos, memorialId, isOwner, preview = false }) {
   const [selected,  setSelected]  = useState(null)
+  const [showAll,   setShowAll]   = useState(false)
   const [uploading, setUploading] = useState(false)
   const [pct,       setPct]       = useState(0)
   const [uploadError, setUploadError] = useState('')
   const [failedCount, setFailedCount] = useState(0)
   const fileRef = useRef(null)
+
+  // Lock body scroll while the "view all" overlay is open
+  useEffect(() => {
+    if (!showAll) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = e => { if (e.key === 'Escape') setShowAll(false) }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = prev
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [showAll])
 
   // Photos added here (after the memorial exists) are NOT used to shape the
   // AI persona. The flag is silent to the user — they're just told to upload.
@@ -1398,9 +1416,10 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
     if (fileRef.current) fileRef.current.value = ''
   }
 
-  // Preview shows up to 3 photos (was 5)
+  // Always preview-mode now (the page has no Gallery tab anymore) — show 3
+  // tiles + a "View all" overlay when there are more.
   const PREVIEW_COUNT = 3
-  const shown   = preview ? photos.slice(0, PREVIEW_COUNT) : photos
+  const shown    = photos.slice(0, PREVIEW_COUNT)
   const overflow = photos.length - shown.length
 
   // Empty + guest → small inline tease so the section doesn't vanish
@@ -1461,13 +1480,15 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
       </div>
 
       <div style={{ padding: '14px 16px 16px' }}>
-        {isOwner && !preview && (
+        {/* Owner upload chip — always reachable. Memorials can be edited
+            after publish, so the gallery stays editable forever. */}
+        {isOwner && (
           <div onClick={() => fileRef.current?.click()}
-            style={{ padding: '18px 0', borderRadius: 16, marginBottom: 12,
+            style={{ padding: '14px 0', borderRadius: 16, marginBottom: 12,
               border: `2px dashed rgba(243,178,26,.30)`,
               background: 'rgba(243,178,26,.04)',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-            <span style={{ fontSize: 22, color: 'rgba(243,178,26,.55)' }}>✿</span>
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
+            <span style={{ fontSize: 20, color: 'rgba(243,178,26,.55)' }}>✿</span>
             <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.18em',
               textTransform: 'uppercase', color: 'rgba(243,178,26,.85)', fontWeight: 700 }}>
               {uploading ? `Uploading ${pct}%` : 'Add photos'}
@@ -1512,15 +1533,10 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
           ))}
         </div>
 
-        {/* View-all CTA when preview mode + overflow */}
-        {preview && overflow > 0 && (
+        {/* View-all CTA — opens an overlay with the whole gallery */}
+        {overflow > 0 && (
           <button
-            onClick={(e) => {
-              e.stopPropagation()
-              // Navigate to full Gallery tab by clicking the tab through the URL hash
-              const tabBtn = document.querySelector('[data-tab="Gallery"]')
-              if (tabBtn) tabBtn.click()
-            }}
+            onClick={() => setShowAll(true)}
             style={{
               width: '100%', marginTop: 12,
               padding: '11px 0', borderRadius: 14,
@@ -1531,11 +1547,108 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
               textTransform: 'uppercase', fontWeight: 700,
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}>
-            View all {photos.length} photos →
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1"/>
+              <rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/>
+              <rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
+            View all {photos.length} photos
           </button>
         )}
       </div>
       {/* keep 3-col preview on mobile so the 3-photo preview never orphans */}
+
+      {/* ── View-all overlay — scrollable grid of every photo ─────────── */}
+      <AnimatePresence>
+        {showAll && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => setShowAll(false)}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 70,
+              background: 'rgba(21,18,14,.92)',
+              backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+              display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+              padding: 20, overflow: 'auto',
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 14 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              onClick={e => e.stopPropagation()}
+              style={{
+                width: '100%', maxWidth: 1100,
+                background: C.ink,
+                borderRadius: 24,
+                border: '1px solid rgba(241,236,225,.10)',
+                boxShadow: '0 30px 80px rgba(0,0,0,.55)',
+                overflow: 'hidden',
+                margin: 'auto',
+              }}
+            >
+              <div style={{
+                padding: '18px 24px',
+                borderBottom: '1px solid rgba(241,236,225,.08)',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                position: 'sticky', top: 0, zIndex: 2, background: C.ink,
+              }}>
+                <div>
+                  <Label onInk>Gallery · all photos</Label>
+                  <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.22em',
+                    textTransform: 'uppercase', color: 'rgba(241,236,225,.5)', marginTop: 4 }}>
+                    {photos.length} photo{photos.length !== 1 ? 's' : ''}
+                  </div>
+                </div>
+                <button onClick={() => setShowAll(false)} aria-label="Close"
+                  style={{
+                    width: 36, height: 36, borderRadius: 999,
+                    background: 'rgba(241,236,225,.10)', color: C.cream,
+                    border: '1px solid rgba(241,236,225,.15)',
+                    cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+              <div style={{
+                padding: 20,
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+                gap: 10,
+              }}>
+                {photos.map((photo, i) => (
+                  <div key={photo.id || i}
+                    onClick={() => setSelected(photo)}
+                    style={{
+                      position: 'relative', overflow: 'hidden',
+                      borderRadius: 14, cursor: 'pointer', aspectRatio: '1 / 1',
+                      background: 'rgba(241,236,225,.04)',
+                      border: '1px solid rgba(241,236,225,.08)',
+                    }}>
+                    <img loading="lazy" decoding="async" src={photo.url} alt={photo.caption || ''}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    {photo.caption && (
+                      <span style={{ position: 'absolute', left: 8, top: 8, fontFamily: MONO, fontSize: 9,
+                        letterSpacing: '.14em', textTransform: 'uppercase', color: C.cream,
+                        background: 'rgba(21,18,14,.7)', padding: '2px 6px', borderRadius: 999, backdropFilter: 'blur(4px)' }}>
+                        {photo.caption}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Lightbox */}
       <AnimatePresence>
@@ -2578,6 +2691,11 @@ function MemorialDetailPageInner() {
       minHeight:    '100vh',
       paddingTop:   'max(56px, calc(env(safe-area-inset-top) + 12px))',
       paddingBottom:'max(96px, calc(env(safe-area-inset-bottom) + 80px))',
+      // Hardware-accelerated rendering hint so the long right column
+      // doesn't repaint half the page on every scroll tick.
+      transform: 'translateZ(0)',
+      // GPU-friendly hint without overpromising browser optimisation budget.
+      WebkitOverflowScrolling: 'touch',
       '--theme':    themeHex,
       '--theme-lt': themeLight,
       '--theme-md': themeMedium,
