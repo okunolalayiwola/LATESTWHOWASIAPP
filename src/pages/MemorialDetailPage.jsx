@@ -135,21 +135,25 @@ function Card({ variant = 'paper', className = '', style = {}, children, ...rest
     '0 22px 44px -16px rgba(243,178,26,.22)',
   ].join(', ')
 
+  // Solid card surfaces — no gradients. Each variant uses one clean tone
+  // so the colour reads consistently regardless of card height. The ink
+  // tone is lifted a hair above the page background (#0a0805) so the
+  // panel still floats; depth now comes from the shadow stack alone.
   const base = {
     paper: {
-      background: `linear-gradient(180deg, ${C.paper} 0%, ${C.paperWarm} 100%)`,
+      background: C.paper,
       border: '1px solid rgba(21,18,14,.08)',
       boxShadow: SH_PAPER,
       color: C.ink,
     },
     ink: {
-      background: `linear-gradient(180deg, #1e1812 0%, ${C.ink} 100%)`,
+      background: '#191410',
       border: '1px solid rgba(241,236,225,.10)',
       boxShadow: SH_INK,
       color: C.cream,
     },
     saffron: {
-      background: `linear-gradient(180deg, #ffce5a 0%, ${C.saffron} 100%)`,
+      background: 'var(--theme, #f3b21a)',
       border: '1px solid rgba(21,18,14,.12)',
       boxShadow: SH_SAFFRON,
       color: C.ink,
@@ -266,7 +270,7 @@ function ProfilePortrait({ memorial, memorialId, isOwner, navigate }) {
         position: 'relative',
         height: 480,
         overflow: 'hidden',
-        background: `linear-gradient(135deg, ${C.ink2} 0%, ${C.ink} 100%)`,
+        background: '#191410',
       }}>
         {memorial.photo && (
           <img

@@ -467,17 +467,51 @@ export default function TalkScreen({ memorial, memorialId, onClose }) {
           .ts-typebar { bottom:130px!important; width:calc(100vw - 24px)!important }
           .ts-listening { transform:translate(-50%,calc(-50% + 60px))!important }
         }
+        /* Below 720px wide the popup expands to fill the screen — full
+           bleed feels right at phone sizes; a constrained card would
+           leave too much wasted backdrop chrome. */
+        @media (max-width: 720px) {
+          .ts-backdrop { padding: 0 !important; background: #0a0612 !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+          .ts-shell { width: 100% !important; height: 100% !important; border-radius: 0 !important; box-shadow: none !important; }
+        }
       `}</style>
 
-      {/* ── Outer shell — position:fixed; inset:8px — tiny margin around edges ── */}
+      {/* ── Backdrop ──────────────────────────────────────────────────────
+            On desktop we now render TalkScreen as a centred popup card
+            instead of edge-to-edge — easier to focus on the conversation,
+            keeps the surrounding context visible. On mobile / narrow
+            viewports it expands to fill the screen (full-bleed feels right
+            at small sizes; a constrained card would feel cramped). */}
       <motion.div
-        initial={{ opacity: 0, scale: .97 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: .97 }}
-        transition={{ type: 'spring', damping: 28, stiffness: 260 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="ts-backdrop"
+        onClick={(e) => { if (e.target === e.currentTarget) onClose?.() }}
         style={{
-          position: 'fixed', inset: 8, borderRadius: 20, overflow: 'hidden',
-          zIndex: 200, background: '#0a0612',
+          position: 'fixed', inset: 0, zIndex: 200,
+          background: 'rgba(8,4,16,.78)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          display: 'flex',
+          alignItems: 'center', justifyContent: 'center',
+          padding: 20,
+        }}
+      >
+      <motion.div
+        initial={{ opacity: 0, scale: .96, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: .96, y: 12 }}
+        transition={{ type: 'spring', damping: 28, stiffness: 260 }}
+        className="ts-shell"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: 'relative',
+          width:  'min(880px, 100%)',
+          height: 'min(640px, calc(100vh - 40px))',
+          borderRadius: 24, overflow: 'hidden',
+          background: '#0a0612',
+          boxShadow: '0 40px 90px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.06)',
         }}
       >
 
@@ -955,6 +989,7 @@ export default function TalkScreen({ memorial, memorialId, onClose }) {
           ))}
         </div>
 
+      </motion.div>
       </motion.div>
     </>
   )
