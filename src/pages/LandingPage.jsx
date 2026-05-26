@@ -194,69 +194,239 @@ export default function LandingPage() {
             </h2>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-6">
+          <style>{`
+            .mc-grid {
+              display: grid;
+              grid-template-columns: 1fr;
+              gap: 32px;
+            }
+            @media (min-width: 1024px) {
+              .mc-grid { grid-template-columns: repeat(3, 1fr); }
+            }
+
+            .mc-card {
+              position: relative;
+              border-radius: 24px;
+              padding: 24px 26px;
+              isolation: isolate;
+              overflow: hidden;
+              background: linear-gradient(180deg, #1f2229 0%, #0b0c10 100%);
+              box-shadow:
+                0 1px 0 rgba(255,255,255,0.06) inset,
+                0 -1px 0 rgba(0,0,0,0.6) inset,
+                0 30px 60px -20px rgba(0,0,0,0.7),
+                0 0 0 1px rgba(255,255,255,0.04);
+            }
+            .mc-card::before {
+              content: "";
+              position: absolute;
+              inset: 0;
+              background-image: radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px);
+              background-size: 6px 6px;
+              -webkit-mask-image: radial-gradient(ellipse 90% 80% at 30% 20%, black 0%, transparent 80%);
+                      mask-image: radial-gradient(ellipse 90% 80% at 30% 20%, black 0%, transparent 80%);
+              pointer-events: none;
+              z-index: 0;
+            }
+            .mc-card::after {
+              content: "";
+              position: absolute;
+              top: 0; left: 0; right: 0;
+              height: 50%;
+              background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 100%);
+              pointer-events: none;
+              z-index: 0;
+              border-radius: 24px 24px 0 0;
+            }
+
+            .mc-content {
+              position: relative;
+              z-index: 2;
+              display: flex;
+              flex-direction: column;
+              gap: 14px;
+            }
+
+            .mc-icon-wrap {
+              position: relative;
+              width: fit-content;
+            }
+            .mc-icon-wrap::before {
+              content: "";
+              position: absolute;
+              inset: -8px;
+              border-radius: 28px;
+              filter: blur(20px);
+              opacity: 0.55;
+              z-index: -1;
+            }
+            .mc-card.voice .mc-icon-wrap::before { background: radial-gradient(circle, #f5b659 0%, transparent 70%); }
+            .mc-card.code  .mc-icon-wrap::before { background: radial-gradient(circle, #6ee7ff 0%, transparent 70%); }
+            .mc-card.vault .mc-icon-wrap::before { background: radial-gradient(circle, #c9a8ff 0%, transparent 70%); }
+
+            .mc-icon-3d {
+              width: 76px;
+              height: 76px;
+              border-radius: 22px;
+              position: relative;
+              display: grid;
+              place-items: center;
+              background: linear-gradient(160deg, #2a2d34 0%, #0c0d11 100%);
+              box-shadow:
+                0 1px 0 rgba(255,255,255,0.14) inset,
+                0 -2px 6px rgba(0,0,0,0.5) inset,
+                0 10px 20px -8px rgba(0,0,0,0.8),
+                0 0 0 1px rgba(255,255,255,0.05);
+            }
+            .mc-icon-3d::before {
+              content: "";
+              position: absolute;
+              inset: 1px;
+              border-radius: 21px;
+              background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, transparent 40%);
+              pointer-events: none;
+            }
+            .mc-icon-3d svg {
+              width: 40px;
+              height: 40px;
+              position: relative;
+              z-index: 2;
+            }
+            .mc-card.voice .mc-icon-3d svg { filter: drop-shadow(0 0 8px #f5b659); color: #ffe6b3; }
+            .mc-card.code  .mc-icon-3d svg { filter: drop-shadow(0 0 8px #6ee7ff); color: #d4f6ff; }
+            .mc-card.vault .mc-icon-3d svg { filter: drop-shadow(0 0 8px #c9a8ff); color: #ece1ff; }
+
+            .mc-title {
+              font-family: 'DotGothic16', monospace;
+              font-size: 22px;
+              line-height: 1.15;
+              letter-spacing: 0.02em;
+              color: #ffffff;
+              text-shadow: 0 0 8px rgba(255,255,255,0.25), 0 0 18px rgba(255,255,255,0.12);
+              text-transform: uppercase;
+              font-weight: 400;
+            }
+            .mc-card.voice .mc-title { color: #fff7e3; text-shadow: 0 0 10px rgba(245,182,89,0.35), 0 0 22px rgba(245,182,89,0.18); }
+            .mc-card.code  .mc-title { color: #e6fbff; text-shadow: 0 0 10px rgba(110,231,255,0.35), 0 0 22px rgba(110,231,255,0.18); }
+            .mc-card.vault .mc-title { color: #f3edff; text-shadow: 0 0 10px rgba(201,168,255,0.35), 0 0 22px rgba(201,168,255,0.18); }
+
+            .mc-body {
+              font-size: 14px;
+              line-height: 1.5;
+              color: #9ca0a8;
+              font-weight: 400;
+            }
+
+            .mc-meta {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              margin-top: 4px;
+              font-family: 'DotGothic16', monospace;
+              font-size: 12px;
+              letter-spacing: 0.08em;
+              color: rgba(255,255,255,0.55);
+              text-transform: uppercase;
+            }
+            .mc-meta .mc-dot {
+              display: inline-block;
+              vertical-align: middle;
+              margin-right: 8px;
+              width: 7px;
+              height: 7px;
+              border-radius: 50%;
+              box-shadow: 0 0 8px 2px currentColor;
+            }
+            .mc-card.voice .mc-meta .mc-dot { background: #f5b659; color: #f5b659; }
+            .mc-card.code  .mc-meta .mc-dot { background: #6ee7ff; color: #6ee7ff; }
+            .mc-card.vault .mc-meta .mc-dot { background: #c9a8ff; color: #c9a8ff; }
+          `}</style>
+
+          <div className="mc-grid">
             {[
               {
-                // Living memorial w/ live interaction — microphone + sound waves
+                kind: 'voice',
                 icon: (
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="9" y="2" width="6" height="11" rx="3" />
-                    <path d="M5 10v2a7 7 0 0 0 14 0v-2" />
-                    <line x1="12" y1="19" x2="12" y2="22" />
-                    <line x1="8" y1="22" x2="16" y2="22" />
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor" fillOpacity="0.15" />
+                    <path d="M5 11a7 7 0 0 0 14 0" />
+                    <line x1="12" y1="18" x2="12" y2="22" />
+                    <line x1="9" y1="22" x2="15" y2="22" />
                   </svg>
                 ),
-                title: 'Living Memorial with Live Interaction',
-                desc: 'Hear them speak again, ask them questions, share a moment. A living conversation drawn from their voice, their words, and the memories you share.',
-                color: 'from-gold to-sky',
+                titleLines: ['Living Memorial', 'with Live Interaction'],
+                body: 'Hear them speak again, ask them questions, share a moment. A living conversation drawn from their voice, their words, and the memories you share.',
+                metaLabel: 'Voice Active',
+                step: '01 / 03',
               },
               {
-                // Digital barcode — QR code icon
+                kind: 'code',
                 icon: (
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="7" height="7" rx="1" />
-                    <rect x="14" y="3" width="7" height="7" rx="1" />
-                    <rect x="3" y="14" width="7" height="7" rx="1" />
-                    <line x1="14" y1="14" x2="14" y2="17" />
-                    <line x1="17" y1="14" x2="21" y2="14" />
-                    <line x1="21" y1="17" x2="17" y2="17" />
-                    <line x1="14" y1="20" x2="21" y2="20" />
-                    <line x1="17" y1="17" x2="17" y2="21" />
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="3" y="3" width="7" height="7" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.6" />
+                    <rect x="5.5" y="5.5" width="2" height="2" />
+                    <rect x="14" y="3" width="7" height="7" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.6" />
+                    <rect x="16.5" y="5.5" width="2" height="2" />
+                    <rect x="3" y="14" width="7" height="7" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.6" />
+                    <rect x="5.5" y="16.5" width="2" height="2" />
+                    <rect x="14" y="14" width="2" height="2" />
+                    <rect x="17.5" y="14" width="2" height="2" />
+                    <rect x="14" y="17.5" width="2" height="2" />
+                    <rect x="17.5" y="17.5" width="2" height="2" />
+                    <rect x="19" y="19" width="2" height="2" />
                   </svg>
                 ),
-                title: 'Digital Barcode for Every Memorial',
-                desc: 'A unique QR code linked to each person. Print it on a headstone, wreath, card, or program — anyone who scans it is taken to the full living memorial.',
-                color: 'from-sky to-lavender',
+                titleLines: ['Digital Barcode', 'for Every Memorial'],
+                body: 'A unique QR code linked to each person. Print it on a headstone, wreath, card, or program. Anyone who scans it is taken to the full living memorial.',
+                metaLabel: 'Scan Ready',
+                step: '02 / 03',
               },
               {
-                // Legacy letters + will vault — padlock over document
+                kind: 'vault',
                 icon: (
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="4" y="10" width="16" height="11" rx="2" />
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="4" y="10" width="16" height="11" rx="2.5" fill="currentColor" fillOpacity="0.15" />
                     <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-                    <circle cx="12" cy="15.5" r="1.1" />
-                    <line x1="12" y1="16.4" x2="12" y2="18" />
+                    <circle cx="12" cy="15" r="1.4" fill="currentColor" />
+                    <line x1="12" y1="16.4" x2="12" y2="18.5" />
                   </svg>
                 ),
-                title: 'Legacy Vault & Family Communication',
-                desc: 'Sealed letters, wills, and time-locked documents — opened on the day you choose. A private family channel for messages only your loved ones can read.',
-                color: 'from-coral to-rose',
+                titleLines: ['Legacy Vault', '& Family Channel'],
+                body: 'Sealed letters, wills, and time-locked documents, opened on the day you choose. A private family channel for messages only your loved ones can read.',
+                metaLabel: 'Encrypted',
+                step: '03 / 03',
               },
             ].map((f, i) => (
-              <motion.div
-                key={i}
+              <motion.article
+                key={f.kind}
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: i * 0.1 }}
-                className="glass rounded-2xl p-8 hover:bg-white/[0.06] transition-all duration-300 group"
+                className={`mc-card ${f.kind}`}
               >
-                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${f.color} flex items-center justify-center text-white mb-5`}>
-                  {f.icon}
+                <div className="mc-content">
+                  <div className="mc-icon-wrap">
+                    <div className="mc-icon-3d">{f.icon}</div>
+                  </div>
+
+                  <h3 className="mc-title">
+                    {f.titleLines[0]}
+                    <br />
+                    {f.titleLines[1]}
+                  </h3>
+
+                  <p className="mc-body">{f.body}</p>
+
+                  <div className="mc-meta">
+                    <span>
+                      <span className="mc-dot" />
+                      {f.metaLabel}
+                    </span>
+                    <span>{f.step}</span>
+                  </div>
                 </div>
-                <h3 className="text-lg font-bold mb-2 leading-snug text-white">{f.title}</h3>
-                <p className="text-sm text-white leading-relaxed">{f.desc}</p>
-              </motion.div>
+              </motion.article>
             ))}
           </div>
         </div>

@@ -1,8 +1,13 @@
 {
   "functions": {
-    "api/memorial-pdf.js": { "maxDuration": 30 },
-    "api/chat.js":         { "maxDuration": 30 },
-    "api/elevenlabs.js":   { "maxDuration": 30 }
+    "api/memorial-pdf.js":            { "maxDuration": 30 },
+    "api/chat.js":                    { "maxDuration": 30 },
+    "api/elevenlabs.js":              { "maxDuration": 30 },
+    "api/analyze-photos.js":          { "maxDuration": 60 },
+    "api/generate-talk-portrait.js":  { "maxDuration": 60 },
+    "api/generate-avatar.js":         { "maxDuration": 30 },
+    "api/check-face.js":              { "maxDuration": 20 },
+    "api/email.js":                   { "maxDuration": 60 }
   },
   "rewrites": [
     { "source": "/api/(.*)",   "destination": "/api/$1" },
