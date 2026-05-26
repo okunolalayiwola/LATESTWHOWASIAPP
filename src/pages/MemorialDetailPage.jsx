@@ -111,14 +111,59 @@ function Label({ children, onInk = false, className = '' }) {
   )
 }
 
+// Card — vintage radio-cabinet aesthetic.
+//
+// Every variant gets layered shadows that make the panel pop off the page:
+//   • A thin top-edge highlight (catches the "light")
+//   • A bottom-edge recess (visual weight)
+//   • A close drop shadow (the panel sits *on* the page)
+//   • A wide ambient shadow (the panel sits *above* the page)
+// The ink panels also get a subtle top→bottom gradient so they read as
+// dimensional cabinetry rather than flat rectangles.
 function Card({ variant = 'paper', className = '', style = {}, children, ...rest }) {
+  const SHADOW_INK = [
+    '0 1px 0 rgba(255,255,255,.09) inset',      // top bevel highlight
+    '0 -2px 0 rgba(0,0,0,.45) inset',           // bottom recess
+    '0 6px 14px -2px rgba(0,0,0,.40)',          // close drop
+    '0 24px 48px -12px rgba(0,0,0,.55)',        // ambient float
+  ].join(', ')
+
+  const SHADOW_PAPER = [
+    '0 1px 0 rgba(255,255,255,.75) inset',      // top paper highlight
+    '0 -1px 0 rgba(21,18,14,.06) inset',        // bottom paper recess
+    '0 6px 14px -4px rgba(21,18,14,.10)',       // close drop
+    '0 22px 40px -12px rgba(21,18,14,.14)',     // ambient float
+  ].join(', ')
+
+  const SHADOW_PLATE = [
+    '0 1px 0 rgba(255,255,255,.18) inset',
+    '0 -2px 0 rgba(0,0,0,.20) inset',
+    '0 6px 14px -2px rgba(0,0,0,.18)',
+    '0 18px 32px -10px rgba(0,0,0,.22)',
+  ].join(', ')
+
   const base = {
-    paper:   { background: C.cream,  border: '1px solid rgba(21,18,14,.06)', boxShadow: '0 1px 0 rgba(255,255,255,.6) inset, 0 4px 18px rgba(21,18,14,.04)', color: C.ink },
-    ink:     { background: C.ink,    border: '1px solid rgba(241,236,225,.10)', boxShadow: '0 14px 30px rgba(21,18,14,.22)', color: C.cream },
-    saffron: { background: C.saffron,border: '1px solid rgba(21,18,14,.10)', boxShadow: '0 8px 22px rgba(196,189,176,.28)', color: C.ink },
+    paper: {
+      background: `linear-gradient(180deg, ${C.paper} 0%, ${C.paperWarm} 100%)`,
+      border: '1px solid rgba(21,18,14,.10)',
+      boxShadow: SHADOW_PAPER,
+      color: C.ink,
+    },
+    ink: {
+      background: `linear-gradient(180deg, #221c14 0%, ${C.ink} 100%)`,
+      border: '1px solid rgba(241,236,225,.12)',
+      boxShadow: SHADOW_INK,
+      color: C.cream,
+    },
+    saffron: {
+      background: `linear-gradient(180deg, #d8d2c4 0%, ${C.saffron} 100%)`,
+      border: '1px solid rgba(21,18,14,.14)',
+      boxShadow: SHADOW_PLATE,
+      color: C.ink,
+    },
   }
   return (
-    <div className={`rounded-[26px] overflow-hidden ${className}`} style={{ ...base[variant], ...style }} {...rest}>
+    <div className={`rounded-[22px] overflow-hidden ${className}`} style={{ ...base[variant], ...style }} {...rest}>
       {children}
     </div>
   )
@@ -615,36 +660,97 @@ function VoiceSection({ memorial, onOpenTalk }) {
           <WaveformBars playing={false} />
         </div>
 
-        {/* Right — saffron play disc → opens TalkScreen */}
+        {/* Right — vintage-radio-knob play disc → opens TalkScreen.
+            Composed of three concentric layers:
+              1. Outer wrapper holds the ambient glow + shadow
+              2. Knurled bezel ring (conic-gradient ticks)
+              3. Domed metal face with the mic icon
+            The whole thing reads as a tactile control, not a flat button. */}
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <motion.button
+            className="hear-knob"
             whileHover={{ translateY: -2, scale: 1.03 }}
             whileTap={{ scale: 0.96 }}
             onClick={() => onOpenTalk?.()}
             aria-label={`Talk with ${firstName}`}
             style={{
-              position: 'relative', width: 160, height: 160, borderRadius: '50%',
-              background: 'linear-gradient(155deg, #c4bdb0 0%, #c4bdb0 45%, #8e8678 100%)',
-              border: 'none',
-              boxShadow: '0 24px 48px -8px rgba(196,189,176,.55), 0 10px 24px -6px rgba(0,0,0,.45)',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexDirection: 'column', gap: 8,
+              position: 'relative', width: 168, height: 168, borderRadius: '50%',
+              padding: 0, border: 'none', cursor: 'pointer',
+              background: 'transparent',
+              // Knurled bezel ring (chrome ticks) + outer shadow stack.
+              boxShadow: [
+                // close drop — sits ON the panel
+                '0 8px 18px rgba(0,0,0,.45)',
+                // ambient drop — sits ABOVE the panel
+                '0 28px 56px -12px rgba(0,0,0,.55)',
+              ].join(', '),
+              isolation: 'isolate',
             }}>
-            {/* Ambient glow halo */}
-            <div style={{ position: 'absolute', inset: -22, borderRadius: '50%', zIndex: -1,
-              background: 'radial-gradient(circle, rgba(196,189,176,.30) 0%, rgba(196,189,176,.08) 45%, transparent 70%)',
-              pointerEvents: 'none' }} />
-            {/* Mic icon */}
-            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-              style={{ width: 32, height: 32, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,.25))' }}>
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-              <line x1="12" y1="19" x2="12" y2="23"/>
-              <line x1="8" y1="23" x2="16" y2="23"/>
-            </svg>
-            <span style={{ fontFamily: MONO, fontSize: 8.5, letterSpacing: '.18em', textTransform: 'uppercase',
-              color: 'rgba(255,255,255,.85)', fontWeight: 600 }}>
-              Hear {firstName}
+            {/* Knurled bezel ring — conic ticks read like turned metal */}
+            <span aria-hidden="true" style={{
+              position: 'absolute', inset: 0, borderRadius: '50%',
+              background: `conic-gradient(
+                from 0deg,
+                #6e675a 0deg, #2a2620 2deg,
+                #6e675a 4deg, #2a2620 6deg,
+                #6e675a 8deg, #2a2620 10deg,
+                #6e675a 12deg, #2a2620 14deg,
+                #6e675a 16deg, #2a2620 18deg,
+                #6e675a 20deg, #2a2620 22deg,
+                #6e675a 24deg, #2a2620 26deg
+              )`,
+              backgroundSize: '100% 100%',
+              // Mask: only show the bezel ring (outer 6px or so)
+              WebkitMask: 'radial-gradient(circle, transparent 70%, black 71%, black 100%)',
+                      mask: 'radial-gradient(circle, transparent 70%, black 71%, black 100%)',
+              boxShadow: '0 0 0 1px rgba(0,0,0,.55) inset, 0 1px 0 rgba(255,255,255,.05) inset',
+            }} />
+            {/* Inner recessed groove between bezel and face */}
+            <span aria-hidden="true" style={{
+              position: 'absolute', inset: 12, borderRadius: '50%',
+              boxShadow: '0 0 0 1.5px rgba(0,0,0,.55), 0 1px 0 rgba(255,255,255,.06)',
+              pointerEvents: 'none',
+            }} />
+            {/* Domed metal face — radial highlight upper-left, shadow lower-right */}
+            <span aria-hidden="true" style={{
+              position: 'absolute', inset: 14, borderRadius: '50%',
+              background: `
+                radial-gradient(circle at 32% 26%, rgba(255,255,255,.55) 0%, rgba(255,255,255,0) 38%),
+                radial-gradient(circle at 70% 80%, rgba(0,0,0,.32) 0%, rgba(0,0,0,0) 50%),
+                linear-gradient(160deg, #d8d2c4 0%, #b8b0a2 45%, #8e8678 100%)
+              `,
+              boxShadow: [
+                '0 2px 4px rgba(255,255,255,.5) inset',     // crown highlight
+                '0 -3px 8px rgba(0,0,0,.30) inset',         // base shadow
+                '0 0 0 1px rgba(0,0,0,.18) inset',          // face edge line
+              ].join(', '),
+            }} />
+            {/* Ambient glow halo — softens the whole thing */}
+            <span aria-hidden="true" style={{
+              position: 'absolute', inset: -28, borderRadius: '50%', zIndex: -1,
+              background: 'radial-gradient(circle, rgba(196,189,176,.22) 0%, rgba(196,189,176,.06) 45%, transparent 70%)',
+              pointerEvents: 'none',
+            }} />
+
+            {/* Mic icon + label (on top of all layers) */}
+            <span style={{
+              position: 'relative', zIndex: 2,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+            }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="#15120e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                style={{ width: 34, height: 34, filter: 'drop-shadow(0 1px 1px rgba(255,255,255,.45))' }}>
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="23"/>
+                <line x1="8" y1="23" x2="16" y2="23"/>
+              </svg>
+              <span style={{
+                fontFamily: MONO, fontSize: 8.5, letterSpacing: '.22em', textTransform: 'uppercase',
+                color: 'rgba(21,18,14,.78)', fontWeight: 700,
+                textShadow: '0 1px 0 rgba(255,255,255,.35)',
+              }}>
+                Hear {firstName}
+              </span>
             </span>
           </motion.button>
         </div>
@@ -675,30 +781,49 @@ function ReelViewport({ memorial, photos, onExpand }) {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Label onInk>Life Reel of {firstName}</Label>
+          {/* CINEMATIC — etched nameplate look: tiny square plate with
+              inset shadow so it reads as carved into the panel */}
           <span style={{
-            fontFamily: MONO, fontSize: 9.5, letterSpacing: '.18em', textTransform: 'uppercase',
-            color: 'rgba(196,189,176,.85)',
-            background: 'rgba(196,189,176,.10)',
-            border: '1px solid rgba(196,189,176,.25)',
-            padding: '3px 8px', borderRadius: 999,
+            fontFamily: MONO, fontSize: 9.5, letterSpacing: '.20em', textTransform: 'uppercase',
+            color: 'rgba(241,236,225,.92)',
+            background: 'linear-gradient(180deg, rgba(241,236,225,.10) 0%, rgba(241,236,225,.03) 100%)',
+            border: '1px solid rgba(241,236,225,.22)',
+            padding: '4px 10px', borderRadius: 4,
+            boxShadow: '0 1px 0 rgba(255,255,255,.08) inset, 0 0 8px rgba(0,0,0,.30) inset',
+            textShadow: '0 1px 0 rgba(0,0,0,.55)',
+            fontWeight: 700,
           }}>
             ◆ Cinematic
           </span>
         </div>
 
+        {/* OPEN THEATER — pressed-metal chiclet. Top-bright / bottom-dark
+            bevel so it reads as a raised button, not a flat pill */}
         <button
           onClick={onExpand}
           style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: 'rgba(196,189,176,.12)',
-            color: C.saffron,
-            border: '1px solid rgba(196,189,176,.30)',
+            display: 'flex', alignItems: 'center', gap: 7,
+            background: 'linear-gradient(180deg, rgba(241,236,225,.14) 0%, rgba(241,236,225,.06) 100%)',
+            color: 'rgba(241,236,225,.95)',
+            border: '1px solid rgba(241,236,225,.22)',
             borderRadius: 999,
-            padding: '7px 14px',
+            padding: '8px 16px',
             cursor: 'pointer',
-            fontFamily: MONO, fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase',
-            fontWeight: 600,
-          }}>
+            fontFamily: MONO, fontSize: 10, letterSpacing: '.20em', textTransform: 'uppercase',
+            fontWeight: 700,
+            boxShadow: [
+              '0 1px 0 rgba(255,255,255,.10) inset',         // top highlight
+              '0 -1px 0 rgba(0,0,0,.30) inset',              // bottom recess
+              '0 2px 6px rgba(0,0,0,.28)',                   // close drop
+              '0 6px 14px -4px rgba(0,0,0,.30)',             // ambient float
+            ].join(', '),
+            textShadow: '0 1px 0 rgba(0,0,0,.45)',
+            transition: 'transform .12s, box-shadow .12s',
+          }}
+          onMouseDown={e => { e.currentTarget.style.transform = 'translateY(1px)' }}
+          onMouseUp={e   => { e.currentTarget.style.transform = '' }}
+          onMouseLeave={e => { e.currentTarget.style.transform = '' }}
+        >
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/>
           </svg>
