@@ -885,46 +885,67 @@ function VoiceSection({ memorial, onOpenTalk }) {
               ? `A living voice experience drawing on ${firstName}'s life, recorded voice and memories.`
               : `A living memory experience drawing on ${firstName}'s life story and tributes.`}
           </p>
-          <WaveformBars playing={recordingPlaying} />
 
-          {/* ── Play recording button (the original audio, not the AI clone) ─
-              Only rendered when there's an actual voice file uploaded. The
-              big saffron orb to the right handles the AI talk screen. */}
-          {hasClip && (
-            <button
-              onClick={toggleRecording}
-              aria-label={recordingPlaying ? 'Pause recording' : 'Play original recording'}
-              style={{
-                marginTop: 6,
-                display: 'inline-flex', alignItems: 'center', gap: 9,
-                alignSelf: 'flex-start',
-                padding: '9px 16px', borderRadius: 999,
-                background: recordingPlaying ? C.saffron : 'transparent',
-                color: recordingPlaying ? C.ink : C.saffron2,
-                border: `1px solid ${recordingPlaying ? C.saffron : 'rgba(243,178,26,.45)'}`,
-                cursor: 'pointer',
-                fontFamily: MONO, fontSize: 10.5, letterSpacing: '.20em',
-                textTransform: 'uppercase', fontWeight: 700,
-                boxShadow: recordingPlaying ? '0 6px 16px rgba(243,178,26,.40)' : 'none',
-                transition: 'all .15s',
-              }}
-            >
-              {recordingPlaying ? (
-                <>
-                  <span style={{ display: 'inline-flex', gap: 2, alignItems: 'center' }}>
-                    <span style={{ width: 3, height: 11, background: 'currentColor', borderRadius: 1, animation: 'vs-pulse 1s ease-in-out infinite' }} />
-                    <span style={{ width: 3, height: 11, background: 'currentColor', borderRadius: 1, animation: 'vs-pulse 1s ease-in-out infinite .15s' }} />
-                    <span style={{ width: 3, height: 11, background: 'currentColor', borderRadius: 1, animation: 'vs-pulse 1s ease-in-out infinite .3s' }} />
-                  </span>
-                  Playing recording
-                </>
-              ) : (
-                <>
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                  Play recording
-                </>
-              )}
-            </button>
+          {/* ── Embedded mini audio player ─────────────────────────────────
+                The play button gets its own contained section within the
+                Voice card — a glassy slab with a circular play button on
+                the left and the waveform inline next to it. Reads as "the
+                original recording" sub-control without leaving the card. */}
+          {hasClip ? (
+            <div style={{
+              marginTop: 6,
+              padding: '12px 14px',
+              borderRadius: 16,
+              background: 'rgba(241,236,225,.04)',
+              border: '1px solid rgba(243,178,26,.20)',
+              boxShadow: '0 1px 0 rgba(255,255,255,.04) inset, 0 6px 14px -6px rgba(0,0,0,.45)',
+              display: 'flex', alignItems: 'center', gap: 14,
+            }}>
+              <button
+                onClick={toggleRecording}
+                aria-label={recordingPlaying ? 'Pause recording' : 'Play original recording'}
+                style={{
+                  width: 46, height: 46, borderRadius: '50%', flexShrink: 0,
+                  background: recordingPlaying
+                    ? `linear-gradient(155deg, #ffd166, ${C.saffron} 55%, ${C.saffronDeep})`
+                    : 'rgba(243,178,26,.10)',
+                  border: `1.5px solid ${recordingPlaying ? C.saffron : 'rgba(243,178,26,.45)'}`,
+                  color: recordingPlaying ? C.ink : C.saffron,
+                  cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: recordingPlaying
+                    ? '0 8px 18px -4px rgba(243,178,26,.50)'
+                    : '0 4px 12px -4px rgba(0,0,0,.45)',
+                  transition: 'all .15s',
+                }}>
+                {recordingPlaying ? (
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft: 2 }}><path d="M8 5v14l11-7z"/></svg>
+                )}
+              </button>
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{
+                  fontFamily: MONO, fontSize: 9.5, fontWeight: 700,
+                  letterSpacing: '.22em', textTransform: 'uppercase',
+                  color: recordingPlaying ? C.saffron : 'rgba(243,178,26,.65)',
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                }}>
+                  <span style={{
+                    width: 5, height: 5, borderRadius: '50%',
+                    background: recordingPlaying ? C.saffron : 'rgba(243,178,26,.45)',
+                    boxShadow: recordingPlaying ? `0 0 8px ${C.saffron}` : 'none',
+                    animation: recordingPlaying ? 'vs-livedot 1.4s ease-in-out infinite' : 'none',
+                  }} />
+                  {recordingPlaying ? 'Playing original recording' : 'Play original recording'}
+                </div>
+                <WaveformBars playing={recordingPlaying} />
+              </div>
+            </div>
+          ) : (
+            // No recording yet — show the waveform as a static decoration so
+            // the layout doesn't lose its rhythm.
+            <WaveformBars playing={false} />
           )}
         </div>
 
@@ -978,6 +999,7 @@ function VoiceSection({ memorial, onOpenTalk }) {
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }
         @keyframes vs-pulse { 0%,100% { transform: scaleY(1); } 50% { transform: scaleY(.35); } }
+        @keyframes vs-livedot { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
         @media (max-width: 600px) { .voice-grid { grid-template-columns: 1fr !important; }}`}</style>
     </Card>
   )
@@ -1497,17 +1519,17 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
   const overflow = photos.length - shown.length
 
   // ── Borderless header used by every state ────────────────────────────
-  // Gallery now sits directly on the page background — no card wrapper,
-  // no tile borders. Just an eyebrow, a count, and the photos.
+  // Gallery now sits directly on the page background (black) — no card
+  // wrapper, no tile borders. Text uses the ink (cream-on-black) tones.
   const Header = () => (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       gap: 12, flexWrap: 'wrap',
       padding: '0 4px 14px',
     }}>
-      <Label>Gallery</Label>
+      <Label onInk>Gallery</Label>
       <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.22em', textTransform: 'uppercase',
-        color: C.muted }}>
+        color: 'rgba(241,236,225,.5)' }}>
         {photos.length} photo{photos.length !== 1 ? 's' : ''}
       </span>
     </div>
@@ -1519,8 +1541,8 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
       <section style={{ padding: '12px 2px 4px' }}>
         <Header />
         <div style={{ padding: '32px 0', textAlign: 'center' }}>
-          <div style={{ fontSize: 28, marginBottom: 10, color: 'rgba(21,18,14,.20)' }}>✿</div>
-          <p style={{ fontFamily: DISP, color: C.muted, fontSize: 13, margin: 0 }}>
+          <div style={{ fontSize: 28, marginBottom: 10, color: 'rgba(241,236,225,.18)' }}>✿</div>
+          <p style={{ fontFamily: DISP, color: 'rgba(241,236,225,.5)', fontSize: 13, margin: 0 }}>
             No photos in the gallery yet.
           </p>
         </div>
@@ -1536,16 +1558,16 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
         <div onClick={() => fileRef.current?.click()}
           style={{
             padding: '36px 0', borderRadius: 18, cursor: 'pointer',
-            border: '2px dashed rgba(217,146,6,.30)',
+            border: '2px dashed rgba(243,178,26,.35)',
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-            background: 'rgba(243,178,26,.04)',
+            background: 'rgba(243,178,26,.06)',
           }}>
-          <span style={{ fontSize: 28, color: 'rgba(217,146,6,.65)' }}>✿</span>
+          <span style={{ fontSize: 28, color: 'rgba(243,178,26,.75)' }}>✿</span>
           <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.18em',
-            textTransform: 'uppercase', color: C.saffronDeep, fontWeight: 700 }}>
+            textTransform: 'uppercase', color: C.saffron, fontWeight: 700 }}>
             {uploading ? `Uploading ${pct}%` : 'Add photos to the gallery'}
           </span>
-          <span style={{ fontSize: 11, color: C.muted, textAlign: 'center', padding: '0 20px' }}>
+          <span style={{ fontSize: 11, color: 'rgba(241,236,225,.5)', textAlign: 'center', padding: '0 20px' }}>
             Add more memories any time. These appear here and don't change the reel.
           </span>
         </div>
@@ -1563,13 +1585,13 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
         <div onClick={() => fileRef.current?.click()}
           style={{
             padding: '14px 0', borderRadius: 16, marginBottom: 12,
-            border: '2px dashed rgba(217,146,6,.30)',
-            background: 'rgba(243,178,26,.04)',
+            border: '2px dashed rgba(243,178,26,.35)',
+            background: 'rgba(243,178,26,.06)',
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, cursor: 'pointer',
           }}>
-          <span style={{ fontSize: 20, color: 'rgba(217,146,6,.65)' }}>✿</span>
+          <span style={{ fontSize: 20, color: 'rgba(243,178,26,.75)' }}>✿</span>
           <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.18em',
-            textTransform: 'uppercase', color: C.saffronDeep, fontWeight: 700 }}>
+            textTransform: 'uppercase', color: C.saffron, fontWeight: 700 }}>
             {uploading ? `Uploading ${pct}%` : 'Add photos'}
           </span>
         </div>
@@ -2027,9 +2049,9 @@ function TabBar({ tabs, active, onChange }) {
 
 // ─── Loading skeleton ─────────────────────────────────────────────────────────
 function LoadingSkeleton() {
-  const pulse = { background: C.cream2, animation: 'pulse 1.5s ease-in-out infinite', borderRadius: 26 }
+  const pulse = { background: 'rgba(241,236,225,.06)', animation: 'pulse 1.5s ease-in-out infinite', borderRadius: 26 }
   return (
-    <div style={{ background: C.paper, minHeight: '100vh' }}>
+    <div style={{ background: '#0a0805', minHeight: '100vh' }}>
       <div style={{ margin: '1rem 1rem 0', borderRadius: 26, height: '64vh', minHeight: 480, ...pulse }} />
       <div style={{ maxWidth: 1400, margin: '0 auto', padding: '1.5rem 1rem 0' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '400px 1fr', gap: 24 }} className="skeleton-grid">
@@ -2619,6 +2641,29 @@ function MemorialDetailPageInner() {
     }).catch(err => console.warn('[reanalyse-photos] failed', err))
   }, [memorial, user, memorialId])
 
+  // ── Reel image preloader ──────────────────────────────────────────────────
+  // The Life Reel cycles through photos at a 3-second beat. If a photo isn't
+  // in the browser cache when its slide starts, the user sees a flash of dark
+  // background while the image decodes — turbulent and breaks the cinematic
+  // feel. We warm the cache for every reel photo as soon as we have them,
+  // before the user has even scrolled to the reel. Costs a few extra requests
+  // on memorial load (which is acceptable per the team's "load longer so the
+  // reel flows smoothly" preference) and earns a frame-perfect loop.
+  const preloadedRef = useRef(new Set())
+  useEffect(() => {
+    const list = memorial?.photos || []
+    if (list.length === 0) return
+    // Limit to the first 12 photos (the reel caps somewhere around there
+    // for budget reasons). Skip anything already warmed in this session.
+    list.slice(0, 12).forEach(p => {
+      if (!p?.url || preloadedRef.current.has(p.url)) return
+      preloadedRef.current.add(p.url)
+      const img = new Image()
+      img.decoding = 'async'
+      img.src = p.url
+    })
+  }, [memorial?.photos])
+
   // ── Background-task feedback: surface the talk-portrait status transitions ─
   // The user just created the memorial → navigation lands them here while
   // /api/generate-talk-portrait is still running. Without this, they'd see
@@ -2768,10 +2813,15 @@ function MemorialDetailPageInner() {
 
   return (
     <div style={{
-      background:   C.paper,
+      // Deep warm-black canvas — slightly darker than C.ink (#15120e) so the
+      // ink-variant cards on top still read as floating panels rather than
+      // dissolving into the background. Cream rail cards on the left pop
+      // like printed pages against this surface.
+      background:   '#0a0805',
       minHeight:    '100vh',
       paddingTop:   'max(56px, calc(env(safe-area-inset-top) + 12px))',
       paddingBottom:'max(96px, calc(env(safe-area-inset-bottom) + 80px))',
+      color:        C.cream,
       // Hardware-accelerated rendering hint so the long right column
       // doesn't repaint half the page on every scroll tick.
       transform: 'translateZ(0)',
@@ -3111,10 +3161,10 @@ function MemorialDetailPageInner() {
 
         {/* ── Footer ──────────────────────────────────────────────────────── */}
         <footer style={{ marginTop: '3rem', padding: '18px 8px',
-          borderTop: '1px solid rgba(21,18,14,.10)',
+          borderTop: '1px solid rgba(241,236,225,.10)',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8,
-          fontFamily: MONO, fontSize: 11, letterSpacing: '.2em', textTransform: 'uppercase', color: C.muted }}>
-          <span>Who Was I — Family Archive <span style={{ color: C.saffronDeep }}>●</span> whowasi.uk</span>
+          fontFamily: MONO, fontSize: 11, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(241,236,225,.5)' }}>
+          <span>Who Was I — Family Archive <span style={{ color: C.saffron }}>●</span> whowasi.uk</span>
           <span>memorial · {memorial.name?.toLowerCase()} · est. {
             String(memorial.born || memorial.birthYear || '').match(/\d{4}/)?.[0] || new Date().getFullYear()
           }</span>
