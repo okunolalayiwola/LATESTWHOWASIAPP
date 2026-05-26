@@ -15,6 +15,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { db } from '../lib/instant'
+import { useToast } from '../contexts/ToastContext'
 import { usePullToRefresh } from '../hooks'
 import { useActivityFeed } from '../hooks/useActivityFeed'
 import FamilyMessagesSection from '../components/shared/FamilyMessagesSection'
@@ -497,6 +498,7 @@ function EventCard({ ev, navigate }) {
 //   2. Suggestions from owners → I confirm or decline the owner's
 //      counter-suggestion of how I'm related.
 function FamilyConnectionInbox({ incoming, suggestions, user }) {
+  const { toast } = useToast()
   if (incoming.length === 0 && suggestions.length === 0) return null
 
   async function ownerApprove(conn) {
@@ -521,7 +523,7 @@ function FamilyConnectionInbox({ incoming, suggestions, user }) {
           ownerName:    user?.email?.split('@')[0] || 'the family',
         }),
       }).catch(() => {})
-    } catch { alert('Could not approve. Try again.') }
+    } catch { toast.error('Could not approve. Try again.') }
   }
 
   async function ownerReject(conn) {
@@ -530,7 +532,7 @@ function FamilyConnectionInbox({ incoming, suggestions, user }) {
       await db.transact([
         db.tx.familyConnections[conn.id].update({ status: 'rejected' }),
       ])
-    } catch { alert('Could not decline. Try again.') }
+    } catch { toast.error('Could not decline. Try again.') }
   }
 
   // Inviter accepts the owner's suggested relation
@@ -557,7 +559,7 @@ function FamilyConnectionInbox({ incoming, suggestions, user }) {
           ownerName:    'the family',
         }),
       }).catch(() => {})
-    } catch { alert('Could not confirm. Try again.') }
+    } catch { toast.error('Could not confirm. Try again.') }
   }
 
   async function inviterDeclineSuggestion(conn) {
@@ -569,7 +571,7 @@ function FamilyConnectionInbox({ incoming, suggestions, user }) {
           inviterRespondedAt: Date.now(),
         }),
       ])
-    } catch { alert('Could not decline. Try again.') }
+    } catch { toast.error('Could not decline. Try again.') }
   }
 
   return (

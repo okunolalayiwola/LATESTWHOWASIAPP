@@ -1417,6 +1417,7 @@ function LoadingSkeleton() {
 //   • Remove approved members
 // Family members can view the circle.
 function MemorialFamilyCircle({ memorial, memorialId, user, isOwner, onClose }) {
+  const { toast } = useToast()
   const [centeredId,   setCenteredId]   = useState(null)   // null → memorial is centre
   const [selected,     setSelected]     = useState(null)
   const [recenterTick, setRecenterTick] = useState(0)
@@ -1478,7 +1479,7 @@ function MemorialFamilyCircle({ memorial, memorialId, user, isOwner, onClose }) 
     try {
       await db.transact([db.tx.familyConnections[connId].update({ status: 'rejected' })])
       setSelected(null)
-    } catch { alert('Could not remove. Try again.') }
+    } catch { toast.error('Could not remove. Try again.') }
   }
 
   async function handleApprovePending(conn) {
@@ -1487,7 +1488,7 @@ function MemorialFamilyCircle({ memorial, memorialId, user, isOwner, onClose }) 
         status: 'approved',
         approvedAt: Date.now(),
       })])
-    } catch { alert('Could not approve. Try again.') }
+    } catch { toast.error('Could not approve. Try again.') }
   }
 
   async function handleRejectPending(conn) {
@@ -1495,7 +1496,7 @@ function MemorialFamilyCircle({ memorial, memorialId, user, isOwner, onClose }) 
       await db.transact([db.tx.familyConnections[conn.id].update({
         status: 'rejected',
       })])
-    } catch { alert('Could not reject. Try again.') }
+    } catch { toast.error('Could not reject. Try again.') }
   }
 
   return (
@@ -1958,11 +1959,6 @@ function MemorialDetailPageInner() {
     const photoUrls = sorted.map(p => p.url).filter(Boolean).slice(0, 8)
     if (photoUrls.length === 0) return
 
-    console.log(
-      `[reanalyse-photos] triggered — newPhotos=${newPhotos} (threshold 10), ` +
-      `daysSinceLast=${everRan ? Math.floor(ageMs / 86400000) : 'never'} (threshold 30)`
-    )
-
     fetch('/api/analyze-photos', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2389,7 +2385,7 @@ function MemorialDetailPageInner() {
                                     deathYear: dodYear.trim(),
                                   }),
                                 ])
-                              } catch { alert('Could not update. Please try again.') }
+                              } catch { toast.error('Could not update. Please try again.') }
                             }}
                             style={{ padding: '10px 18px', borderRadius: 999, border: '1px solid rgba(200,83,31,.35)',
                               background: 'rgba(200,83,31,.10)', color: '#e07b5a', cursor: 'pointer',
@@ -2413,7 +2409,7 @@ function MemorialDetailPageInner() {
                                     deathYear: null,
                                   }),
                                 ])
-                              } catch { alert('Could not update. Please try again.') }
+                              } catch { toast.error('Could not update. Please try again.') }
                             }}
                             style={{ padding: '10px 18px', borderRadius: 999, border: '1px solid rgba(94,122,62,.35)',
                               background: 'rgba(94,122,62,.12)', color: '#88c069', cursor: 'pointer',
@@ -2437,7 +2433,7 @@ function MemorialDetailPageInner() {
                                     deathYear: dodYear.trim(),
                                   }),
                                 ])
-                              } catch { alert('Could not update. Please try again.') }
+                              } catch { toast.error('Could not update. Please try again.') }
                             }}
                             style={{ padding: '10px 18px', borderRadius: 999, border: '1px solid rgba(241,236,225,.12)',
                               background: 'rgba(241,236,225,.06)', color: 'rgba(241,236,225,.6)', cursor: 'pointer',

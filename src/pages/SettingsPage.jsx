@@ -155,6 +155,30 @@ export default function SettingsPage() {
     navigate('/')
   }
 
+  // ── Delete account — GDPR cascade via server endpoint ─────────────────────
+  // Previous behaviour just signed the user out (effectively a no-op deletion).
+  // Now actually deletes the account + cascades: profiles, memorials, tributes,
+  // photos, letters, family connections, invites, and the $users record.
+  async function handleDeleteAccount() {
+    if (!user?.id) return
+    try {
+      const r = await fetch('/api/delete-account', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ userId: user.id }),
+      })
+      const data = await r.json()
+      if (!r.ok || data.error) {
+        toast.error(data.error || 'Could not delete account. Try again or contact support.')
+        return
+      }
+      await db.auth.signOut()
+      navigate('/')
+    } catch {
+      toast.error('Network error. Please try again.')
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="relative z-10 min-h-screen pt-20 pb-28">
@@ -243,22 +267,15 @@ export default function SettingsPage() {
       </motion.div>
 
       {/* ── Account section ───────────────────────────────────────────────── */}
+      {/* Account-specific rows only. Navigation to memorials / family tree /
+          explore / create lives on the Profile page Quick Access — duplicating
+          here just clutters this screen. Email is read-only here because the
+          editor lives on Profile (single source of truth for changes). */}
       <motion.div initial={{ opacity:0,y:12 }} animate={{ opacity:1,y:0 }} transition={{ delay:0.1 }} className="mx-5">
         <SectionHeader label="Account" />
         <div className="glass rounded-2xl overflow-hidden divide-y divide-white/5">
           <SettingsRow icon="✦" label="Display name" value={displayName} onClick={() => setModal('name')} />
           <SettingsRow info icon="◎" label="Email address" value={user.email} />
-          <SettingsRow icon="✿" label="Family Tree" onClick={() => navigate('/family-tree')} />
-        </div>
-      </motion.div>
-
-      {/* ── Memorials section ─────────────────────────────────────────────── */}
-      <motion.div initial={{ opacity:0,y:12 }} animate={{ opacity:1,y:0 }} transition={{ delay:0.15 }} className="mx-5">
-        <SectionHeader label="Memorials" />
-        <div className="glass rounded-2xl overflow-hidden divide-y divide-white/5">
-          <SettingsRow icon="♡" label="My memorials"      onClick={() => navigate('/dashboard')} />
-          <SettingsRow icon="◎" label="Create a memorial"  onClick={() => navigate('/create')}    />
-          <SettingsRow icon="✦" label="Explore memorials"  onClick={() => navigate('/explore')}   />
         </div>
       </motion.div>
 
@@ -299,9 +316,9 @@ export default function SettingsPage() {
         )}
         {modal==='delete' && (
           <ConfirmModal key="delete" title="Delete account"
-            message="This is permanent. All your memorials, tributes, and family data will be removed."
+            message="This is permanent. All your memorials, tributes, photos, letters, and family connections will be removed. This action cannot be undone."
             confirmLabel="Delete my account" danger
-            onConfirm={async () => { await handleSignOut() }}
+            onConfirm={handleDeleteAccount}
             onClose={() => setModal(null)} />
         )}
       </AnimatePresence>
