@@ -162,7 +162,7 @@ export default function MemberFormModal({ user, existing, onClose }) {
           className="w-full h-28 rounded-2xl border border-dashed border-white/15 flex flex-col items-center justify-center cursor-pointer hover:border-gold/30 transition-colors mb-5 overflow-hidden relative"
         >
           {preview ? (
-            <img src={preview} alt="" className="w-full h-full object-cover" />
+            <img loading="lazy" decoding="async" src={preview} alt="" className="w-full h-full object-cover" />
           ) : (
             <>
               <span className="text-2xl opacity-20 mb-1">✿</span>

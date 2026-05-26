@@ -83,7 +83,7 @@ export default function MemberDetailPanel({ member, user, onClose, onEdit, onDel
             isAlive ? 'bg-emerald-900/40 border border-emerald-700/30 text-emerald-300' : 'bg-amber-900/30 border border-amber-700/20 text-amber-300'
           }`}>
             {member.photo
-              ? <img src={member.photo} alt="" className="w-full h-full object-cover" />
+              ? <img loading="lazy" decoding="async" src={member.photo} alt="" className="w-full h-full object-cover" />
               : (member.avatar || member.name?.slice(0, 2).toUpperCase() || '?')}
           </div>
           <div className="flex-1 min-w-0">

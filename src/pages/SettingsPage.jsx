@@ -228,7 +228,7 @@ export default function SettingsPage() {
               className="w-18 h-18 w-[72px] h-[72px] rounded-full bg-gradient-to-br from-gold/30 to-coral/30 border border-white/10 flex items-center justify-center text-2xl font-bold font-display overflow-hidden cursor-pointer group"
             >
               {photoSrc
-                ? <img src={photoSrc} alt="" className="w-full h-full object-cover" />
+                ? <img loading="lazy" decoding="async" src={photoSrc} alt="" className="w-full h-full object-cover" />
                 : initials}
               {/* Hover overlay */}
               <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">

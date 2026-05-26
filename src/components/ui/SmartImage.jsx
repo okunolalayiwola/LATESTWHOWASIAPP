@@ -1,5 +1,5 @@
 // src/components/ui/SmartImage.jsx
-// Drop-in <img> replacement that makes every image cheap:
+// Drop-in <img loading="lazy" decoding="async"> replacement that makes every image cheap:
 //  • Cloudinary URLs get auto width/quality/format transforms (f_auto = WebP/AVIF)
 //  • Native lazy-loading + async decode (offscreen images cost nothing)
 //  • Blur-up: a tiny placeholder loads instantly, real image fades in
@@ -50,7 +50,7 @@ export default function SmartImage({
     >
       {/* Blur-up placeholder (Cloudinary only) — paints instantly */}
       {blurSrc && !loaded && (
-        <img
+        <img loading="lazy" decoding="async"
           src={blurSrc}
           alt=""
           aria-hidden="true"
@@ -61,7 +61,7 @@ export default function SmartImage({
         />
       )}
 
-      <img
+      <img loading="lazy" decoding="async"
         src={fullSrc}
         alt={alt}
         loading={priority ? 'eager' : 'lazy'}

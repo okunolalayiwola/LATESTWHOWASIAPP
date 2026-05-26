@@ -124,7 +124,7 @@ export default function InviteCodeBadge({ user, memorial, compact = false }) {
           {qrUrl && (
             <button onClick={() => setExpanded(e => !e)}
               style={{ background:'#fff', borderRadius:10, padding:4, border:'none', cursor:'pointer', flexShrink:0 }}>
-              <img src={qrUrl} alt="QR" style={{ width:52, height:52, display:'block' }} />
+              <img loading="lazy" decoding="async" src={qrUrl} alt="QR" style={{ width:52, height:52, display:'block' }} />
             </button>
           )}
         </div>
@@ -144,7 +144,7 @@ export default function InviteCodeBadge({ user, memorial, compact = false }) {
                   letterSpacing:'.28em' }}>{code}</p>
                 {/* QR */}
                 <div style={{ background:'#fff', borderRadius:14, padding:8 }}>
-                  <img src={qrUrl} alt="Invite QR" style={{ width:160, height:160, display:'block' }} />
+                  <img loading="lazy" decoding="async" src={qrUrl} alt="Invite QR" style={{ width:160, height:160, display:'block' }} />
                 </div>
                 <p style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:8, letterSpacing:'.2em',
                   textTransform:'uppercase', color:'rgba(255,255,255,.25)' }}>Scan to join family</p>
@@ -194,7 +194,7 @@ export default function InviteCodeBadge({ user, memorial, compact = false }) {
               letterSpacing:'.24em', color:'#fff', textAlign:'center' }}>{code}</p>
             {qrUrl && (
               <div style={{ background:'#fff', borderRadius:16, padding:10, boxShadow:'0 8px 24px rgba(0,0,0,.3)' }}>
-                <img src={qrUrl} alt="Invite QR" style={{ width:180, height:180, display:'block' }} />
+                <img loading="lazy" decoding="async" src={qrUrl} alt="Invite QR" style={{ width:180, height:180, display:'block' }} />
               </div>
             )}
             <p style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:8, letterSpacing:'.22em',

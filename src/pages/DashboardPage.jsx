@@ -365,7 +365,7 @@ function MemorialRow({ memorial }) {
       <div className="main">
         <div className={`avatar ${isAlive ? 'alive' : 'gold'}`}>
           {memorial.photo
-            ? <img src={memorial.photo} alt="" />
+            ? <img loading="lazy" decoding="async" src={memorial.photo} alt="" />
             : (memorial.name?.charAt(0) || '?').toLowerCase()}
         </div>
         <div className="info">
@@ -410,7 +410,7 @@ function GeneralCard({ memorial }) {
       <div className="main">
         <div className={`avatar ${isAlive ? 'alive' : 'gold'}`}>
           {memorial.photo
-            ? <img src={memorial.photo} alt="" />
+            ? <img loading="lazy" decoding="async" src={memorial.photo} alt="" />
             : (memorial.name?.charAt(0) || '?').toLowerCase()}
         </div>
         <div className="info">
@@ -590,7 +590,7 @@ function FamilyConnectionInbox({ incoming, suggestions, user }) {
           <div key={c.id} className="fci-row">
             <div className="fci-avatar">
               {c.fromPhoto
-                ? <img src={c.fromPhoto} alt="" />
+                ? <img loading="lazy" decoding="async" src={c.fromPhoto} alt="" />
                 : (c.fromName?.[0] || '?').toUpperCase()}
             </div>
             <div className="fci-body">
@@ -803,7 +803,7 @@ function FamilyChatPanel({ allMemIds, ownedMemorials, connectedMemorialIds, allF
               className={`fcp-row ${isActive ? 'active' : ''}`}>
               <div className="fcp-avatar">
                 {c.photo
-                  ? <img src={c.photo} alt="" />
+                  ? <img loading="lazy" decoding="async" src={c.photo} alt="" />
                   : (c.name?.[0] || '?').toUpperCase()}
               </div>
               <div className="fcp-row-body">
@@ -1429,7 +1429,7 @@ export default function DashboardPage() {
                     onClick={() => { setShowVaultPicker(false); navigate(`/memorial/${m.id}/letters`) }}
                   >
                     <div className={`vp-av ${isAlive ? 'alive' : 'gold'}`}>
-                      {m.photo ? <img src={m.photo} alt="" /> : (m.name?.charAt(0) || '?').toLowerCase()}
+                      {m.photo ? <img loading="lazy" decoding="async" src={m.photo} alt="" /> : (m.name?.charAt(0) || '?').toLowerCase()}
                     </div>
                     <div>
                       <div className="vp-name">{m.name}</div>

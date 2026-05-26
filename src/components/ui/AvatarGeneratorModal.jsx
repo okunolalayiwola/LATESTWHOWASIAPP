@@ -256,7 +256,7 @@ export default function AvatarGeneratorModal({ existingPhotos = [], currentPhoto
                 >
                   {sourcePhoto ? (
                     <>
-                      <img src={sourcePhoto} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                      <img loading="lazy" decoding="async" src={sourcePhoto} alt="" className="absolute inset-0 w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <p className="text-white text-xs font-semibold">Change photo</p>
                       </div>
@@ -286,7 +286,7 @@ export default function AvatarGeneratorModal({ existingPhotos = [], currentPhoto
                             sourcePhoto === p.url ? 'ring-2 ring-gold' : 'opacity-60 hover:opacity-100'
                           }`}
                         >
-                          <img src={p.url} alt="" className="w-full h-full object-cover" />
+                          <img loading="lazy" decoding="async" src={p.url} alt="" className="w-full h-full object-cover" />
                         </div>
                       ))}
                     </div>
@@ -331,7 +331,7 @@ export default function AvatarGeneratorModal({ existingPhotos = [], currentPhoto
 
                 {sourcePhoto && (
                   <div className="flex items-center gap-3 glass rounded-xl p-3">
-                    <img src={sourcePhoto} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                    <img loading="lazy" decoding="async" src={sourcePhoto} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
                     <div>
                       <p className="text-xs font-medium text-white">Portrait will be based on this photo</p>
                       <button onClick={() => setStep(0)} className="text-[0.6rem] text-gold hover:text-gold/70 transition-colors mt-0.5">
@@ -391,7 +391,7 @@ export default function AvatarGeneratorModal({ existingPhotos = [], currentPhoto
                       initial={{ opacity:0,scale:0.96 }} animate={{ opacity:1,scale:1 }} exit={{ opacity:0 }}
                       className="relative rounded-2xl overflow-hidden"
                     >
-                      <img src={result} alt="Generated portrait" className="w-full rounded-2xl" />
+                      <img loading="lazy" decoding="async" src={result} alt="Generated portrait" className="w-full rounded-2xl" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                       <div className="absolute bottom-4 left-4 right-4 flex gap-2">
                         <button

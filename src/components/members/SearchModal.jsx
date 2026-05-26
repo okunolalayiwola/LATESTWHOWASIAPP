@@ -127,7 +127,7 @@ export default function SearchModal({ members, onSelect, onClose }) {
                 >
                   <div className={`w-9 h-9 rounded-full border flex-shrink-0 flex items-center justify-center text-xs font-bold overflow-hidden ${avatarCls(m.alive)}`}>
                     {m.photo
-                      ? <img src={m.photo} alt="" className="w-full h-full object-cover" />
+                      ? <img loading="lazy" decoding="async" src={m.photo} alt="" className="w-full h-full object-cover" />
                       : (m.avatar || m.name?.slice(0, 2).toUpperCase() || '?')}
                   </div>
                   <div className="flex-1 min-w-0">

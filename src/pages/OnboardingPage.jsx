@@ -257,7 +257,7 @@ export default function OnboardingPage() {
     <div className="min-h-screen flex flex-col items-center justify-center px-6 relative overflow-hidden" style={{ background: '#000' }}>
       {/* Background */}
       <div className="absolute inset-0 pointer-events-none">
-        <img src={authBg} alt="" aria-hidden className="w-full h-full object-cover" />
+        <img loading="lazy" decoding="async" src={authBg} alt="" aria-hidden className="w-full h-full object-cover" />
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.88) 100%)' }} />
       </div>
 

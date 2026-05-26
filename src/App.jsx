@@ -54,20 +54,56 @@ const FamilyVerifyPage     = lazyWithRetry(() => import('./pages/FamilyVerifyPag
 const JoinPage             = lazyWithRetry(() => import('./pages/JoinPage'))
 
 // ─── Loaders ──────────────────────────────────────────────────────────────────
+// PageLoader holds its breath for 180ms before appearing — fast route swaps
+// land before it ever paints, so the UI feels instant. Slower navigations
+// fade the spinner in so the appearance isn't jarring. Uses a neutral cream
+// palette so it works on both dark and pastel backgrounds.
 
 function PageLoader() {
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setVisible(true), 180)
+    return () => clearTimeout(t)
+  }, [])
   return (
-    <div className="relative z-10 min-h-screen flex items-center justify-center">
-      <div className="w-10 h-10 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+    <div
+      className="relative z-10 min-h-[60vh] flex items-center justify-center"
+      style={{
+        opacity: visible ? 1 : 0,
+        transition: 'opacity .35s ease',
+        pointerEvents: visible ? 'auto' : 'none',
+      }}
+    >
+      <div className="flex flex-col items-center gap-3">
+        <div
+          className="w-9 h-9 rounded-full animate-spin"
+          style={{
+            border: '2.5px solid rgba(241,236,225,0.16)',
+            borderTopColor: 'rgba(241,236,225,0.85)',
+          }}
+        />
+        <span
+          className="text-[0.6rem] tracking-[0.28em] uppercase font-semibold"
+          style={{ color: 'rgba(241,236,225,0.45)' }}
+        >
+          Loading
+        </span>
+      </div>
     </div>
   )
 }
 
 function AuthLoader() {
   return (
-    <div className="relative min-h-screen bg-[#08080f] flex flex-col items-center justify-center gap-4">
-      <div className="w-10 h-10 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
-      <p className="text-brand text-xl">WHO WAS I</p>
+    <div className="relative min-h-screen bg-[#08080f] flex flex-col items-center justify-center gap-5">
+      <div
+        className="w-11 h-11 rounded-full animate-spin"
+        style={{
+          border: '2.5px solid rgba(241,236,225,0.18)',
+          borderTopColor: 'rgba(241,236,225,0.9)',
+        }}
+      />
+      <p className="text-brand text-xl" style={{ letterSpacing: '0.06em' }}>WHO WAS I</p>
     </div>
   )
 }

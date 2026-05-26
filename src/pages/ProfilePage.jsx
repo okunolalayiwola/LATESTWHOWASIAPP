@@ -440,7 +440,7 @@ export default function ProfilePage() {
                 <span className="text-[0.55rem] text-white/40">{uploadPct}%</span>
               </div>
             ) : profile?.photoUrl ? (
-              <img src={profile.photoUrl} alt={displayName} className="w-full h-full object-cover" />
+              <img loading="lazy" decoding="async" src={profile.photoUrl} alt={displayName} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center font-display text-3xl font-bold text-white/80"
                 style={{ background: `linear-gradient(135deg, ${planInfo.color}25, ${planInfo.color}10)` }}>
@@ -600,7 +600,7 @@ export default function ProfilePage() {
                       <div className="w-14 h-14 rounded-2xl flex-shrink-0 overflow-hidden"
                         style={{ border: '1.5px solid rgba(255,215,0,0.40)' }}>
                         {selfMemorial.photo
-                          ? <img src={selfMemorial.photo} alt="" className="w-full h-full object-cover" />
+                          ? <img loading="lazy" decoding="async" src={selfMemorial.photo} alt="" className="w-full h-full object-cover" />
                           : <div className="w-full h-full flex items-center justify-center font-display text-xl font-bold"
                               style={{ background: 'rgba(255,215,0,0.15)', color: '#FFD700' }}>
                               {selfMemorial.name?.charAt(0)}
@@ -667,7 +667,7 @@ export default function ProfilePage() {
                         <div className="w-10 h-10 rounded-xl flex-shrink-0 overflow-hidden"
                           style={{ background: 'linear-gradient(135deg, rgba(255,215,0,0.15), rgba(56,189,248,0.10))' }}>
                           {m.photo
-                            ? <img src={m.photo} alt="" className="w-full h-full object-cover" />
+                            ? <img loading="lazy" decoding="async" src={m.photo} alt="" className="w-full h-full object-cover" />
                             : <div className="w-full h-full flex items-center justify-center font-display text-sm font-bold text-gold/60">
                                 {m.name?.charAt(0)}
                               </div>}

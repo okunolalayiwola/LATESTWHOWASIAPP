@@ -134,7 +134,7 @@ function MemberChip({ name, photo, isYou, colour, compact = false }) {
         overflow: 'hidden', flexShrink: 0,
       }}>
         {photo
-          ? <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ? <img loading="lazy" decoding="async" src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : initials(name)}
       </div>
       <span style={{
@@ -194,7 +194,7 @@ function MessageBubble({ msg, isMine, showName, totalRecipients }) {
           overflow: 'hidden',
         }}>
           {msg.fromPhoto
-            ? <img src={msg.fromPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ? <img loading="lazy" decoding="async" src={msg.fromPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             : initials(msg.fromName)}
         </div>
       )}
@@ -226,7 +226,7 @@ function MessageBubble({ msg, isMine, showName, totalRecipients }) {
               borderRadius: 8, overflow: 'hidden',
               marginBottom: msg.content ? 6 : 0, maxWidth: 240,
             }}>
-              <img src={msg.photoUrl} alt="" style={{ width: '100%', display: 'block', objectFit: 'cover' }} />
+              <img loading="lazy" decoding="async" src={msg.photoUrl} alt="" style={{ width: '100%', display: 'block', objectFit: 'cover' }} />
             </div>
           )}
           {msg.content && (
@@ -498,7 +498,7 @@ export default function FamilyMessagesSection({ memorialId, user, userProfile, c
           fontFamily: SERIF, fontStyle: 'italic', fontSize: 16, fontWeight: 700, color: C.saffron,
         }}>
           {memorial?.photo
-            ? <img src={memorial.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ? <img loading="lazy" decoding="async" src={memorial.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             : (memorial?.name?.[0] || '?').toUpperCase()}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -655,7 +655,7 @@ export default function FamilyMessagesSection({ memorialId, user, userProfile, c
                     overflow: 'hidden',
                   }}>
                     {m.photo
-                      ? <img src={m.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ? <img loading="lazy" decoding="async" src={m.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       : initials(m.name)}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -688,7 +688,7 @@ export default function FamilyMessagesSection({ memorialId, user, userProfile, c
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
             style={{ borderTop: '1px solid rgba(21,18,14,.08)', overflow: 'hidden' }}>
             <div style={{ position: 'relative', maxHeight: 140, padding: '10px 16px' }}>
-              <img src={photoPreview} alt="" style={{ width: '100%', maxHeight: 120, objectFit: 'cover', borderRadius: 10, display: 'block' }} />
+              <img loading="lazy" decoding="async" src={photoPreview} alt="" style={{ width: '100%', maxHeight: 120, objectFit: 'cover', borderRadius: 10, display: 'block' }} />
               <button onClick={removePhoto}
                 style={{ position: 'absolute', top: 16, right: 22, width: 26, height: 26, borderRadius: '50%',
                   background: 'rgba(21,18,14,.78)', border: 'none', cursor: 'pointer', color: '#fff', fontSize: 13 }}>✕</button>

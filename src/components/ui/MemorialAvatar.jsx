@@ -125,7 +125,7 @@ export default function MemorialAvatar({
         {photo ? (
           <>
             {/* Photo */}
-            <img
+            <img loading="lazy" decoding="async"
               src={photo}
               alt={name}
               style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}

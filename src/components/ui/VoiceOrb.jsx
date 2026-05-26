@@ -338,7 +338,7 @@ export default function VoiceOrb({ voiceUrl, voiceDuration, bio, name, elevenLab
 
           {/* Portrait photo */}
           {photo && (
-            <img
+            <img loading="lazy" decoding="async"
               src={photo}
               alt={name}
               className="absolute inset-0 w-full h-full object-cover"

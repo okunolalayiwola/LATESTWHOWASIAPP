@@ -131,7 +131,7 @@ export default function HudPanel({ member, onClose, onEdit, onDeleted }) {
               flexShrink: 0, overflow: 'hidden',
             }}>
               {member.photo
-                ? <img src={member.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ? <img loading="lazy" decoding="async" src={member.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 : initial}
             </div>
 

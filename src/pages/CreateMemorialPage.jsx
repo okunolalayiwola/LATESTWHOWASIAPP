@@ -598,7 +598,7 @@ function StepPerson({ form, setForm, isSelf, copy }) {
             className="w-20 h-20 rounded-full bg-gradient-to-br from-gold/20 to-coral/20 border-2 border-dashed border-white/15 flex items-center justify-center cursor-pointer hover:border-gold/40 transition-all overflow-hidden flex-shrink-0"
           >
             {avatarPreview ? (
-              <img src={avatarPreview} alt="" className="w-full h-full object-cover" />
+              <img loading="lazy" decoding="async" src={avatarPreview} alt="" className="w-full h-full object-cover" />
             ) : (
               <span className="text-2xl opacity-30">✦</span>
             )}
@@ -825,7 +825,7 @@ function StepPerson({ form, setForm, isSelf, copy }) {
 function LifePhotoItem({ photo, onRemove, onDateChange }) {
   return (
     <div className="relative group rounded-xl overflow-hidden" style={{ aspectRatio:'1' }}>
-      <img src={photo.preview} alt="" className="w-full h-full object-cover" />
+      <img loading="lazy" decoding="async" src={photo.preview} alt="" className="w-full h-full object-cover" />
       {/* Date badge */}
       <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1">
         {photo.takenAt ? (
@@ -1075,7 +1075,7 @@ const MAX_FACE_PHOTOS    = 5
 function FacePhotoItem({ photo, onRemove }) {
   return (
     <div className="relative aspect-square rounded-xl overflow-hidden group">
-      <img src={photo.preview || photo.url} alt="" className="w-full h-full object-cover" />
+      <img loading="lazy" decoding="async" src={photo.preview || photo.url} alt="" className="w-full h-full object-cover" />
       {photo.checking && (
         <div className="absolute inset-0 flex items-center justify-center"
           style={{ background: 'rgba(0,0,0,0.55)' }}>
@@ -1253,13 +1253,13 @@ function StepPublish({ form, setForm, isSelf, copy }) {
       <div className="relative h-36 rounded-2xl overflow-hidden"
         style={{ background: form.themeHex ? `linear-gradient(135deg, ${form.themeHex}cc, ${form.themeHex}66)` : 'linear-gradient(135deg, #57534ecc, #292524cc)' }}>
         {form.photoUrl && (
-          <img src={form.photoUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+          <img loading="lazy" decoding="async" src={form.photoUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
         <div className="absolute bottom-0 left-0 p-4 flex items-center gap-3">
           {form.photoUrl && (
             <div className="w-12 h-12 rounded-full border-2 border-white/20 overflow-hidden flex-shrink-0">
-              <img src={form.photoUrl} alt="" className="w-full h-full object-cover" />
+              <img loading="lazy" decoding="async" src={form.photoUrl} alt="" className="w-full h-full object-cover" />
             </div>
           )}
           <div>

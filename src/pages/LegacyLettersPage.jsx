@@ -638,7 +638,7 @@ function VaultShareModal({ memorialId, memorialName, userId, familyConnections, 
                           <div className="w-10 h-10 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center text-sm font-bold"
                             style={{ background: 'rgba(243,178,26,.15)', color: 'rgba(243,178,26,.8)', border: '1px solid rgba(243,178,26,.2)' }}>
                             {conn.fromPhoto
-                              ? <img src={conn.fromPhoto} alt="" className="w-full h-full object-cover" />
+                              ? <img loading="lazy" decoding="async" src={conn.fromPhoto} alt="" className="w-full h-full object-cover" />
                               : (conn.fromName?.[0] || '?').toUpperCase()}
                           </div>
                           {/* Info */}

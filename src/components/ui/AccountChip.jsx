@@ -64,7 +64,7 @@ export default function AccountChip() {
           }}
         >
           {photo
-            ? <img src={photo} alt="" className="w-full h-full object-cover" />
+            ? <img loading="lazy" decoding="async" src={photo} alt="" className="w-full h-full object-cover" />
             : <span className="text-[0.6rem] font-bold text-white font-display">{initials}</span>}
         </div>
         <span className="text-xs font-semibold text-white/80 max-w-[88px] truncate hidden sm:block">

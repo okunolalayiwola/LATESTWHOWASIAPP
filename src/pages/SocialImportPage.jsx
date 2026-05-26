@@ -84,7 +84,7 @@ function PhotoGrid({ photos, selected, onToggle, onImport, importing }) {
                 isSelected ? 'border-gold' : 'border-transparent hover:border-white/20'
               }`}
             >
-              <img src={photo.url} alt={photo.caption} className="w-full h-full object-cover" />
+              <img loading="lazy" decoding="async" src={photo.url} alt={photo.caption} className="w-full h-full object-cover" />
               {isSelected && (
                 <div className="absolute top-2 right-2 w-6 h-6 bg-gold rounded-full flex items-center justify-center">
                   <svg className="w-3 h-3 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>

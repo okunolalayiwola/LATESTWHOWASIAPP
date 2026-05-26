@@ -99,7 +99,7 @@ export default function BottomNav() {
               boxShadow: isProfile ? '0 0 8px rgba(255,215,0,0.4)' : 'none',
             }}>
             {profile?.photoUrl ? (
-              <img src={profile.photoUrl} alt="" className="w-full h-full object-cover" />
+              <img loading="lazy" decoding="async" src={profile.photoUrl} alt="" className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center font-display text-[0.5rem] font-bold"
                 style={{

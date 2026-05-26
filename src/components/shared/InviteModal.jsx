@@ -144,7 +144,7 @@ export default function InviteModal({ user, memorial, onClose }) {
             {/* QR code — code is baked into the scan destination */}
             <div className="flex flex-col items-center mb-5">
               <div className="w-52 h-52 rounded-2xl overflow-hidden bg-white p-2 flex items-center justify-center shadow-lg">
-                <img src={qrUrl} alt="Invite QR code" className="w-full h-full object-contain"
+                <img loading="lazy" decoding="async" src={qrUrl} alt="Invite QR code" className="w-full h-full object-contain"
                   onError={e => { e.target.style.display = 'none' }} />
               </div>
               <p className="text-[0.55rem] text-white/20 mt-2 tracking-wider uppercase">Scan to join family</p>

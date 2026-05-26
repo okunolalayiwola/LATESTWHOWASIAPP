@@ -170,7 +170,7 @@ export default function ChatPage() {
                   className={`cp-row ${isActive ? 'active' : ''}`}>
                   <div className="cp-avatar">
                     {c.photo
-                      ? <img src={c.photo} alt="" />
+                      ? <img loading="lazy" decoding="async" src={c.photo} alt="" />
                       : (c.name?.[0] || '?').toUpperCase()}
                   </div>
                   <div className="cp-row-body">

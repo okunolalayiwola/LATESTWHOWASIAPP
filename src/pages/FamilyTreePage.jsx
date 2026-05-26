@@ -236,7 +236,7 @@ export default function FamilyTreePage() {
                     fontFamily:"'Inter',sans-serif", fontWeight:700, fontSize:16, color:'rgba(255,255,255,.5)',
                   }}>
                     {m.photo
-                      ? <img src={m.photo} alt={m.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                      ? <img loading="lazy" decoding="async" src={m.photo} alt={m.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
                       : (m.name?.[0] || '?').toUpperCase()
                     }
                   </div>

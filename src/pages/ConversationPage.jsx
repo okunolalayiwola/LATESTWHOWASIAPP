@@ -157,7 +157,7 @@ function MessageBubble({ message, memorial, onPlay }) {
       {!isUser && (
         <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-gradient-to-br from-gold/30 to-coral/30 border border-white/10 flex items-center justify-center font-display text-sm font-bold mt-1">
           {(memorial.talkPortraitUrl || memorial.photo)
-            ? <img src={memorial.talkPortraitUrl || memorial.photo} alt="" className="w-full h-full object-cover" />
+            ? <img loading="lazy" decoding="async" src={memorial.talkPortraitUrl || memorial.photo} alt="" className="w-full h-full object-cover" />
             : memorial.name?.charAt(0)}
         </div>
       )}
@@ -200,7 +200,7 @@ function TypingIndicator({ memorial }) {
       className="flex gap-3 items-end">
       <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-gradient-to-br from-gold/30 to-coral/30 border border-white/10 flex items-center justify-center font-display text-sm font-bold">
         {(memorial.talkPortraitUrl || memorial.photo)
-          ? <img src={memorial.talkPortraitUrl || memorial.photo} alt="" className="w-full h-full object-cover" />
+          ? <img loading="lazy" decoding="async" src={memorial.talkPortraitUrl || memorial.photo} alt="" className="w-full h-full object-cover" />
           : memorial.name?.charAt(0)}
       </div>
       <div className="px-4 py-3 rounded-2xl rounded-tl-sm bg-gradient-to-br from-gold/10 to-coral/8 border border-gold/15">
@@ -393,7 +393,7 @@ export default function ConversationPage() {
             ))}
             <div className="w-full h-full rounded-full overflow-hidden bg-gradient-to-br from-gold/30 to-coral/30 border-2 border-gold/40">
               {talkPhoto
-                ? <img src={talkPhoto} alt="" className="w-full h-full object-cover" />
+                ? <img loading="lazy" decoding="async" src={talkPhoto} alt="" className="w-full h-full object-cover" />
                 : <div className="w-full h-full flex items-center justify-center font-display text-4xl font-bold text-white/70">{memorial.name?.charAt(0)}</div>}
             </div>
           </div>
@@ -450,7 +450,7 @@ export default function ConversationPage() {
 
         <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 border border-gold/30 bg-gradient-to-br from-gold/20 to-coral/20">
           {talkPhoto
-            ? <img src={talkPhoto} alt="" className="w-full h-full object-cover" />
+            ? <img loading="lazy" decoding="async" src={talkPhoto} alt="" className="w-full h-full object-cover" />
             : <div className="w-full h-full flex items-center justify-center font-display font-bold text-white/70">{memorial.name?.charAt(0)}</div>}
         </div>
 

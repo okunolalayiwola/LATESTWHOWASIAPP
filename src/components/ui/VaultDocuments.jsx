@@ -55,7 +55,7 @@ function DocCard({ doc, onDelete }) {  // onDelete=null means view-only (family 
       <div className="relative h-40 bg-black/40 flex items-center justify-center cursor-pointer"
         onClick={() => preview ? setOpen(true) : window.open(doc.fileUrl, '_blank')}>
         {preview ? (
-          <img src={preview} alt={doc.title} className="w-full h-full object-cover" />
+          <img loading="lazy" decoding="async" src={preview} alt={doc.title} className="w-full h-full object-cover" />
         ) : (
           <div className="flex flex-col items-center gap-2">
             <span className="text-4xl">{cat.icon}</span>

@@ -482,7 +482,7 @@ export default function TalkScreen({ memorial, memorialId, onClose }) {
 
         {/* ── Portrait ───────────────────────────────────────────────────── */}
         {photoUrl ? (
-          <img src={photoUrl} alt={memorial.name}
+          <img loading="lazy" decoding="async" src={photoUrl} alt={memorial.name}
             style={{
               position: 'absolute', inset: 0, width: '100%', height: '100%',
               objectFit: 'cover', objectPosition: '50% 22%',
@@ -556,7 +556,7 @@ export default function TalkScreen({ memorial, memorialId, onClose }) {
               <div style={{ width: 30, height: 30, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
                 border: '1.5px solid rgba(255,255,255,.55)', background: '#1a1226' }}>
                 {photoUrl
-                  ? <img src={photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 15%' }} />
+                  ? <img loading="lazy" decoding="async" src={photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 15%' }} />
                   : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontFamily: MONO, fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.5)' }}>
                       {firstName[0]?.toUpperCase() || '?'}

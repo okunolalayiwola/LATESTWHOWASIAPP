@@ -164,7 +164,7 @@ function StepStory({ form, setForm }) {
           className="relative w-full h-36 rounded-2xl border border-dashed border-white/15 flex flex-col items-center justify-center cursor-pointer hover:border-gold/30 transition-all overflow-hidden group">
           {photoPreview ? (
             <>
-              <img src={photoPreview} alt="" className="absolute inset-0 w-full h-full object-cover" />
+              <img loading="lazy" decoding="async" src={photoPreview} alt="" className="absolute inset-0 w-full h-full object-cover" />
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <span className="text-xs text-white font-semibold">Change photo</span>
               </div>
@@ -225,7 +225,7 @@ function StepStory({ form, setForm }) {
 function FacePhotoTile({ photo, onRemove }) {
   return (
     <div className="relative aspect-square rounded-xl overflow-hidden group">
-      <img src={photo.preview || photo.url} alt="" className="w-full h-full object-cover" />
+      <img loading="lazy" decoding="async" src={photo.preview || photo.url} alt="" className="w-full h-full object-cover" />
       {photo.checking && (
         <div className="absolute inset-0 flex items-center justify-center"
           style={{ background: 'rgba(0,0,0,0.55)' }}>
@@ -424,7 +424,7 @@ function StepPortrait({ memorial, memorialId, toast }) {
         {hasPortrait ? (
           <div className="flex gap-4">
             <div className="w-28 h-28 rounded-2xl overflow-hidden flex-shrink-0 border border-white/10">
-              <img src={memorial.talkPortraitUrl} alt="" className="w-full h-full object-cover" />
+              <img loading="lazy" decoding="async" src={memorial.talkPortraitUrl} alt="" className="w-full h-full object-cover" />
             </div>
             <div className="flex-1 space-y-2 min-w-0">
               <p className="text-[0.65rem] text-white/45 leading-relaxed">
@@ -535,7 +535,7 @@ function StepPrivacy({ form, setForm }) {
 
       {/* Preview card */}
       <div className={`relative h-32 rounded-2xl overflow-hidden bg-gradient-to-br ${form.color||'from-stone-800 to-stone-950'}`}>
-        {form.photoUrl && <img src={form.photoUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />}
+        {form.photoUrl && <img loading="lazy" decoding="async" src={form.photoUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
         <div className="absolute bottom-0 left-0 p-4">
           <div className="font-display text-xl font-bold text-white">{form.name || 'Name'}</div>

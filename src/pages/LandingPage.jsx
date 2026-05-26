@@ -64,6 +64,8 @@ export default function LandingPage() {
             <img
               src={heroImage}
               alt="Profile"
+              fetchpriority="high"
+              decoding="async"
               className="w-full h-full object-cover"
             />
           </div>

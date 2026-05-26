@@ -442,7 +442,7 @@ function PhotoSlide({ media, moveIdx, memorial, dateRaw, caption, showText, show
           style={{ position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',willChange:'transform' }}
         />
       ) : (
-        <img
+        <img loading="lazy" decoding="async"
           ref={imgRef}
           src={media}
           alt=""

@@ -164,7 +164,7 @@ export default function FamilyTreeSidePanel({
             fontSize: 15, fontWeight: 700, color: '#FFD700',
           }}>
             {display.photo
-              ? <img src={display.photo} alt={display.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ? <img loading="lazy" decoding="async" src={display.photo} alt={display.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               : (display.name?.[0] || '?').toUpperCase()
             }
           </div>
