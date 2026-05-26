@@ -12,7 +12,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { db } from '../lib/instant'
 import { getRelationFilterCategory } from '../lib/relations'
 import { countryFlag } from '../lib/countries'
-import exploreBg from '../assets/explore-bg.webp'
 import { SkeletonGrid } from '../components/ui/Skeleton'
 import EmptyState from '../components/ui/EmptyState'
 
@@ -69,7 +68,7 @@ function MemorialCard({ memorial, index }) {
         <div className="relative h-44 overflow-hidden"
           style={{ background: 'linear-gradient(135deg, rgba(255,215,0,0.08) 0%, rgba(56,189,248,0.05) 100%)' }}>
           {photo ? (
-            <img src={photo} alt={memorial.name}
+            <img loading="lazy" decoding="async" src={photo} alt={memorial.name}
               className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500" />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
@@ -170,7 +169,7 @@ function FeaturedCard({ memorial }) {
         }}>
         <div className="relative h-64 md:h-80">
           {photo
-            ? <img src={photo} alt={memorial.name} className="w-full h-full object-cover object-center" />
+            ? <img loading="lazy" decoding="async" src={photo} alt={memorial.name} className="w-full h-full object-cover object-center" />
             : <div className="w-full h-full flex items-center justify-center"
                 style={{ background: 'linear-gradient(135deg, rgba(255,215,0,0.12) 0%, rgba(56,189,248,0.08) 100%)' }}>
                 <span className="font-display text-9xl font-bold"
@@ -324,13 +323,28 @@ export default function ExplorePage() {
   return (
     <div className="relative z-10 pt-20 pb-28 min-h-screen">
 
-      {/* Background — fully bright, no overlay */}
+      {/* Background — pastel radial gradient that mirrors the Dashboard canvas.
+          Corner radials over a soft linear sweep, with a soft-light bloom on top
+          for a hint of dimension. Dark cards on top still pop because the bloom
+          is subtle. */}
       <div className="fixed inset-0 z-0 pointer-events-none">
-        <div className="w-full h-full"
+        <div
+          className="w-full h-full"
           style={{
-            backgroundImage: `url(${exploreBg})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
+            background: `
+              radial-gradient(at 0% 0%,  #c8efdb 0%, transparent 55%),
+              radial-gradient(at 100% 0%, #d8cbf6 0%, transparent 60%),
+              radial-gradient(at 100% 100%, #ffd7b3 0%, transparent 60%),
+              radial-gradient(at 0% 100%, #ffe981 0%, transparent 55%),
+              linear-gradient(135deg, #d5eedd 0%, #e2dcf7 50%, #ffe0c3 100%)
+            `,
+          }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            background: 'radial-gradient(circle at 50% 30%, rgba(255,255,255,.35), transparent 60%)',
+            mixBlendMode: 'soft-light',
           }}
         />
       </div>
@@ -342,7 +356,7 @@ export default function ExplorePage() {
           <div className="relative">
             {/* Search icon */}
             <svg className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none"
-              style={{ color: 'rgba(255,215,0,0.5)' }}
+              style={{ color: 'rgba(20,17,13,0.45)' }}
               fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
               <path strokeLinecap="round" strokeLinejoin="round"
                 d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
@@ -353,38 +367,39 @@ export default function ExplorePage() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search by name, location, or story…"
-              className="w-full rounded-2xl text-white placeholder-white/30 focus:outline-none"
+              className="w-full rounded-2xl focus:outline-none"
               style={{
-                background: 'rgba(18,18,30,0.90)',
-                border: '1.5px solid rgba(255,255,255,0.12)',
+                background: 'rgba(255,255,255,0.85)',
+                border: '1.5px solid rgba(20,17,13,0.10)',
                 backdropFilter: 'blur(20px)',
                 WebkitBackdropFilter: 'blur(20px)',
                 padding: '16px 48px 16px 52px',
                 fontSize: '15px',
-                boxShadow: '0 2px 20px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.04) inset',
+                color: '#14110d',
+                boxShadow: '0 6px 24px rgba(20,17,13,0.06), 0 1px 0 rgba(255,255,255,0.6) inset',
                 transition: 'border-color 0.2s, box-shadow 0.2s',
               }}
               onFocus={e => {
-                e.target.style.borderColor = 'rgba(255,215,0,0.50)'
-                e.target.style.boxShadow = '0 2px 20px rgba(0,0,0,0.5), 0 0 0 3px rgba(255,215,0,0.10)'
+                e.target.style.borderColor = 'rgba(20,17,13,0.30)'
+                e.target.style.boxShadow = '0 6px 24px rgba(20,17,13,0.10), 0 0 0 3px rgba(20,17,13,0.06)'
               }}
               onBlur={e => {
-                e.target.style.borderColor = 'rgba(255,255,255,0.12)'
-                e.target.style.boxShadow = '0 2px 20px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.04) inset'
+                e.target.style.borderColor = 'rgba(20,17,13,0.10)'
+                e.target.style.boxShadow = '0 6px 24px rgba(20,17,13,0.06), 0 1px 0 rgba(255,255,255,0.6) inset'
               }}
             />
 
             {search && (
               <button onClick={() => setSearch('')}
                 className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full transition-all"
-                style={{ color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.06)' }}>
+                style={{ color: 'rgba(20,17,13,0.55)', background: 'rgba(20,17,13,0.08)' }}>
                 ✕
               </button>
             )}
           </div>
 
           {search && (
-            <p className="text-xs mt-2 ml-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
+            <p className="text-xs mt-2 ml-1" style={{ color: 'rgba(20,17,13,0.55)' }}>
               {filtered.length === 0
                 ? 'No memorials match your search.'
                 : `${filtered.length} memorial${filtered.length !== 1 ? 's' : ''} found`}
@@ -404,19 +419,19 @@ export default function ExplorePage() {
                   whileTap={{ scale: 0.96 }}
                   className="flex-shrink-0 flex items-center gap-2 font-semibold rounded-xl transition-all"
                   style={isActive ? {
-                    background: 'linear-gradient(135deg, #FFD700 0%, #E6C200 50%, #38BDF8 140%)',
-                    color: '#0a0a12',
+                    background: '#14110d',
+                    color: '#fbf9f3',
                     padding: '10px 18px',
                     fontSize: '13px',
-                    boxShadow: '0 4px 20px rgba(255,215,0,0.30), 0 1px 0 rgba(255,255,255,0.35) inset',
+                    boxShadow: '0 8px 22px rgba(20,17,13,0.25), 0 1px 0 rgba(255,255,255,0.08) inset',
                     border: '1.5px solid transparent',
                   } : {
-                    background: 'rgba(20,20,34,0.90)',
-                    color: 'rgba(255,255,255,0.60)',
+                    background: 'rgba(255,255,255,0.78)',
+                    color: 'rgba(20,17,13,0.70)',
                     padding: '10px 18px',
                     fontSize: '13px',
-                    boxShadow: '0 2px 12px rgba(0,0,0,0.4)',
-                    border: '1.5px solid rgba(255,255,255,0.12)',
+                    boxShadow: '0 4px 14px rgba(20,17,13,0.06)',
+                    border: '1.5px solid rgba(20,17,13,0.10)',
                   }}
                 >
                   <span style={{ fontSize: '14px', opacity: isActive ? 1 : 0.7 }}>{f.icon}</span>
@@ -428,7 +443,7 @@ export default function ExplorePage() {
 
           {/* Context hint */}
           {activeFilter !== 'all' && (
-            <p className="text-[0.6rem] mt-2 ml-1" style={{ color: 'rgba(255,255,255,0.28)' }}>
+            <p className="text-[0.65rem] mt-2 ml-1" style={{ color: 'rgba(20,17,13,0.55)' }}>
               {user
                 ? MAIN_FILTERS.find(f => f.id === activeFilter)?.desc
                 : 'Sign in to filter by your memorials'}
@@ -436,24 +451,30 @@ export default function ExplorePage() {
           )}
         </div>
 
-        {/* ── Sort strip — only on All tab ─────────────────────────────────────── */}
+        {/* ── Sort strip — only on All tab.
+            Each pill carries its own visible border + background even at rest,
+            so the sub-menu reads as a real control instead of disappearing. */}
         {activeFilter === 'all' && !search && (
-          <div className="flex items-center gap-1.5 mb-6">
-            <span className="text-[0.58rem] font-semibold tracking-widest uppercase mr-1"
-              style={{ color: 'rgba(255,255,255,0.22)' }}>Sort</span>
+          <div className="flex items-center gap-2 mb-6 flex-wrap">
+            <span className="text-[0.62rem] font-bold tracking-widest uppercase mr-1"
+              style={{ color: 'rgba(20,17,13,0.55)' }}>Sort</span>
             {SORT_OPTIONS.map(s => {
               const isActive = activeSort === s.id
               return (
                 <button key={s.id} onClick={() => setActiveSort(s.id)}
-                  className="text-xs px-3 py-1.5 rounded-lg font-medium transition-all"
+                  className="text-xs font-semibold rounded-full transition-all"
                   style={isActive ? {
-                    background: 'rgba(255,215,0,0.12)',
-                    color: 'rgba(255,215,0,0.9)',
-                    border: '1px solid rgba(255,215,0,0.25)',
+                    background: '#14110d',
+                    color: '#fbf9f3',
+                    border: '1px solid #14110d',
+                    padding: '7px 14px',
+                    boxShadow: '0 6px 16px rgba(20,17,13,0.20)',
                   } : {
-                    background: 'transparent',
-                    color: 'rgba(255,255,255,0.35)',
-                    border: '1px solid transparent',
+                    background: 'rgba(255,255,255,0.82)',
+                    color: 'rgba(20,17,13,0.72)',
+                    border: '1px solid rgba(20,17,13,0.14)',
+                    padding: '7px 14px',
+                    boxShadow: '0 2px 8px rgba(20,17,13,0.04)',
                   }}>
                   {s.label}
                 </button>
@@ -474,23 +495,23 @@ export default function ExplorePage() {
         {needsLogin ? (
           <div className="py-20 flex flex-col items-center text-center">
             <div className="w-16 h-16 rounded-2xl mb-6 flex items-center justify-center"
-              style={{ background: 'rgba(255,215,0,0.08)', border: '1px solid rgba(255,215,0,0.15)' }}>
-              <span className="text-2xl" style={{ color: 'rgba(255,215,0,0.5)' }}>
+              style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(20,17,13,0.12)' }}>
+              <span className="text-2xl" style={{ color: 'rgba(20,17,13,0.65)' }}>
                 {MAIN_FILTERS.find(f => f.id === activeFilter)?.icon}
               </span>
             </div>
-            <p className="font-display text-lg font-bold text-white mb-2">
+            <p className="font-display text-lg font-bold mb-2" style={{ color: '#14110d' }}>
               Sign in to see your {MAIN_FILTERS.find(f => f.id === activeFilter)?.label}
             </p>
-            <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,0.40)' }}>
+            <p className="text-sm mb-6" style={{ color: 'rgba(20,17,13,0.55)' }}>
               {MAIN_FILTERS.find(f => f.id === activeFilter)?.desc} will appear here.
             </p>
             <Link to="/auth"
               className="inline-flex items-center gap-2 font-bold rounded-xl px-6 py-3"
               style={{
-                background: 'linear-gradient(135deg, #FFD700 0%, #D4A800 100%)',
-                color: '#0a0a12',
-                boxShadow: '0 4px 20px rgba(255,215,0,0.30)',
+                background: '#14110d',
+                color: '#fbf9f3',
+                boxShadow: '0 8px 22px rgba(20,17,13,0.25)',
                 fontSize: '14px',
               }}>
               Sign in →
@@ -499,10 +520,10 @@ export default function ExplorePage() {
 
         ) : filtered.length === 0 ? (
           <div className="py-20 flex flex-col items-center text-center">
-            <div className="text-5xl mb-5 opacity-15">
+            <div className="text-5xl mb-5" style={{ color: 'rgba(20,17,13,0.22)' }}>
               {MAIN_FILTERS.find(f => f.id === activeFilter)?.icon || '◎'}
             </div>
-            <p className="text-white/40 text-sm mb-3">
+            <p className="text-sm mb-3" style={{ color: 'rgba(20,17,13,0.60)' }}>
               {search
                 ? 'No memorials match your search.'
                 : activeFilter === 'self'
@@ -514,18 +535,18 @@ export default function ExplorePage() {
                   : 'No memorials found.'
               }
             </p>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap justify-center">
               {search && (
                 <button onClick={() => setSearch('')}
                   className="text-xs underline transition-colors"
-                  style={{ color: 'rgba(255,215,0,0.60)' }}>
+                  style={{ color: 'rgba(20,17,13,0.70)' }}>
                   Clear search
                 </button>
               )}
               {activeFilter !== 'all' && (
                 <button onClick={() => setActiveFilter('all')}
                   className="text-xs underline transition-colors"
-                  style={{ color: 'rgba(255,215,0,0.60)' }}>
+                  style={{ color: 'rgba(20,17,13,0.70)' }}>
                   View all memorials
                 </button>
               )}
@@ -534,9 +555,9 @@ export default function ExplorePage() {
                 <Link to="/create?self=1"
                   className="text-xs font-semibold px-4 py-2 rounded-lg"
                   style={{
-                    background: 'linear-gradient(135deg, rgba(255,215,0,0.18) 0%, rgba(56,189,248,0.14) 100%)',
-                    color: '#FFD700',
-                    border: '1px solid rgba(255,215,0,0.35)',
+                    background: '#14110d',
+                    color: '#fbf9f3',
+                    border: '1px solid transparent',
                   }}>
                   ✦ Build your living legacy
                 </Link>
@@ -545,9 +566,9 @@ export default function ExplorePage() {
                 <Link to="/create"
                   className="text-xs font-semibold px-4 py-2 rounded-lg"
                   style={{
-                    background: 'rgba(255,215,0,0.10)',
-                    color: 'rgba(255,215,0,0.80)',
-                    border: '1px solid rgba(255,215,0,0.20)',
+                    background: '#14110d',
+                    color: '#fbf9f3',
+                    border: '1px solid transparent',
                   }}>
                   + Create memorial
                 </Link>
@@ -560,7 +581,7 @@ export default function ExplorePage() {
             {/* Count label */}
             {!search && activeFilter === 'all' && (
               <p className="text-[0.65rem] font-semibold tracking-wide uppercase mb-4"
-                style={{ color: 'rgba(255,255,255,0.22)' }}>
+                style={{ color: 'rgba(20,17,13,0.55)' }}>
                 {filtered.length} memorial{filtered.length !== 1 ? 's' : ''}
               </p>
             )}
