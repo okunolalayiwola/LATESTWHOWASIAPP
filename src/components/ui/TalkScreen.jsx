@@ -507,8 +507,12 @@ export default function TalkScreen({ memorial, memorialId, onClose }) {
         onClick={(e) => e.stopPropagation()}
         style={{
           position: 'relative',
-          width:  'min(880px, 100%)',
-          height: 'min(640px, calc(100vh - 40px))',
+          // Bigger card so the name lockup + mic zone + mode toggle
+          // never collide. Also use clamp() bottom values via the inline
+          // <style> below so the absolutely-positioned content rescales
+          // when the popup is smaller than the design baseline.
+          width:  'min(980px, 100%)',
+          height: 'min(760px, calc(100vh - 40px))',
           borderRadius: 24, overflow: 'hidden',
           background: '#0a0612',
           boxShadow: '0 40px 90px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.06)',
@@ -686,11 +690,13 @@ export default function TalkScreen({ memorial, memorialId, onClose }) {
             CENTER NAME LOCKUP
         ════════════════════════════════════════════════════════════════ */}
         <div className="ts-lockup" style={{
-          position: 'absolute', left: '50%', bottom: 280,
+          position: 'absolute', left: '50%', bottom: 260,
           transform: 'translateX(-50%)',
           textAlign: 'center', zIndex: 3, pointerEvents: 'none',
           animation: 'ts-fadeup .9s ease-out .45s both',
-          width: 'max-content', maxWidth: '70vw',
+          // Cap by % of popup width (not vw) so the lockup never spills
+          // outside the constrained card on wide viewports.
+          width: 'max-content', maxWidth: '88%',
         }}>
           <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.3em',
             textTransform: 'uppercase', color: 'rgba(255,255,255,.7)', marginBottom: 12 }}>
@@ -698,7 +704,10 @@ export default function TalkScreen({ memorial, memorialId, onClose }) {
           </div>
           <h1 style={{
             fontFamily: SERIF, fontWeight: 300,
-            fontSize: 'clamp(44px, 5.8vw, 86px)',
+            // Smaller ceiling so the h1 fits comfortably in a 760px-tall
+            // popup alongside the mic zone + mode toggle. Old ceiling was
+            // 86px which dominated the card.
+            fontSize: 'clamp(36px, 4.4vw, 58px)',
             lineHeight: .96, letterSpacing: '-.015em',
             color: '#fff', textShadow: '0 4px 30px rgba(0,0,0,.45)', margin: 0,
           }}>

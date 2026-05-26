@@ -83,16 +83,16 @@ function StyledName({ name = '' }) {
   const lower = name.toLowerCase()
   const idx   = lower.split('').findIndex((ch, i) => i > 0 && 'aeiou'.includes(ch))
   if (idx < 1) {
-    return <>{lower}<span style={{ color: C.saffron }}>.</span></>
+    return <>{lower}<span style={{ color: 'var(--theme, #f3b21a)' }}>.</span></>
   }
   return (
     <>
       {lower.slice(0, idx)}
-      <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: C.saffron2 }}>
+      <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'var(--theme, #f3b21a)' }}>
         {lower[idx]}
       </em>
       {lower.slice(idx + 1)}
-      <span style={{ color: C.saffron }}>.</span>
+      <span style={{ color: 'var(--theme, #f3b21a)' }}>.</span>
     </>
   )
 }
@@ -348,7 +348,7 @@ function ProfilePortrait({ memorial, memorialId, isOwner, navigate }) {
               padding: '6px 11px', borderRadius: 999,
               fontFamily: MONO, fontSize: 10, letterSpacing: '.20em', textTransform: 'uppercase',
               color: alive ? '#fff' : C.ink,
-              background: alive ? 'rgba(94,122,62,.65)' : C.saffron,
+              background: alive ? 'rgba(94,122,62,.65)' : 'var(--theme, #f3b21a)',
               backdropFilter: 'blur(8px)',
               border: '1px solid rgba(21,18,14,.15)',
               boxShadow: `0 2px 10px ${alive ? 'rgba(94,122,62,.35)' : 'rgba(243,178,26,.30)'}`,
@@ -388,7 +388,7 @@ function ProfilePortrait({ memorial, memorialId, isOwner, navigate }) {
           {relation && (
             <div style={{
               fontFamily: MONO, fontSize: 10, letterSpacing: '.28em', textTransform: 'uppercase',
-              color: C.saffron, display: 'inline-flex', alignItems: 'center', gap: 8,
+              color: 'var(--theme, #f3b21a)', display: 'inline-flex', alignItems: 'center', gap: 8,
               marginBottom: 12, fontWeight: 700,
               textShadow: '0 2px 8px rgba(0,0,0,.55)',
             }}>
@@ -528,7 +528,7 @@ function Hero({ memorial, memorialId, isOwner, navigate }) {
           {/* Living / Passed badge */}
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 14px',
             borderRadius: 999, fontFamily: MONO, fontSize: 11, letterSpacing: '.22em', textTransform: 'uppercase',
-            color: C.ink, background: alive ? C.moss : C.saffron,
+            color: C.ink, background: alive ? C.moss : 'var(--theme, #f3b21a)',
             border: '1px solid rgba(21,18,14,.15)', boxShadow: `0 2px 10px ${alive ? 'rgba(94,122,62,.4)' : 'rgba(243,178,26,.32)'}`,
             color: alive ? '#fff' : C.ink }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: alive ? '#fff' : C.ink,
@@ -555,8 +555,8 @@ function Hero({ memorial, memorialId, isOwner, navigate }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           {relation && (
             <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.28em', textTransform: 'uppercase',
-              color: C.saffron, display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: '.75rem' }}>
-              <span style={{ color: C.saffron }}>◆</span>
+              color: 'var(--theme, #f3b21a)', display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: '.75rem' }}>
+              <span style={{ color: 'var(--theme, #f3b21a)' }}>◆</span>
               {relation} · vol. 01
             </div>
           )}
@@ -596,13 +596,13 @@ function Hero({ memorial, memorialId, isOwner, navigate }) {
           <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.22em', textTransform: 'uppercase',
             color: C.muted, marginBottom: 6 }}>Chapter</div>
           <div style={{ fontFamily: DISP, fontWeight: 700, fontSize: 20, letterSpacing: '-.01em', lineHeight: 1.1 }}>
-            {alive ? <>An ongoing <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: C.saffronDeep }}>life</em></> :
-                     <>A life <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: C.saffronDeep }}>remembered</em></>}
+            {alive ? <>An ongoing <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'var(--theme, #f3b21a)' }}>life</em></> :
+                     <>A life <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'var(--theme, #f3b21a)' }}>remembered</em></>}
           </div>
           <div style={{ marginTop: 10, height: 6, borderRadius: 3, background: C.cream2, overflow: 'hidden', position: 'relative' }}>
             <div style={{ position: 'absolute', left: 0, top: 0, height: '100%',
               width: `${Math.min((calcAge(born, died, memorial.alive) || 62) / 100 * 100, 100)}%`,
-              background: C.saffron,
+              background: 'var(--theme, #f3b21a)',
               backgroundImage: 'repeating-linear-gradient(135deg, transparent 0 5px, rgba(21,18,14,.4) 5px 6px)' }} />
           </div>
         </div>
@@ -640,8 +640,9 @@ function LifeGaugeCard({ memorial, tributeCount, candleCount, memoryCount }) {
         <div style={{
           fontFamily: DISP, fontWeight: 600, fontSize: 'clamp(80px, 18vw, 140px)',
           lineHeight: 1, letterSpacing: '-.04em',
-          background: 'linear-gradient(95deg, #ff9ec7 0%, #c9a8f0 32%, #a9c4f5 62%, #88e0c4 100%)',
-          WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent',
+          // Flat theme colour instead of the pastel rainbow gradient —
+          // matches the rest of the page's clean solid-colour rhythm.
+          color: 'var(--theme, #f3b21a)',
           padding: '.12em .16em', margin: '-.12em -.16em', display: 'inline-block',
         }}>
           {age || '—'}
@@ -660,7 +661,7 @@ function LifeGaugeCard({ memorial, tributeCount, candleCount, memoryCount }) {
           {[
             { label: 'Tributes', value: tributeCount, color: C.ink },
             { label: 'Candles',  value: candleCount,  color: C.rust },
-            { label: 'Memories', value: memoryCount,  color: C.saffronDeep },
+            { label: 'Memories', value: memoryCount,  color: 'var(--theme, #f3b21a)' },
           ].map(({ label, value, color }) => (
             <div key={label} style={{ padding: '14px 10px 12px', borderRadius: 14, textAlign: 'center',
               background: C.cream, border: '1px solid rgba(21,18,14,.08)' }}>
@@ -684,7 +685,7 @@ function ActionsCard({ onTribute, onShare, onQR }) {
       {/* Primary tribute button */}
       <button onClick={onTribute} style={{
         width: '100%', padding: 0, border: 'none', cursor: 'pointer',
-        background: C.saffron, color: C.ink, borderRadius: 26, overflow: 'hidden',
+        background: 'var(--theme, #f3b21a)', color: C.ink, borderRadius: 26, overflow: 'hidden',
         display: 'grid', gridTemplateColumns: '1fr 96px', alignItems: 'stretch',
         boxShadow: '0 8px 22px rgba(243,178,26,.28), 0 1px 0 rgba(255,255,255,.5) inset',
         transition: 'transform .15s', textAlign: 'left', fontFamily: DISP,
@@ -693,12 +694,11 @@ function ActionsCard({ onTribute, onShare, onQR }) {
           <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.22em', textTransform: 'uppercase', opacity: .65 }}>◆ contribute</span>
           <h3 style={{ margin: 0, fontSize: 22, fontWeight: 700, letterSpacing: '-.01em', lineHeight: 1 }}>Leave a tribute</h3>
         </div>
-        <div style={{ background: C.ink, color: C.saffron, display: 'flex', alignItems: 'center',
+        <div style={{ background: C.ink, color: 'var(--theme, #f3b21a)', display: 'flex', alignItems: 'center',
           justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', inset: 'auto 0 0 0', height: '35%',
-            backgroundImage: 'repeating-linear-gradient(135deg, transparent 0 7px, rgba(243,178,26,.7) 7px 8px)' }} />
+          {/* Stripe pattern removed — solid ink panel for the clean look. */}
           <div style={{ position: 'relative', zIndex: 1, width: 44, height: 44, borderRadius: '50%',
-            background: C.saffron, color: C.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
+            background: 'var(--theme, #f3b21a)', color: C.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
           </div>
         </div>
@@ -769,7 +769,7 @@ function LifeRecordCard({ memorial }) {
                     Living
                   </span>
                 : serif && value !== '—'
-                ? <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: C.saffronDeep }}>{value}</em>
+                ? <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'var(--theme, #f3b21a)' }}>{value}</em>
                 : value}
             </div>
           </div>
@@ -797,7 +797,7 @@ function LegacyVaultCard({ memorialId, letterCount, sealedCount, hasWill }) {
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, position: 'relative' }}>
           <Label onInk>Legacy Vault</Label>
-          <div style={{ width: 38, height: 38, borderRadius: 11, background: C.saffron, color: C.ink,
+          <div style={{ width: 38, height: 38, borderRadius: 11, background: 'var(--theme, #f3b21a)', color: C.ink,
             display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           </div>
@@ -805,7 +805,7 @@ function LegacyVaultCard({ memorialId, letterCount, sealedCount, hasWill }) {
 
         <h3 style={{ fontFamily: DISP, fontWeight: 700, fontSize: 22, letterSpacing: '-.02em', lineHeight: 1.1,
           color: C.cream, margin: '0 0 6px', position: 'relative' }}>
-          Sealed messages &amp; <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: C.saffron2 }}>the will.</em>
+          Sealed messages &amp; <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'var(--theme, #f3b21a)' }}>the will.</em>
         </h3>
         <p style={{ color: 'rgba(241,236,225,.6)', fontSize: 13.5, lineHeight: 1.55,
           marginBottom: 14, maxWidth: '42ch', position: 'relative' }}>
@@ -821,7 +821,7 @@ function LegacyVaultCard({ memorialId, letterCount, sealedCount, hasWill }) {
               background: 'rgba(241,236,225,.05)', border: '1px solid rgba(241,236,225,.10)',
               display: 'flex', flexDirection: 'column', gap: 6 }}>
               <strong style={{ fontFamily: DISP, fontWeight: 700, fontSize: 22, letterSpacing: '-.02em', lineHeight: 1,
-                color: gold ? C.saffron : C.cream }}>{value}</strong>
+                color: gold ? 'var(--theme, #f3b21a)' : C.cream }}>{value}</strong>
               <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.18em', textTransform: 'uppercase',
                 color: 'rgba(241,236,225,.5)' }}>{label}</span>
             </div>
@@ -831,10 +831,10 @@ function LegacyVaultCard({ memorialId, letterCount, sealedCount, hasWill }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14, paddingTop: 14,
           borderTop: '1px solid rgba(241,236,225,.08)',
           fontFamily: MONO, fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase',
-          color: C.saffron, position: 'relative' }}>
+          color: 'var(--theme, #f3b21a)', position: 'relative' }}>
           <span>Open vault</span>
           <div style={{ marginLeft: 'auto', width: 30, height: 30, borderRadius: '50%',
-            background: C.saffron, color: C.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
+            background: 'var(--theme, #f3b21a)', color: C.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
           </div>
         </div>
@@ -930,7 +930,7 @@ function VoiceSection({ memorial, onOpenTalk }) {
           </div>
           <h3 style={{ fontFamily: DISP, fontWeight: 700, fontSize: 26, letterSpacing: '-.02em', lineHeight: 1.1, margin: 0, color: C.cream }}>
             Hear {firstName} speak —{' '}
-            <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: C.saffron2 }}>
+            <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'var(--theme, #f3b21a)' }}>
               {alive ? 'as they still do.' : 'as they were.'}
             </em>
           </h3>
@@ -1112,7 +1112,7 @@ function ReelViewport({ memorial, photos, tributes, onExpand }) {
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
             background: 'rgba(243,178,26,.12)',
-            color: C.saffron,
+            color: 'var(--theme, #f3b21a)',
             border: '1px solid rgba(243,178,26,.30)',
             borderRadius: 999,
             padding: '7px 14px',
@@ -1134,7 +1134,7 @@ function ReelViewport({ memorial, photos, tributes, onExpand }) {
           lineHeight: 1.15, margin: 0, color: C.cream,
         }}>
           A cinematic story —{' '}
-          <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: C.saffron2 }}>
+          <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'var(--theme, #f3b21a)' }}>
             in moments.
           </em>
         </h3>
@@ -1210,7 +1210,7 @@ function StoryCard({ memorial }) {
           </p>
         )}
       </div>
-      <style>{`.story-lead::first-letter { color: ${C.saffronDeep}; font-size: 1.1em; }`}</style>
+      <style>{`.story-lead::first-letter { color: ${'var(--theme, #f3b21a)'}; font-size: 1.1em; }`}</style>
 
       {/* ── Action row: Read full bio ───────────────────────────────────── */}
       <div style={{ padding: '4px 22px 18px',
@@ -1330,7 +1330,7 @@ function FullBioModal({ memorial, bio, wordCount, readMins, onClose }) {
               color: C.muted, marginBottom: 4,
               display: 'inline-flex', alignItems: 'center', gap: 8,
             }}>
-              <span style={{ color: C.saffronDeep }}>◆</span> Life story · {memorial.name?.split(' ')[0] || 'memorial'}
+              <span style={{ color: 'var(--theme, #f3b21a)' }}>◆</span> Life story · {memorial.name?.split(' ')[0] || 'memorial'}
             </div>
             <div style={{
               fontFamily: MONO, fontSize: 10, letterSpacing: '.18em',
@@ -1387,7 +1387,7 @@ function FullBioModal({ memorial, bio, wordCount, readMins, onClose }) {
             </p>
           ))}
         </div>
-        <style>{`.modal-bio-lead::first-letter { color: ${C.saffronDeep}; font-size: 1.15em; }`}</style>
+        <style>{`.modal-bio-lead::first-letter { color: ${'var(--theme, #f3b21a)'}; font-size: 1.15em; }`}</style>
       </motion.div>
     </motion.div>
   )
@@ -1400,14 +1400,14 @@ function TributeCard({ tribute, variant = 'light', onLike, onDelete, canDelete, 
   const likes = (tribute.likes || 0) + (liked ? 1 : 0)
 
   const styles = {
-    featured: { background: C.saffron, border: '1px solid rgba(21,18,14,.15)', color: C.ink, gridColumn: 'span 2' },
+    featured: { background: 'var(--theme, #f3b21a)', border: '1px solid rgba(21,18,14,.15)', color: C.ink, gridColumn: 'span 2' },
     light:    { background: C.paper,   border: '1px solid rgba(21,18,14,.08)', color: C.ink },
     dark:     { background: C.ink,     border: '1px solid rgba(21,18,14,.4)',  color: C.cream },
   }
   const s       = styles[variant] || styles.light
   const isDark  = variant === 'dark'
-  const avatarS = variant === 'featured' ? { background: C.ink, color: C.saffron } :
-                  isDark                 ? { background: C.saffron, color: C.ink } :
+  const avatarS = variant === 'featured' ? { background: C.ink, color: 'var(--theme, #f3b21a)' } :
+                  isDark                 ? { background: 'var(--theme, #f3b21a)', color: C.ink } :
                                            { background: C.cream2, color: C.ink }
 
   return (
@@ -1635,7 +1635,7 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
           }}>
           <span style={{ fontSize: 28, color: 'rgba(243,178,26,.75)' }}>✿</span>
           <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.18em',
-            textTransform: 'uppercase', color: C.saffron, fontWeight: 700 }}>
+            textTransform: 'uppercase', color: 'var(--theme, #f3b21a)', fontWeight: 700 }}>
             {uploading ? `Uploading ${pct}%` : 'Add photos to the gallery'}
           </span>
           <span style={{ fontSize: 11, color: 'rgba(241,236,225,.5)', textAlign: 'center', padding: '0 20px' }}>
@@ -1662,7 +1662,7 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
           }}>
           <span style={{ fontSize: 20, color: 'rgba(243,178,26,.75)' }}>✿</span>
           <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.18em',
-            textTransform: 'uppercase', color: C.saffron, fontWeight: 700 }}>
+            textTransform: 'uppercase', color: 'var(--theme, #f3b21a)', fontWeight: 700 }}>
             {uploading ? `Uploading ${pct}%` : 'Add photos'}
           </span>
         </div>
@@ -1717,7 +1717,7 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
               padding: '11px 0', borderRadius: 14,
               background: 'rgba(243,178,26,.10)',
               border: '1px solid rgba(243,178,26,.25)',
-              color: C.saffron, cursor: 'pointer',
+              color: 'var(--theme, #f3b21a)', cursor: 'pointer',
               fontFamily: MONO, fontSize: 10.5, letterSpacing: '.18em',
               textTransform: 'uppercase', fontWeight: 700,
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -1956,7 +1956,7 @@ function TributeFormModal({ onClose, onSubmit, submitting }) {
             style={{ width: '100%', marginTop: 16, padding: '16px 0', borderRadius: 999, border: 'none',
               cursor: text.trim() && !submitting && !uploading ? 'pointer' : 'default', fontFamily: MONO, fontSize: 11,
               letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 700, transition: 'all .2s',
-              background: text.trim() ? C.saffron : C.cream2, color: text.trim() ? C.ink : C.muted2,
+              background: text.trim() ? 'var(--theme, #f3b21a)' : C.cream2, color: text.trim() ? C.ink : C.muted2,
               boxShadow: text.trim() ? '0 4px 14px rgba(243,178,26,.25)' : 'none' }}>
             {uploading ? 'Uploading photo…' : submitting ? 'Submitting…' : '♡  Post Tribute'}
           </button>
@@ -2021,7 +2021,7 @@ function TributeComments({ tributeId, memorialId, user, userProfile, isFamilyMem
             {comments.map(c => (
               <div key={c.id} style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'flex-start' }}>
                 <div style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
-                  background: `linear-gradient(135deg, ${C.saffron}25, #38bdf820)`,
+                  background: `linear-gradient(135deg, ${'var(--theme, #f3b21a)'}25, #38bdf820)`,
                   border: '1px solid rgba(21,18,14,.08)', display: 'flex', alignItems: 'center',
                   justifyContent: 'center', fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.muted,
                   overflow: 'hidden' }}>
@@ -2044,7 +2044,7 @@ function TributeComments({ tributeId, memorialId, user, userProfile, isFamilyMem
             {user && isFamilyMember && (
               <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
                 <div style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
-                  background: `linear-gradient(135deg, ${C.saffron}25, #38bdf820)`,
+                  background: `linear-gradient(135deg, ${'var(--theme, #f3b21a)'}25, #38bdf820)`,
                   border: '1px solid rgba(21,18,14,.08)', display: 'flex', alignItems: 'center',
                   justifyContent: 'center', fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.muted,
                   overflow: 'hidden' }}>
@@ -2063,7 +2063,7 @@ function TributeComments({ tributeId, memorialId, user, userProfile, isFamilyMem
                 />
                 <button onClick={handleComment} disabled={!text.trim() || sending}
                   style={{ width: 28, height: 28, borderRadius: '50%', border: 'none',
-                    background: text.trim() ? C.saffron : C.cream2, cursor: text.trim() ? 'pointer' : 'default',
+                    background: text.trim() ? 'var(--theme, #f3b21a)' : C.cream2, cursor: text.trim() ? 'pointer' : 'default',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={C.ink} strokeWidth="2.5" strokeLinecap="round">
                     <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
@@ -2555,7 +2555,7 @@ function PersonaProfileCallout({ memorial, memorialId }) {
         </div>
         <div style={{ flex: 1, minWidth: 220 }}>
           <p style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.22em', textTransform: 'uppercase',
-            color: C.saffron, margin: 0 }}>
+            color: 'var(--theme, #f3b21a)', margin: 0 }}>
             Memory profile · {chapters}/{total} chapters
           </p>
           <h3 style={{ fontFamily: DISP, fontWeight: 700, fontSize: 18, color: C.cream,
@@ -2574,7 +2574,7 @@ function PersonaProfileCallout({ memorial, memorialId }) {
         </div>
         <div style={{
           padding: '9px 16px', borderRadius: 999,
-          background: C.saffron, color: C.ink,
+          background: 'var(--theme, #f3b21a)', color: C.ink,
           fontFamily: MONO, fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase',
           fontWeight: 800, flexShrink: 0,
           boxShadow: '0 4px 14px rgba(243,178,26,.30)',
@@ -2788,7 +2788,7 @@ function MemorialDetailPageInner() {
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 48, marginBottom: 24, color: 'rgba(21,18,14,.12)' }}>✦</div>
           <p style={{ fontFamily: DISP, fontSize: 14, color: C.muted, marginBottom: 16 }}>This memorial could not be found.</p>
-          <Link to="/explore" style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase', color: C.saffronDeep, textDecoration: 'underline' }}>
+          <Link to="/explore" style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--theme, #f3b21a)', textDecoration: 'underline' }}>
             Explore memorials
           </Link>
         </div>
@@ -2808,8 +2808,8 @@ function MemorialDetailPageInner() {
           <p style={{ fontFamily: DISP, fontSize: 14, color: C.muted, lineHeight: 1.6, marginBottom: 24 }}>
             {visibility === 'family' ? 'It is shared with family and people who have the invite link.' : 'It is visible only to the person who created it.'}
           </p>
-          {!user && <Link to="/auth" style={{ display: 'inline-block', padding: '12px 24px', borderRadius: 999, background: C.saffron, color: C.ink, fontFamily: MONO, fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase', textDecoration: 'none', marginBottom: 12 }}>Sign in</Link>}
-          <div><Link to="/explore" style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase', color: C.saffronDeep, textDecoration: 'underline' }}>Back to explore</Link></div>
+          {!user && <Link to="/auth" style={{ display: 'inline-block', padding: '12px 24px', borderRadius: 999, background: 'var(--theme, #f3b21a)', color: C.ink, fontFamily: MONO, fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase', textDecoration: 'none', marginBottom: 12 }}>Sign in</Link>}
+          <div><Link to="/explore" style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--theme, #f3b21a)', textDecoration: 'underline' }}>Back to explore</Link></div>
         </div>
       </div>
     )
@@ -2987,8 +2987,8 @@ function MemorialDetailPageInner() {
             {tributes.length === 0 && (
               <div style={{ textAlign: 'center', marginTop: 4 }}>
                 <button onClick={() => setShowTributeForm(true)}
-                  style={{ padding: '12px 28px', borderRadius: 999, border: `1px solid ${C.saffron}`,
-                    background: 'transparent', color: C.saffronDeep, cursor: 'pointer',
+                  style={{ padding: '12px 28px', borderRadius: 999, border: `1px solid ${'var(--theme, #f3b21a)'}`,
+                    background: 'transparent', color: 'var(--theme, #f3b21a)', cursor: 'pointer',
                     fontFamily: MONO, fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase' }}>
                   Leave the first tribute
                 </button>
@@ -3025,7 +3025,7 @@ function MemorialDetailPageInner() {
                         style={{
                           display: 'flex', alignItems: 'center', gap: 6,
                           background: 'rgba(243,178,26,.12)',
-                          color: C.saffron,
+                          color: 'var(--theme, #f3b21a)',
                           border: '1px solid rgba(243,178,26,.30)',
                           borderRadius: 999, padding: '7px 14px',
                           cursor: 'pointer',
@@ -3045,8 +3045,8 @@ function MemorialDetailPageInner() {
                         lineHeight: 1.15, margin: 0, color: C.cream,
                       }}>
                         {approvedFamilyForMemorial.length === 0
-                          ? <>An infinite web — <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: C.saffron2 }}>waiting for the first connection.</em></>
-                          : <>An infinite web — <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: C.saffron2 }}>{approvedFamilyForMemorial.length} approved.</em></>
+                          ? <>An infinite web — <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'var(--theme, #f3b21a)' }}>waiting for the first connection.</em></>
+                          : <>An infinite web — <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'var(--theme, #f3b21a)' }}>{approvedFamilyForMemorial.length} approved.</em></>
                         }
                       </h3>
                       <p style={{ color: 'rgba(241,236,225,.55)', fontSize: 13, lineHeight: 1.55, margin: '8px 0 14px' }}>
@@ -3064,7 +3064,7 @@ function MemorialDetailPageInner() {
                               background: 'linear-gradient(135deg,rgba(255,215,0,.18),rgba(56,189,248,.12))',
                               border: '1.5px solid rgba(255,215,0,0.30)',
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              fontSize: 11, fontWeight: 700, color: C.saffron,
+                              fontSize: 11, fontWeight: 700, color: 'var(--theme, #f3b21a)',
                             }} title={`${c.fromName} · ${getRelationLabel(c.relation) || c.relation}`}>
                               {c.fromPhoto
                                 ? <img src={c.fromPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -3099,10 +3099,10 @@ function MemorialDetailPageInner() {
                             {pendingFamilyCount}
                           </span>
                           <span style={{ flex: 1, textAlign: 'left',
-                            fontFamily: DISP, fontSize: 13, fontWeight: 600, color: C.saffron }}>
+                            fontFamily: DISP, fontSize: 13, fontWeight: 600, color: 'var(--theme, #f3b21a)' }}>
                             {pendingFamilyCount === 1 ? '1 person is awaiting your approval' : `${pendingFamilyCount} people awaiting approval`}
                           </span>
-                          <span style={{ color: C.saffron, fontSize: 14 }}>→</span>
+                          <span style={{ color: 'var(--theme, #f3b21a)', fontSize: 14 }}>→</span>
                         </button>
                       )}
                     </div>
@@ -3120,7 +3120,7 @@ function MemorialDetailPageInner() {
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                         <div>
                           <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.22em', textTransform: 'uppercase',
-                            color: C.saffron }}>◆ Family update</span>
+                            color: 'var(--theme, #f3b21a)' }}>◆ Family update</span>
                           <h3 style={{ fontFamily: DISP, fontWeight: 700, fontSize: 18, color: C.cream, margin: '6px 0 4px' }}>
                             Status & Date of Passing
                           </h3>
@@ -3132,7 +3132,7 @@ function MemorialDetailPageInner() {
                         <div style={{ flexShrink: 0, fontFamily: MONO, fontSize: 11, letterSpacing: '.18em',
                           textTransform: 'uppercase', padding: '8px 14px', borderRadius: 999,
                           background: memorial.alive !== false ? 'rgba(94,122,62,.25)' : 'rgba(243,178,26,.15)',
-                          color: memorial.alive !== false ? '#88c069' : C.saffron,
+                          color: memorial.alive !== false ? '#88c069' : 'var(--theme, #f3b21a)',
                           border: `1px solid ${memorial.alive !== false ? 'rgba(94,122,62,.35)' : 'rgba(243,178,26,.25)'}` }}>
                           {memorial.alive !== false ? '● Living' : '◎ Passed'}
                         </div>
@@ -3235,7 +3235,7 @@ function MemorialDetailPageInner() {
           borderTop: '1px solid rgba(241,236,225,.10)',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8,
           fontFamily: MONO, fontSize: 11, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(241,236,225,.5)' }}>
-          <span>Who Was I — Family Archive <span style={{ color: C.saffron }}>●</span> whowasi.uk</span>
+          <span>Who Was I — Family Archive <span style={{ color: 'var(--theme, #f3b21a)' }}>●</span> whowasi.uk</span>
           <span>memorial · {memorial.name?.toLowerCase()} · est. {
             String(memorial.born || memorial.birthYear || '').match(/\d{4}/)?.[0] || new Date().getFullYear()
           }</span>
@@ -3394,7 +3394,7 @@ class MemorialBoundary extends Component {
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
               <button onClick={() => window.location.reload()}
-                style={{ padding: '12px 24px', borderRadius: 999, background: C.saffron, border: 'none',
+                style={{ padding: '12px 24px', borderRadius: 999, background: 'var(--theme, #f3b21a)', border: 'none',
                   color: C.ink, fontFamily: MONO, fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase',
                   cursor: 'pointer', fontWeight: 700 }}>
                 Reload
