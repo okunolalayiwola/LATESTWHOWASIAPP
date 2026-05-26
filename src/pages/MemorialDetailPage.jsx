@@ -103,7 +103,7 @@ function Label({ children, onInk = false, className = '' }) {
   return (
     <span className={`inline-flex items-center gap-2 ${className}`}
       style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.24em', textTransform: 'uppercase', color: onInk ? 'rgba(241,236,225,.6)' : C.muted }}>
-      <span style={{ color: onInk ? C.saffron : C.saffronDeep }}>◆</span>
+      <span style={{ color: 'var(--theme, #f3b21a)' }}>◆</span>
       {children}
     </span>
   )
@@ -176,21 +176,43 @@ function Card({ variant = 'paper', className = '', style = {}, children, ...rest
 // ─── Waveform bars (static decoration) ───────────────────────────────────────
 const WAVE_SEEDS = [.4,.7,.55,.85,.6,.9,.5,.75,.45,.65,.85,.55,.35,.7,.95,.65,.4,.55,.85,.6,.5,.4,.75,.55,.32,.6,.8,.45,.7,.5,.4,.62,.5,.7,.85,.4,.55,.7,.5,.32,.55,.7,.4,.65,.85,.5]
 
-function WaveformBars({ playing = false }) {
+// WaveformBars
+// Renders the 46 static seed bars in the user's theme colour. When a
+// progress (0..1) is passed, bars to the left of the playhead are fully
+// lit and the rest are dimmed — accurate to real audio position.
+function WaveformBars({ playing = false, progress = null }) {
+  const total = WAVE_SEEDS.length
+  // If we have a real progress value, use it; otherwise fall back to the
+  // "first 12 lit" decoration so static waveforms still look alive.
+  const litCount = progress != null
+    ? Math.max(0, Math.min(total, Math.round(progress * total)))
+    : (playing ? 12 : 0)
+
   return (
     <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 38, marginTop: 4 }}>
-      {WAVE_SEEDS.map((h, i) => (
-        <span key={i} style={{
-          flex: 1,
-          height: `${h * 100}%`,
-          background: C.saffron,
-          borderRadius: 2,
-          opacity: playing ? (i < 12 ? 1 : 0.55) : 0.35,
-          transition: 'opacity .3s',
-        }} />
-      ))}
+      {WAVE_SEEDS.map((h, i) => {
+        const isLit = i < litCount
+        return (
+          <span key={i} style={{
+            flex: 1,
+            height: `${h * 100}%`,
+            background: 'var(--theme, #f3b21a)',
+            borderRadius: 2,
+            opacity: isLit ? 1 : (playing ? 0.32 : 0.28),
+            transition: 'opacity .12s linear',
+          }} />
+        )
+      })}
     </div>
   )
+}
+
+// Helper — format seconds → m:ss
+function fmtMs(sec) {
+  if (!Number.isFinite(sec) || sec < 0) return '0:00'
+  const m = Math.floor(sec / 60)
+  const s = Math.floor(sec % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
 }
 
 // ─── Inline voice player ──────────────────────────────────────────────────────
@@ -821,6 +843,8 @@ function LegacyVaultCard({ memorialId, letterCount, sealedCount, hasWill }) {
 // Play disc now opens TalkScreen — the cinematic AI conversation overlay.
 function VoiceSection({ memorial, onOpenTalk }) {
   const [recordingPlaying, setRecordingPlaying] = useState(false)
+  const [currentTime,     setCurrentTime]      = useState(0)
+  const [duration,        setDuration]         = useState(0)
   const voiceRef = useRef(null)
 
   const hasVoice    = !!(memorial.voiceUrl || memorial.elevenLabsVoiceId)
@@ -829,26 +853,52 @@ function VoiceSection({ memorial, onOpenTalk }) {
   const firstName   = memorial.name?.split(' ')[0] || 'them'
   const alive       = memorial.alive !== false
 
+  // Real progress through the audio (0..1). Drives the waveform fill and
+  // the timestamp labels — both reflect actual playback position rather
+  // than a decorative "12 bars lit" hint.
+  const progress = duration > 0 ? Math.min(currentTime / duration, 1) : 0
+
   if (!hasVoice && !bio && !memorial.name) return null
+
+  // Construct (or reuse) the Audio element. Hooks must be unconditional —
+  // we wire onloadedmetadata / ontimeupdate / onended once and reuse.
+  function ensureAudio() {
+    if (voiceRef.current) return voiceRef.current
+    const a = new Audio(memorial.voiceUrl)
+    a.preload = 'metadata'
+    a.onloadedmetadata = () => {
+      // Some browsers report Infinity for streamed/webm files; clamp to 0.
+      setDuration(Number.isFinite(a.duration) ? a.duration : 0)
+    }
+    a.ontimeupdate = () => setCurrentTime(a.currentTime)
+    a.onended  = () => { setRecordingPlaying(false); setCurrentTime(0) }
+    a.onerror  = () => setRecordingPlaying(false)
+    voiceRef.current = a
+    return a
+  }
 
   // Toggle the original recording (separate from the AI talk screen).
   function toggleRecording() {
     if (!hasClip) return
-    if (voiceRef.current && !voiceRef.current.paused) {
-      voiceRef.current.pause()
+    const a = ensureAudio()
+    if (!a.paused) {
+      a.pause()
       setRecordingPlaying(false)
       return
     }
-    if (!voiceRef.current) {
-      voiceRef.current = new Audio(memorial.voiceUrl)
-      voiceRef.current.onended = () => setRecordingPlaying(false)
-      voiceRef.current.onerror = () => setRecordingPlaying(false)
-    }
-    voiceRef.current.play()
+    a.play()
       .then(() => setRecordingPlaying(true))
       .catch(() => setRecordingPlaying(false))
   }
-  useEffect(() => () => { voiceRef.current?.pause() }, [])
+
+  // Eager-load metadata when the card mounts so the duration label is
+  // ready before the user clicks play — no "0:00 / 0:00" flash.
+  useEffect(() => {
+    if (!hasClip) return
+    ensureAudio()
+    return () => { voiceRef.current?.pause() }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasClip])
 
   return (
     <Card variant="ink" style={{ padding: 0, position: 'relative', overflow: 'hidden' }}>
@@ -871,7 +921,7 @@ function VoiceSection({ memorial, onOpenTalk }) {
             <Label onInk>Voice of {firstName}</Label>
             {memorial.elevenLabsVoiceId && (
               <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase',
-                color: C.ink, background: C.saffron, padding: '4px 9px', borderRadius: 999 }}>◆ Voice captured</span>
+                color: C.ink, background: 'var(--theme, #f3b21a)', padding: '4px 9px', borderRadius: 999 }}>◆ Voice captured</span>
             )}
           </div>
           <h3 style={{ fontFamily: DISP, fontWeight: 700, fontSize: 26, letterSpacing: '-.02em', lineHeight: 1.1, margin: 0, color: C.cream }}>
@@ -887,17 +937,18 @@ function VoiceSection({ memorial, onOpenTalk }) {
           </p>
 
           {/* ── Embedded mini audio player ─────────────────────────────────
-                The play button gets its own contained section within the
-                Voice card — a glassy slab with a circular play button on
-                the left and the waveform inline next to it. Reads as "the
-                original recording" sub-control without leaving the card. */}
+                Solid theme-coloured slab with a circular play button on
+                the left and a real-progress waveform + duration label on
+                the right. Everything reads in the user's chosen accent
+                colour via var(--theme), so the page recolours cleanly when
+                they pick a different brand colour. No gradients. */}
           {hasClip ? (
             <div style={{
               marginTop: 6,
               padding: '12px 14px',
               borderRadius: 16,
               background: 'rgba(241,236,225,.04)',
-              border: '1px solid rgba(243,178,26,.20)',
+              border: '1px solid var(--theme, #f3b21a)',
               boxShadow: '0 1px 0 rgba(255,255,255,.04) inset, 0 6px 14px -6px rgba(0,0,0,.45)',
               display: 'flex', alignItems: 'center', gap: 14,
             }}>
@@ -907,16 +958,16 @@ function VoiceSection({ memorial, onOpenTalk }) {
                 style={{
                   width: 46, height: 46, borderRadius: '50%', flexShrink: 0,
                   background: recordingPlaying
-                    ? `linear-gradient(155deg, #ffd166, ${C.saffron} 55%, ${C.saffronDeep})`
-                    : 'rgba(243,178,26,.10)',
-                  border: `1.5px solid ${recordingPlaying ? C.saffron : 'rgba(243,178,26,.45)'}`,
-                  color: recordingPlaying ? C.ink : C.saffron,
+                    ? 'var(--theme, #f3b21a)'
+                    : 'transparent',
+                  border: '1.5px solid var(--theme, #f3b21a)',
+                  color: recordingPlaying ? C.ink : 'var(--theme, #f3b21a)',
                   cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   boxShadow: recordingPlaying
-                    ? '0 8px 18px -4px rgba(243,178,26,.50)'
+                    ? '0 8px 18px -4px var(--theme-md, rgba(243,178,26,.55))'
                     : '0 4px 12px -4px rgba(0,0,0,.45)',
-                  transition: 'all .15s',
+                  transition: 'background .15s, color .15s, box-shadow .15s',
                 }}>
                 {recordingPlaying ? (
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
@@ -924,22 +975,35 @@ function VoiceSection({ memorial, onOpenTalk }) {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft: 2 }}><path d="M8 5v14l11-7z"/></svg>
                 )}
               </button>
-              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{
                   fontFamily: MONO, fontSize: 9.5, fontWeight: 700,
                   letterSpacing: '.22em', textTransform: 'uppercase',
-                  color: recordingPlaying ? C.saffron : 'rgba(243,178,26,.65)',
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  color: 'var(--theme, #f3b21a)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
                 }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{
+                      width: 5, height: 5, borderRadius: '50%',
+                      background: 'var(--theme, #f3b21a)',
+                      boxShadow: recordingPlaying ? '0 0 8px var(--theme, #f3b21a)' : 'none',
+                      animation: recordingPlaying ? 'vs-livedot 1.4s ease-in-out infinite' : 'none',
+                      opacity: recordingPlaying ? 1 : 0.6,
+                    }} />
+                    {recordingPlaying ? 'Playing' : 'Original recording'}
+                  </span>
+                  {/* Real-time / total-time readout — accurate to the audio
+                      element's duration + currentTime. tabular-nums keeps
+                      the digits from jumping width as they tick. */}
                   <span style={{
-                    width: 5, height: 5, borderRadius: '50%',
-                    background: recordingPlaying ? C.saffron : 'rgba(243,178,26,.45)',
-                    boxShadow: recordingPlaying ? `0 0 8px ${C.saffron}` : 'none',
-                    animation: recordingPlaying ? 'vs-livedot 1.4s ease-in-out infinite' : 'none',
-                  }} />
-                  {recordingPlaying ? 'Playing original recording' : 'Play original recording'}
+                    color: 'rgba(241,236,225,.55)',
+                    fontVariantNumeric: 'tabular-nums',
+                    letterSpacing: '.12em',
+                  }}>
+                    {fmtMs(currentTime)} / {fmtMs(duration)}
+                  </span>
                 </div>
-                <WaveformBars playing={recordingPlaying} />
+                <WaveformBars playing={recordingPlaying} progress={progress} />
               </div>
             </div>
           ) : (
@@ -960,19 +1024,22 @@ function VoiceSection({ memorial, onOpenTalk }) {
             aria-label={`Speak to ${firstName}`}
             style={{
               position: 'relative', width: 144, height: 144, borderRadius: '50%',
-              background: 'linear-gradient(155deg, #ffd166 0%, #f3b21a 45%, #d99206 100%)',
+              // Solid theme colour — no gradient. The brand colour reads
+              // crisper against the black canvas and stays consistent if
+              // the user picks a different accent (e.g. red).
+              background: 'var(--theme, #f3b21a)',
               border: 'none',
               boxShadow: [
-                '0 24px 48px -8px rgba(243,178,26,.55)',
+                '0 24px 48px -8px var(--theme-md, rgba(243,178,26,.55))',
                 '0 10px 24px -6px rgba(0,0,0,.45)',
                 '0 2px 6px rgba(0,0,0,.25)',
               ].join(', '),
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-            {/* Soft outer halo */}
+            {/* Soft outer halo — tinted with the theme colour */}
             <span aria-hidden="true" style={{
               position: 'absolute', inset: -22, borderRadius: '50%', zIndex: -1,
-              background: 'radial-gradient(circle, rgba(243,178,26,.30) 0%, rgba(243,178,26,.08) 45%, transparent 70%)',
+              background: 'radial-gradient(circle, var(--theme-md, rgba(243,178,26,.30)) 0%, var(--theme-lt, rgba(243,178,26,.08)) 45%, transparent 70%)',
               pointerEvents: 'none',
             }} />
             {/* White play triangle — pure CSS borders, no SVG */}
@@ -987,7 +1054,7 @@ function VoiceSection({ memorial, onOpenTalk }) {
           </motion.button>
           <span style={{
             fontFamily: MONO, fontSize: 9.5, letterSpacing: '.24em',
-            textTransform: 'uppercase', color: C.saffron, fontWeight: 700,
+            textTransform: 'uppercase', color: 'var(--theme, #f3b21a)', fontWeight: 700,
             display: 'inline-flex', alignItems: 'center', gap: 7,
           }}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">

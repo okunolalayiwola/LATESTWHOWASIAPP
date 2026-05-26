@@ -1029,7 +1029,10 @@ export default function LifeReel({
         <TitleCard memorial={memorial} />
       ) : (
         <>
-          {/* Outgoing slide */}
+          {/* Outgoing slide — kept on a separate compositor layer so the
+              incoming slide's blur-dissolve doesn't repaint it on every
+              frame. The blur filter is the expensive part; dropping it
+              from the outgoing pass keeps the crossfade silky. */}
           <AnimatePresence>
             {isExiting && prevSlide && (
               <motion.div
@@ -1038,19 +1041,24 @@ export default function LifeReel({
                 exit={{ opacity: 0 }}
                 transition={{ duration: FADE_DURATION / 1000, ease: 'easeInOut' }}
                 className="absolute inset-0 z-[1]"
+                style={{ willChange: 'opacity', transform: 'translate3d(0,0,0)' }}
               >
                 <RenderSlide slide={prevSlide} idx={prev} memorial={memorial} showText={false} />
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* Incoming slide — blur dissolve */}
+          {/* Incoming slide — opacity-only crossfade (no filter blur on the
+              container). The blur was creating a full-frame repaint each
+              tick; with the preloader warming the cache we don't need it
+              to mask decode latency anymore. */}
           <motion.div
             key={`curr-${current}`}
-            initial={{ opacity: 0, filter: 'blur(12px)' }}
-            animate={{ opacity: 1, filter: 'blur(0px)' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             transition={{ duration: FADE_DURATION / 1000, ease: [0.16, 1, 0.3, 1] }}
             className="absolute inset-0 z-[2]"
+            style={{ willChange: 'opacity', transform: 'translate3d(0,0,0)' }}
           >
             <RenderSlide slide={currentSlide} idx={current} memorial={memorial} showText={true} />
           </motion.div>
