@@ -797,14 +797,12 @@ function LegacyVaultCard({ memorialId, letterCount, sealedCount, hasWill }) {
         padding: 22, overflow: 'hidden', cursor: 'pointer',
         border: '1px solid rgba(21,18,14,.4)', boxShadow: '0 14px 30px rgba(21,18,14,.22)',
       }}>
-        {/* Ambient glows — bumped to .35 saffron + .20 rust so the warmth
-            actually reads against the ink without dissolving. */}
+        {/* Ambient glows — exact v3 values (.20 saffron / .12 rust) */}
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: 'radial-gradient(circle at 90% -10%, rgba(243,178,26,.35), transparent 55%), radial-gradient(circle at -10% 110%, rgba(200,83,31,.20), transparent 55%)' }} />
-        {/* Stripe accent — slightly more visible (.16) so the corner
-            decoration registers as a saffron-tinted texture, not noise. */}
+          background: 'radial-gradient(circle at 90% -10%, rgba(243,178,26,.20), transparent 55%), radial-gradient(circle at -10% 110%, rgba(200,83,31,.12), transparent 55%)' }} />
+        {/* Stripe accent — exact v3 opacity .10 */}
         <div style={{ position: 'absolute', right: -10, bottom: -10, width: 200, height: 200,
-          backgroundImage: STRIPE, opacity: .16, pointerEvents: 'none', transform: 'rotate(8deg)' }} />
+          backgroundImage: STRIPE, opacity: .10, pointerEvents: 'none', transform: 'rotate(8deg)' }} />
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, position: 'relative' }}>
           <Label onInk>Legacy Vault</Label>
@@ -917,17 +915,14 @@ function VoiceSection({ memorial, onOpenTalk }) {
 
   return (
     <Card variant="ink" style={{ padding: 0, position: 'relative', overflow: 'hidden' }}>
-      {/* Ambient saffron glow — bumped to .55 per v3 so the warm haze
-          actually reads against the ink card, instead of dissolving into
-          the surface. */}
+      {/* Ambient saffron glow — exact v3 value .32 */}
       <div style={{ position: 'absolute', top: '-30%', right: '30%', left: 'auto',
         width: 360, height: 360, borderRadius: '50%',
-        background: `radial-gradient(circle at 35% 35%, rgba(243,178,26,.55), transparent 60%)`,
+        background: `radial-gradient(circle at 35% 35%, rgba(243,178,26,.32), transparent 60%)`,
         filter: 'blur(8px)', pointerEvents: 'none' }} />
-      {/* Stripe — bumped to .12 so the diagonal texture reads as a
-          subtle pinstripe instead of dissolving entirely. */}
+      {/* Stripe — exact v3 opacity .06 */}
       <div style={{ position: 'absolute', inset: 'auto 0 0 0', height: '60%',
-        backgroundImage: STRIPE, opacity: .12, pointerEvents: 'none' }} />
+        backgroundImage: STRIPE, opacity: .06, pointerEvents: 'none' }} />
 
       <div style={{ position: 'relative', display: 'grid',
         gridTemplateColumns: '1fr 220px', gap: 24, padding: '28px 28px 26px',
@@ -2908,20 +2903,10 @@ function MemorialDetailPageInner() {
 
   return (
     <div style={{
-      // Warm chocolate-ink canvas — pure black felt cold and washed out the
-      // saffron accents into greys. A brown-ink base lets the yellows read
-      // as actual yellow (warm complements warm) instead of "off-white on
-      // black". Cream paper cards still float; ink cards still blend.
-      background:          '#15110c',
-      // Much stronger ambient radials — large saffron glow top-left + rust
-      // bottom-right. These bleed warmth across the canvas so the whole
-      // page reads as golden-toned rather than dark grey.
-      backgroundImage:     `
-        radial-gradient(circle at 15% 12%, rgba(243,178,26,.16), transparent 50%),
-        radial-gradient(circle at 88% 88%, rgba(200,83,31,.10), transparent 55%),
-        radial-gradient(circle at 50% 50%, rgba(243,178,26,.04), transparent 70%)
-      `,
-      backgroundAttachment: 'fixed',
+      // Black canvas per user spec — everything else uses the v3 stylesheet
+      // colour tokens exactly (cream/paper/ink/saffron). The cards and
+      // accents do the heavy lifting; the page itself is just clean black.
+      background:          '#000',
       minHeight:    '100vh',
       paddingTop:   'max(56px, calc(env(safe-area-inset-top) + 12px))',
       paddingBottom:'max(96px, calc(env(safe-area-inset-bottom) + 80px))',
