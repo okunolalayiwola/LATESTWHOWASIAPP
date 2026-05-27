@@ -783,31 +783,49 @@ function LifeRecordCard({ memorial }) {
 function LegacyVaultCard({ memorialId, letterCount, sealedCount, hasWill }) {
   return (
     <Link to={`/memorial/${memorialId}/letters`} style={{ textDecoration: 'none', display: 'block' }}>
+      {/* ── Brushed-silver vault ───────────────────────────────────────────
+            Top-to-bottom silver gradient body with a subtle radial sheen,
+            inner top-highlight and bottom-recess shadows for a brushed-
+            metal feel. Inner text reads in ink for crisp contrast.
+            Lock icon sits in an ink chip; "Open vault" arrow is a small
+            ink disc with cream glyph. */}
       <div style={{
-        position: 'relative', background: C.ink, color: C.cream, borderRadius: 26,
+        position: 'relative',
+        background: 'linear-gradient(180deg, #e2dcd0 0%, #c1bbae 55%, #9c968a 100%)',
+        color: C.ink, borderRadius: 26,
         padding: 22, overflow: 'hidden', cursor: 'pointer',
-        border: '1px solid rgba(21,18,14,.4)', boxShadow: '0 14px 30px rgba(21,18,14,.22)',
+        border: '1px solid rgba(21,18,14,.18)',
+        boxShadow: [
+          '0 1px 0 rgba(255,255,255,.55) inset',     // crown highlight
+          '0 -2px 4px rgba(0,0,0,.12) inset',        // base recess
+          '0 0 0 1px rgba(0,0,0,.06) inset',         // edge hairline
+          '0 8px 18px -4px rgba(21,18,14,.22)',
+          '0 22px 40px -16px rgba(21,18,14,.25)',
+        ].join(', '),
       }}>
-        {/* Ambient glows */}
+        {/* Sheen — soft top-left bright spot, bottom-right shadow */}
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: 'radial-gradient(circle at 90% -10%, rgba(243,178,26,.20), transparent 55%), radial-gradient(circle at -10% 110%, rgba(200,83,31,.12), transparent 55%)' }} />
-        {/* Stripe accent */}
-        <div style={{ position: 'absolute', right: -10, bottom: -10, width: 200, height: 200,
-          backgroundImage: STRIPE, opacity: .10, pointerEvents: 'none', transform: 'rotate(8deg)' }} />
+          background:
+            'radial-gradient(circle at 28% 18%, rgba(255,255,255,.40), transparent 55%),'
+            + 'radial-gradient(circle at 80% 95%, rgba(21,18,14,.18), transparent 55%)' }} />
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, position: 'relative' }}>
-          <Label onInk>Legacy Vault</Label>
-          <div style={{ width: 38, height: 38, borderRadius: 11, background: 'var(--theme, #f3b21a)', color: C.ink,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>
+          <Label>Legacy Vault</Label>
+          <div style={{
+            width: 38, height: 38, borderRadius: 11,
+            background: C.ink, color: '#e6e1d6',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
+            boxShadow: '0 1px 0 rgba(255,255,255,.10) inset, 0 4px 10px -2px rgba(0,0,0,.35)',
+          }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           </div>
         </div>
 
         <h3 style={{ fontFamily: DISP, fontWeight: 700, fontSize: 22, letterSpacing: '-.02em', lineHeight: 1.1,
-          color: C.cream, margin: '0 0 6px', position: 'relative' }}>
-          Sealed messages &amp; <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'var(--theme, #f3b21a)' }}>the will.</em>
+          color: C.ink, margin: '0 0 6px', position: 'relative' }}>
+          Sealed messages &amp; <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: C.ink2 }}>the will.</em>
         </h3>
-        <p style={{ color: 'rgba(241,236,225,.6)', fontSize: 13.5, lineHeight: 1.55,
+        <p style={{ color: 'rgba(21,18,14,.62)', fontSize: 13.5, lineHeight: 1.55,
           marginBottom: 14, maxWidth: '42ch', position: 'relative' }}>
           Biometrically secured letters and final instructions. Open the vault to read or contribute.
         </p>
@@ -818,23 +836,25 @@ function LegacyVaultCard({ memorialId, letterCount, sealedCount, hasWill }) {
             { value: hasWill ? '✓' : '—', label: hasWill ? 'Will sealed' : 'No will yet', gold: hasWill },
           ].map(({ value, label, gold }) => (
             <div key={label} style={{ flex: 1, padding: 12, borderRadius: 14,
-              background: 'rgba(241,236,225,.05)', border: '1px solid rgba(241,236,225,.10)',
+              background: 'rgba(255,255,255,.45)', border: '1px solid rgba(21,18,14,.10)',
               display: 'flex', flexDirection: 'column', gap: 6 }}>
               <strong style={{ fontFamily: DISP, fontWeight: 700, fontSize: 22, letterSpacing: '-.02em', lineHeight: 1,
-                color: gold ? 'var(--theme, #f3b21a)' : C.cream }}>{value}</strong>
+                color: gold ? C.ink : C.ink }}>{value}</strong>
               <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.18em', textTransform: 'uppercase',
-                color: 'rgba(241,236,225,.5)' }}>{label}</span>
+                color: 'rgba(21,18,14,.55)' }}>{label}</span>
             </div>
           ))}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14, paddingTop: 14,
-          borderTop: '1px solid rgba(241,236,225,.08)',
+          borderTop: '1px solid rgba(21,18,14,.18)',
           fontFamily: MONO, fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase',
-          color: 'var(--theme, #f3b21a)', position: 'relative' }}>
+          color: C.ink, position: 'relative', fontWeight: 700 }}>
           <span>Open vault</span>
           <div style={{ marginLeft: 'auto', width: 30, height: 30, borderRadius: '50%',
-            background: 'var(--theme, #f3b21a)', color: C.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
+            background: C.ink, color: '#e6e1d6',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13,
+            boxShadow: '0 1px 0 rgba(255,255,255,.10) inset, 0 3px 8px -2px rgba(0,0,0,.35)' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
           </div>
         </div>
@@ -1096,30 +1116,39 @@ function ReelViewport({ memorial, photos, tributes, onExpand }) {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Label onInk>Life Reel of {firstName}</Label>
+          {/* Cream pill — matches the design screenshot the user shared.
+              Solid cream face, dark ink text + ◆, soft drop shadow. */}
           <span style={{
-            fontFamily: MONO, fontSize: 9.5, letterSpacing: '.18em', textTransform: 'uppercase',
-            color: 'rgba(243,178,26,.85)',
-            background: 'rgba(243,178,26,.10)',
-            border: '1px solid rgba(243,178,26,.25)',
-            padding: '3px 8px', borderRadius: 999,
+            fontFamily: MONO, fontSize: 9.5, fontWeight: 700,
+            letterSpacing: '.20em', textTransform: 'uppercase',
+            color: C.ink,
+            background: '#e6e1d6',
+            border: '1px solid rgba(21,18,14,.18)',
+            padding: '4px 11px', borderRadius: 999,
+            boxShadow: '0 1px 0 rgba(255,255,255,.5) inset, 0 2px 6px -2px rgba(0,0,0,.35)',
           }}>
             ◆ Cinematic
           </span>
         </div>
 
+        {/* Open theater — neutral outline pill */}
         <button
           onClick={onExpand}
           style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: 'rgba(243,178,26,.12)',
-            color: 'var(--theme, #f3b21a)',
-            border: '1px solid rgba(243,178,26,.30)',
+            display: 'flex', alignItems: 'center', gap: 7,
+            background: 'transparent',
+            color: 'rgba(241,236,225,.85)',
+            border: '1px solid rgba(241,236,225,.25)',
             borderRadius: 999,
-            padding: '7px 14px',
+            padding: '8px 16px',
             cursor: 'pointer',
-            fontFamily: MONO, fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase',
-            fontWeight: 600,
-          }}>
+            fontFamily: MONO, fontSize: 10.5, letterSpacing: '.20em', textTransform: 'uppercase',
+            fontWeight: 700,
+            transition: 'background .15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(241,236,225,.06)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+        >
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/>
           </svg>
