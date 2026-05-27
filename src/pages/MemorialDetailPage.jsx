@@ -1032,10 +1032,10 @@ function VoiceSection({ memorial, onOpenTalk }) {
             aria-label={`Speak to ${firstName}`}
             style={{
               position: 'relative', width: 144, height: 144, borderRadius: '50%',
-              // Solid theme colour — no gradient. The brand colour reads
-              // crisper against the black canvas and stays consistent if
-              // the user picks a different accent (e.g. red).
-              background: 'var(--theme, #f3b21a)',
+              // 3-stop saffron gradient per v3: bright yellow top →
+              // theme-gold mid → deep gold base. Gives the orb warmth and
+              // depth without needing a texture overlay.
+              background: 'linear-gradient(155deg, #ffd166 0%, var(--theme, #f3b21a) 45%, #d99206 100%)',
               border: 'none',
               boxShadow: [
                 '0 24px 48px -8px var(--theme-md, rgba(243,178,26,.55))',
@@ -1505,7 +1505,7 @@ function TributesSection({ tributes, onLike, onDelete, isOwner, currentUserId, m
   if (tributes.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '48px 0' }}>
-        <div style={{ fontSize: 36, marginBottom: 16, color: 'rgba(21,18,14,.12)' }}>♡</div>
+        <div style={{ fontSize: 36, marginBottom: 16, color: 'rgba(21,18,14,.14)' }}>♡</div>
         <p style={{ fontFamily: DISP, color: C.muted, fontSize: 14 }}>No tributes yet. Be the first.</p>
       </div>
     )
@@ -1604,17 +1604,17 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
   const overflow = photos.length - shown.length
 
   // ── Borderless header used by every state ────────────────────────────
-  // Gallery now sits directly on the page background (black) — no card
-  // wrapper, no tile borders. Text uses the ink (cream-on-black) tones.
+  // Gallery sits directly on the cream page background (v3) — uses the
+  // default (non-ink) Label variant and ink-palette text tones.
   const Header = () => (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       gap: 12, flexWrap: 'wrap',
       padding: '0 4px 14px',
     }}>
-      <Label onInk>Gallery</Label>
+      <Label>Gallery</Label>
       <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.22em', textTransform: 'uppercase',
-        color: 'rgba(241,236,225,.5)' }}>
+        color: C.muted }}>
         {photos.length} photo{photos.length !== 1 ? 's' : ''}
       </span>
     </div>
@@ -1626,8 +1626,8 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
       <section style={{ padding: '12px 2px 4px' }}>
         <Header />
         <div style={{ padding: '32px 0', textAlign: 'center' }}>
-          <div style={{ fontSize: 28, marginBottom: 10, color: 'rgba(241,236,225,.18)' }}>✿</div>
-          <p style={{ fontFamily: DISP, color: 'rgba(241,236,225,.5)', fontSize: 13, margin: 0 }}>
+          <div style={{ fontSize: 28, marginBottom: 10, color: 'rgba(21,18,14,.14)' }}>✿</div>
+          <p style={{ fontFamily: DISP, color: C.muted, fontSize: 13, margin: 0 }}>
             No photos in the gallery yet.
           </p>
         </div>
@@ -1652,7 +1652,7 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
             textTransform: 'uppercase', color: 'var(--theme, #f3b21a)', fontWeight: 700 }}>
             {uploading ? `Uploading ${pct}%` : 'Add photos to the gallery'}
           </span>
-          <span style={{ fontSize: 11, color: 'rgba(241,236,225,.5)', textAlign: 'center', padding: '0 20px' }}>
+          <span style={{ fontSize: 11, color: C.muted, textAlign: 'center', padding: '0 20px' }}>
             Add more memories any time. These appear here and don't change the reel.
           </span>
         </div>
@@ -2572,7 +2572,7 @@ function PersonaProfileCallout({ memorial, memorialId }) {
             color: 'var(--theme, #f3b21a)', margin: 0 }}>
             Memory profile · {chapters}/{total} chapters
           </p>
-          <h3 style={{ fontFamily: DISP, fontWeight: 700, fontSize: 18, color: C.cream,
+          <h3 style={{ fontFamily: DISP, fontWeight: 700, fontSize: 18, color: C.ink,
             margin: '4px 0 4px', letterSpacing: '-.01em' }}>
             {chapters === 0
               ? (isSelf ? 'Build the memory that will speak as you' : `Build the memory that speaks as ${firstName}`)
@@ -2580,7 +2580,7 @@ function PersonaProfileCallout({ memorial, memorialId }) {
                 ? `${firstName}'s memory is ready`
                 : `${pct}% — keep going`}
           </h3>
-          <p style={{ margin: 0, fontSize: 13, color: 'rgba(241,236,225,.55)', lineHeight: 1.5 }}>
+          <p style={{ margin: 0, fontSize: 13, color: C.inkSoft, lineHeight: 1.5 }}>
             {chapters === 0
               ? `Answer a guided interview about ${isSelf ? 'yourself' : firstName} — life chapters, personality, stories, beliefs. Everything you write shapes "Hear ${isSelf ? 'you' : 'them'} speak".`
               : `Add more detail or revisit any chapter — every paragraph makes the conversation richer.`}
@@ -2898,15 +2898,22 @@ function MemorialDetailPageInner() {
 
   return (
     <div style={{
-      // Deep warm-black canvas — slightly darker than C.ink (#15120e) so the
-      // ink-variant cards on top still read as floating panels rather than
-      // dissolving into the background. Cream rail cards on the left pop
-      // like printed pages against this surface.
-      background:   '#0a0805',
+      // Warm cream canvas per v3 design — matches the --paper token so
+      // paper-variant rail cards feel flush with the page while ink cards
+      // (portrait, reel, voice) read as dark floating panels.
+      background:          C.paper,
+      // Ambient radial hints: faint saffron top-left + faint rust bottom-
+      // right, fixed to the viewport (backgroundAttachment: fixed) so they
+      // stay put as the content scrolls — mirrors v3 body::before.
+      backgroundImage:     `
+        radial-gradient(circle at 18% 15%, rgba(243,178,26,.06), transparent 55%),
+        radial-gradient(circle at 85% 85%, rgba(200,83,31,.05), transparent 60%)
+      `,
+      backgroundAttachment: 'fixed',
       minHeight:    '100vh',
       paddingTop:   'max(56px, calc(env(safe-area-inset-top) + 12px))',
       paddingBottom:'max(96px, calc(env(safe-area-inset-bottom) + 80px))',
-      color:        C.cream,
+      color:        C.ink,
       // Hardware-accelerated rendering hint so the long right column
       // doesn't repaint half the page on every scroll tick.
       transform: 'translateZ(0)',
