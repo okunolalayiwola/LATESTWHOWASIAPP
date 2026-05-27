@@ -204,7 +204,10 @@ function WaveformBars({ playing = false, progress = null }) {
             height: `${h * 100}%`,
             background: 'var(--theme, #f3b21a)',
             borderRadius: 2,
-            opacity: isLit ? 1 : (playing ? 0.32 : 0.28),
+            // v3 spec: lit=1.0, unlit=0.55. Previous 0.28 read as washed-out
+            // grey rather than dim saffron — the bars need to hold their
+            // colour identity even when "ahead" of the playhead.
+            opacity: isLit ? 1 : 0.55,
             transition: 'opacity .12s linear',
           }} />
         )
@@ -794,12 +797,14 @@ function LegacyVaultCard({ memorialId, letterCount, sealedCount, hasWill }) {
         padding: 22, overflow: 'hidden', cursor: 'pointer',
         border: '1px solid rgba(21,18,14,.4)', boxShadow: '0 14px 30px rgba(21,18,14,.22)',
       }}>
-        {/* Ambient glows */}
+        {/* Ambient glows — bumped to .35 saffron + .20 rust so the warmth
+            actually reads against the ink without dissolving. */}
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: 'radial-gradient(circle at 90% -10%, rgba(243,178,26,.20), transparent 55%), radial-gradient(circle at -10% 110%, rgba(200,83,31,.12), transparent 55%)' }} />
-        {/* Stripe accent */}
+          background: 'radial-gradient(circle at 90% -10%, rgba(243,178,26,.35), transparent 55%), radial-gradient(circle at -10% 110%, rgba(200,83,31,.20), transparent 55%)' }} />
+        {/* Stripe accent — slightly more visible (.16) so the corner
+            decoration registers as a saffron-tinted texture, not noise. */}
         <div style={{ position: 'absolute', right: -10, bottom: -10, width: 200, height: 200,
-          backgroundImage: STRIPE, opacity: .10, pointerEvents: 'none', transform: 'rotate(8deg)' }} />
+          backgroundImage: STRIPE, opacity: .16, pointerEvents: 'none', transform: 'rotate(8deg)' }} />
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, position: 'relative' }}>
           <Label onInk>Legacy Vault</Label>
@@ -912,14 +917,17 @@ function VoiceSection({ memorial, onOpenTalk }) {
 
   return (
     <Card variant="ink" style={{ padding: 0, position: 'relative', overflow: 'hidden' }}>
-      {/* Ambient glow */}
+      {/* Ambient saffron glow — bumped to .55 per v3 so the warm haze
+          actually reads against the ink card, instead of dissolving into
+          the surface. */}
       <div style={{ position: 'absolute', top: '-30%', right: '30%', left: 'auto',
-        width: 340, height: 340, borderRadius: '50%',
-        background: `radial-gradient(circle at 35% 35%, rgba(243,178,26,.35), transparent 60%)`,
+        width: 360, height: 360, borderRadius: '50%',
+        background: `radial-gradient(circle at 35% 35%, rgba(243,178,26,.55), transparent 60%)`,
         filter: 'blur(8px)', pointerEvents: 'none' }} />
-      {/* Stripe */}
+      {/* Stripe — bumped to .12 so the diagonal texture reads as a
+          subtle pinstripe instead of dissolving entirely. */}
       <div style={{ position: 'absolute', inset: 'auto 0 0 0', height: '60%',
-        backgroundImage: STRIPE, opacity: .06, pointerEvents: 'none' }} />
+        backgroundImage: STRIPE, opacity: .12, pointerEvents: 'none' }} />
 
       <div style={{ position: 'relative', display: 'grid',
         gridTemplateColumns: '1fr 220px', gap: 24, padding: '28px 28px 26px',
@@ -2900,16 +2908,18 @@ function MemorialDetailPageInner() {
 
   return (
     <div style={{
-      // Deep warm-black canvas — cream paper cards float as "printed pages",
-      // ink cards dissolve seamlessly, and every saffron/yellow accent pops
-      // with full contrast. The yellow portions of the design only read at
-      // full vibrancy against this dark ground.
-      background:          '#0a0805',
-      // Ambient radial warmth — very faint so they tint the canvas without
-      // competing with the card surfaces or the saffron pops.
+      // Warm chocolate-ink canvas — pure black felt cold and washed out the
+      // saffron accents into greys. A brown-ink base lets the yellows read
+      // as actual yellow (warm complements warm) instead of "off-white on
+      // black". Cream paper cards still float; ink cards still blend.
+      background:          '#15110c',
+      // Much stronger ambient radials — large saffron glow top-left + rust
+      // bottom-right. These bleed warmth across the canvas so the whole
+      // page reads as golden-toned rather than dark grey.
       backgroundImage:     `
-        radial-gradient(circle at 18% 15%, rgba(243,178,26,.04), transparent 55%),
-        radial-gradient(circle at 85% 85%, rgba(200,83,31,.03), transparent 60%)
+        radial-gradient(circle at 15% 12%, rgba(243,178,26,.16), transparent 50%),
+        radial-gradient(circle at 88% 88%, rgba(200,83,31,.10), transparent 55%),
+        radial-gradient(circle at 50% 50%, rgba(243,178,26,.04), transparent 70%)
       `,
       backgroundAttachment: 'fixed',
       minHeight:    '100vh',
