@@ -88,7 +88,7 @@ function StyledName({ name = '' }) {
   return (
     <>
       {lower.slice(0, idx)}
-      <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'rgba(241,236,225,.92)' }}>
+      <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'var(--theme, #f3b21a)' }}>
         {lower[idx]}
       </em>
       {lower.slice(idx + 1)}
@@ -135,11 +135,10 @@ function Card({ variant = 'paper', className = '', style = {}, children, ...rest
     '0 22px 44px -16px rgba(243,178,26,.22)',
   ].join(', ')
 
-  // Card surfaces — subtle metallic dark gradient on ink, restored per
-  // the v4-revisit screenshots. Top of each card is a hair brighter than
-  // the bottom which gives a brushed-cabinet feel under the layered
-  // drop-shadow stack. Paper variant stays flat; saffron variant becomes
-  // a single solid theme tone (no inner gradient).
+  // Solid card surfaces — no gradients. Each variant uses one clean tone
+  // so the colour reads consistently regardless of card height. The ink
+  // tone is lifted a hair above the page background (#0a0805) so the
+  // panel still floats; depth now comes from the shadow stack alone.
   const base = {
     paper: {
       background: C.paper,
@@ -148,7 +147,7 @@ function Card({ variant = 'paper', className = '', style = {}, children, ...rest
       color: C.ink,
     },
     ink: {
-      background: 'linear-gradient(180deg, #221c14 0%, #15110d 100%)',
+      background: '#191410',
       border: '1px solid rgba(241,236,225,.10)',
       boxShadow: SH_INK,
       color: C.cream,
@@ -201,12 +200,9 @@ function WaveformBars({ playing = false, progress = null }) {
           <span key={i} style={{
             flex: 1,
             height: `${h * 100}%`,
-            // Cream bars — matches the brushed-metal aesthetic in the
-            // design screenshots. Played portion at full opacity, the
-            // rest dimmed.
-            background: '#e6e1d6',
+            background: 'var(--theme, #f3b21a)',
             borderRadius: 2,
-            opacity: isLit ? 0.95 : (playing ? 0.36 : 0.32),
+            opacity: isLit ? 1 : (playing ? 0.32 : 0.28),
             transition: 'opacity .12s linear',
           }} />
         )
@@ -600,8 +596,8 @@ function Hero({ memorial, memorialId, isOwner, navigate }) {
           <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.22em', textTransform: 'uppercase',
             color: C.muted, marginBottom: 6 }}>Chapter</div>
           <div style={{ fontFamily: DISP, fontWeight: 700, fontSize: 20, letterSpacing: '-.01em', lineHeight: 1.1 }}>
-            {alive ? <>An ongoing <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'rgba(241,236,225,.92)' }}>life</em></> :
-                     <>A life <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'rgba(241,236,225,.92)' }}>remembered</em></>}
+            {alive ? <>An ongoing <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'var(--theme, #f3b21a)' }}>life</em></> :
+                     <>A life <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'var(--theme, #f3b21a)' }}>remembered</em></>}
           </div>
           <div style={{ marginTop: 10, height: 6, borderRadius: 3, background: C.cream2, overflow: 'hidden', position: 'relative' }}>
             <div style={{ position: 'absolute', left: 0, top: 0, height: '100%',
@@ -773,7 +769,7 @@ function LifeRecordCard({ memorial }) {
                     Living
                   </span>
                 : serif && value !== '—'
-                ? <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: C.ink2 }}>{value}</em>
+                ? <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'var(--theme, #f3b21a)' }}>{value}</em>
                 : value}
             </div>
           </div>
@@ -809,7 +805,7 @@ function LegacyVaultCard({ memorialId, letterCount, sealedCount, hasWill }) {
 
         <h3 style={{ fontFamily: DISP, fontWeight: 700, fontSize: 22, letterSpacing: '-.02em', lineHeight: 1.1,
           color: C.cream, margin: '0 0 6px', position: 'relative' }}>
-          Sealed messages &amp; <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'rgba(241,236,225,.92)' }}>the will.</em>
+          Sealed messages &amp; <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'var(--theme, #f3b21a)' }}>the will.</em>
         </h3>
         <p style={{ color: 'rgba(241,236,225,.6)', fontSize: 13.5, lineHeight: 1.55,
           marginBottom: 14, maxWidth: '42ch', position: 'relative' }}>
@@ -928,17 +924,13 @@ function VoiceSection({ memorial, onOpenTalk }) {
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             <Label onInk>Voice of {firstName}</Label>
             {memorial.elevenLabsVoiceId && (
-              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700,
-                letterSpacing: '.20em', textTransform: 'uppercase',
-                color: 'rgba(241,236,225,.85)',
-                background: 'rgba(241,236,225,.06)',
-                border: '1px solid rgba(241,236,225,.22)',
-                padding: '4px 10px', borderRadius: 999 }}>◆ Voice captured</span>
+              <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase',
+                color: C.ink, background: 'var(--theme, #f3b21a)', padding: '4px 9px', borderRadius: 999 }}>◆ Voice captured</span>
             )}
           </div>
           <h3 style={{ fontFamily: DISP, fontWeight: 700, fontSize: 26, letterSpacing: '-.02em', lineHeight: 1.1, margin: 0, color: C.cream }}>
             Hear {firstName} speak —{' '}
-            <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'rgba(241,236,225,.92)' }}>
+            <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'var(--theme, #f3b21a)' }}>
               {alive ? 'as they still do.' : 'as they were.'}
             </em>
           </h3>
@@ -960,24 +952,24 @@ function VoiceSection({ memorial, onOpenTalk }) {
               padding: '12px 14px',
               borderRadius: 16,
               background: 'rgba(241,236,225,.04)',
-              border: '1px solid rgba(241,236,225,.16)',
+              border: '1px solid var(--theme, #f3b21a)',
               boxShadow: '0 1px 0 rgba(255,255,255,.04) inset, 0 6px 14px -6px rgba(0,0,0,.45)',
               display: 'flex', alignItems: 'center', gap: 14,
             }}>
-              {/* Neutral cream play button — outline at rest, filled
-                  cream when active. Matches the brushed-metal look. */}
               <button
                 onClick={toggleRecording}
                 aria-label={recordingPlaying ? 'Pause recording' : 'Play original recording'}
                 style={{
                   width: 46, height: 46, borderRadius: '50%', flexShrink: 0,
-                  background: recordingPlaying ? '#e6e1d6' : 'transparent',
-                  border: '1.5px solid rgba(241,236,225,.40)',
-                  color: recordingPlaying ? C.ink : 'rgba(241,236,225,.85)',
+                  background: recordingPlaying
+                    ? 'var(--theme, #f3b21a)'
+                    : 'transparent',
+                  border: '1.5px solid var(--theme, #f3b21a)',
+                  color: recordingPlaying ? C.ink : 'var(--theme, #f3b21a)',
                   cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   boxShadow: recordingPlaying
-                    ? '0 8px 18px -4px rgba(0,0,0,.50)'
+                    ? '0 8px 18px -4px var(--theme-md, rgba(243,178,26,.55))'
                     : '0 4px 12px -4px rgba(0,0,0,.45)',
                   transition: 'background .15s, color .15s, box-shadow .15s',
                 }}>
@@ -991,20 +983,21 @@ function VoiceSection({ memorial, onOpenTalk }) {
                 <div style={{
                   fontFamily: MONO, fontSize: 9.5, fontWeight: 700,
                   letterSpacing: '.22em', textTransform: 'uppercase',
-                  color: 'rgba(241,236,225,.85)',
+                  color: 'var(--theme, #f3b21a)',
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
                 }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                     <span style={{
                       width: 5, height: 5, borderRadius: '50%',
-                      background: '#e6e1d6',
-                      boxShadow: recordingPlaying ? '0 0 8px rgba(241,236,225,.6)' : 'none',
+                      background: 'var(--theme, #f3b21a)',
+                      boxShadow: recordingPlaying ? '0 0 8px var(--theme, #f3b21a)' : 'none',
                       animation: recordingPlaying ? 'vs-livedot 1.4s ease-in-out infinite' : 'none',
                       opacity: recordingPlaying ? 1 : 0.6,
                     }} />
                     {recordingPlaying ? 'Playing' : 'Original recording'}
                   </span>
-                  {/* Real-time / total-time readout — tabular-nums keeps
+                  {/* Real-time / total-time readout — accurate to the audio
+                      element's duration + currentTime. tabular-nums keeps
                       the digits from jumping width as they tick. */}
                   <span style={{
                     color: 'rgba(241,236,225,.55)',
@@ -1028,11 +1021,6 @@ function VoiceSection({ memorial, onOpenTalk }) {
             This is the "Speak to {name}" action. The Play recording button
             on the left handles the original audio clip. */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-          {/* Brushed-silver orb — restored from the v4-revisit screenshots.
-              Three layered radial gradients give the metallic-sphere feel:
-              top-left highlight, bottom-right shadow, and a base linear
-              tone for the silver body. Inner box-shadows add the bevel,
-              outer shadows give the weight. Mic icon sits on top in ink. */}
           <motion.button
             whileHover={{ translateY: -2, scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
@@ -1040,33 +1028,37 @@ function VoiceSection({ memorial, onOpenTalk }) {
             aria-label={`Speak to ${firstName}`}
             style={{
               position: 'relative', width: 144, height: 144, borderRadius: '50%',
-              background:
-                'radial-gradient(circle at 32% 26%, rgba(255,255,255,.65) 0%, rgba(255,255,255,0) 38%),'
-                + 'radial-gradient(circle at 70% 78%, rgba(0,0,0,.38) 0%, rgba(0,0,0,0) 55%),'
-                + 'linear-gradient(155deg, #e6e1d6 0%, #b9b4a8 45%, #6f6a60 100%)',
+              // Solid theme colour — no gradient. The brand colour reads
+              // crisper against the black canvas and stays consistent if
+              // the user picks a different accent (e.g. red).
+              background: 'var(--theme, #f3b21a)',
               border: 'none',
               boxShadow: [
-                '0 2px 4px rgba(255,255,255,.45) inset',    // crown highlight
-                '0 -4px 10px rgba(0,0,0,.35) inset',        // base shadow
-                '0 0 0 1px rgba(0,0,0,.22) inset',          // edge line
-                '0 22px 44px -8px rgba(0,0,0,.55)',
-                '0 8px 20px -4px rgba(0,0,0,.45)',
+                '0 24px 48px -8px var(--theme-md, rgba(243,178,26,.55))',
+                '0 10px 24px -6px rgba(0,0,0,.45)',
+                '0 2px 6px rgba(0,0,0,.25)',
               ].join(', '),
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-            {/* Mic icon (dark ink so it reads cleanly on the silver face) */}
-            <svg viewBox="0 0 24 24" fill="none" stroke="#15120e" strokeWidth="2"
-              strokeLinecap="round" strokeLinejoin="round"
-              style={{ width: 38, height: 38, filter: 'drop-shadow(0 1px 1px rgba(255,255,255,.45))' }}>
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" fill="#15120e"/>
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-              <line x1="12" y1="19" x2="12" y2="23"/>
-              <line x1="8" y1="23" x2="16" y2="23"/>
-            </svg>
+            {/* Soft outer halo — tinted with the theme colour */}
+            <span aria-hidden="true" style={{
+              position: 'absolute', inset: -22, borderRadius: '50%', zIndex: -1,
+              background: 'radial-gradient(circle, var(--theme-md, rgba(243,178,26,.30)) 0%, var(--theme-lt, rgba(243,178,26,.08)) 45%, transparent 70%)',
+              pointerEvents: 'none',
+            }} />
+            {/* White play triangle — pure CSS borders, no SVG */}
+            <span aria-hidden="true" style={{
+              width: 0, height: 0,
+              borderLeft:   '28px solid #ffffff',
+              borderTop:    '18px solid transparent',
+              borderBottom: '18px solid transparent',
+              marginLeft: 9,
+              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.18)) drop-shadow(0 0 16px rgba(255,255,255,.30))',
+            }} />
           </motion.button>
           <span style={{
             fontFamily: MONO, fontSize: 9.5, letterSpacing: '.24em',
-            textTransform: 'uppercase', color: 'rgba(241,236,225,.7)', fontWeight: 700,
+            textTransform: 'uppercase', color: 'var(--theme, #f3b21a)', fontWeight: 700,
             display: 'inline-flex', alignItems: 'center', gap: 7,
           }}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -1104,38 +1096,30 @@ function ReelViewport({ memorial, photos, tributes, onExpand }) {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Label onInk>Life Reel of {firstName}</Label>
-          {/* Neutral cream-on-ink pill — matches the look in the design
-              screenshots. Theme colour is reserved for the eyebrow ◆ only. */}
           <span style={{
-            fontFamily: MONO, fontSize: 9.5, fontWeight: 700,
-            letterSpacing: '.20em', textTransform: 'uppercase',
-            color: 'rgba(241,236,225,.85)',
-            background: 'rgba(241,236,225,.06)',
-            border: '1px solid rgba(241,236,225,.22)',
-            padding: '4px 10px', borderRadius: 999,
+            fontFamily: MONO, fontSize: 9.5, letterSpacing: '.18em', textTransform: 'uppercase',
+            color: 'rgba(243,178,26,.85)',
+            background: 'rgba(243,178,26,.10)',
+            border: '1px solid rgba(243,178,26,.25)',
+            padding: '3px 8px', borderRadius: 999,
           }}>
             ◆ Cinematic
           </span>
         </div>
 
-        {/* Open theater — neutral outline pill */}
         <button
           onClick={onExpand}
           style={{
-            display: 'flex', alignItems: 'center', gap: 7,
-            background: 'transparent',
-            color: 'rgba(241,236,225,.85)',
-            border: '1px solid rgba(241,236,225,.22)',
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: 'rgba(243,178,26,.12)',
+            color: 'var(--theme, #f3b21a)',
+            border: '1px solid rgba(243,178,26,.30)',
             borderRadius: 999,
-            padding: '8px 16px',
+            padding: '7px 14px',
             cursor: 'pointer',
-            fontFamily: MONO, fontSize: 10.5, letterSpacing: '.20em', textTransform: 'uppercase',
-            fontWeight: 700,
-            transition: 'background .15s, transform .15s',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(241,236,225,.06)' }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-        >
+            fontFamily: MONO, fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase',
+            fontWeight: 600,
+          }}>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/>
           </svg>
@@ -1150,7 +1134,7 @@ function ReelViewport({ memorial, photos, tributes, onExpand }) {
           lineHeight: 1.15, margin: 0, color: C.cream,
         }}>
           A cinematic story —{' '}
-          <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'rgba(241,236,225,.92)' }}>
+          <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'var(--theme, #f3b21a)' }}>
             in moments.
           </em>
         </h3>
@@ -3061,8 +3045,8 @@ function MemorialDetailPageInner() {
                         lineHeight: 1.15, margin: 0, color: C.cream,
                       }}>
                         {approvedFamilyForMemorial.length === 0
-                          ? <>An infinite web — <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'rgba(241,236,225,.92)' }}>waiting for the first connection.</em></>
-                          : <>An infinite web — <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'rgba(241,236,225,.92)' }}>{approvedFamilyForMemorial.length} approved.</em></>
+                          ? <>An infinite web — <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'var(--theme, #f3b21a)' }}>waiting for the first connection.</em></>
+                          : <>An infinite web — <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'var(--theme, #f3b21a)' }}>{approvedFamilyForMemorial.length} approved.</em></>
                         }
                       </h3>
                       <p style={{ color: 'rgba(241,236,225,.55)', fontSize: 13, lineHeight: 1.55, margin: '8px 0 14px' }}>
