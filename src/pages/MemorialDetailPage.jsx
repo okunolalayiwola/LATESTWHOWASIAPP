@@ -640,9 +640,11 @@ function LifeGaugeCard({ memorial, tributeCount, candleCount, memoryCount }) {
         <div style={{
           fontFamily: DISP, fontWeight: 600, fontSize: 'clamp(80px, 18vw, 140px)',
           lineHeight: 1, letterSpacing: '-.04em',
-          // Flat theme colour instead of the pastel rainbow gradient —
-          // matches the rest of the page's clean solid-colour rhythm.
-          color: 'var(--theme, #f3b21a)',
+          // Pastel gradient per v3 design handoff — the one place a
+          // gradient earns its keep on the page. Pink → lavender → blue
+          // → mint, background-clipped to the text.
+          background: 'linear-gradient(95deg, #ff9ec7 0%, #c9a8f0 32%, #a9c4f5 62%, #88e0c4 100%)',
+          WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent',
           padding: '.12em .16em', margin: '-.12em -.16em', display: 'inline-block',
         }}>
           {age || '—'}
@@ -783,52 +785,33 @@ function LifeRecordCard({ memorial }) {
 function LegacyVaultCard({ memorialId, letterCount, sealedCount, hasWill }) {
   return (
     <Link to={`/memorial/${memorialId}/letters`} style={{ textDecoration: 'none', display: 'block' }}>
-      {/* ── Brushed-silver vault ───────────────────────────────────────────
-            Top-to-bottom silver gradient body with a subtle radial sheen,
-            inner top-highlight and bottom-recess shadows for a brushed-
-            metal feel. Inner text reads in ink for crisp contrast.
-            Lock icon sits in an ink chip; "Open vault" arrow is a small
-            ink disc with cream glyph. */}
+      {/* ── Dark ink vault per v3 design — saffron icon + accents on a
+            warm-ink body with stripe corner + radial glow. */}
       <div style={{
-        position: 'relative',
-        background: 'linear-gradient(180deg, #e2dcd0 0%, #c1bbae 55%, #9c968a 100%)',
-        color: C.ink, borderRadius: 26,
+        position: 'relative', background: C.ink, color: C.cream, borderRadius: 26,
         padding: 22, overflow: 'hidden', cursor: 'pointer',
-        border: '1px solid rgba(21,18,14,.18)',
-        boxShadow: [
-          '0 1px 0 rgba(255,255,255,.55) inset',     // crown highlight
-          '0 -2px 4px rgba(0,0,0,.12) inset',        // base recess
-          '0 0 0 1px rgba(0,0,0,.06) inset',         // edge hairline
-          '0 8px 18px -4px rgba(21,18,14,.22)',
-          '0 22px 40px -16px rgba(21,18,14,.25)',
-        ].join(', '),
+        border: '1px solid rgba(21,18,14,.4)', boxShadow: '0 14px 30px rgba(21,18,14,.22)',
       }}>
-        {/* Sheen — soft top-left bright spot, bottom-right shadow */}
+        {/* Ambient glows */}
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none',
-          background:
-            'radial-gradient(circle at 28% 18%, rgba(255,255,255,.40), transparent 55%),'
-            + 'radial-gradient(circle at 80% 95%, rgba(21,18,14,.18), transparent 55%)' }} />
+          background: 'radial-gradient(circle at 90% -10%, rgba(243,178,26,.20), transparent 55%), radial-gradient(circle at -10% 110%, rgba(200,83,31,.12), transparent 55%)' }} />
+        {/* Stripe accent */}
+        <div style={{ position: 'absolute', right: -10, bottom: -10, width: 200, height: 200,
+          backgroundImage: STRIPE, opacity: .10, pointerEvents: 'none', transform: 'rotate(8deg)' }} />
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, position: 'relative' }}>
-          <Label>Legacy Vault</Label>
-          {/* Theme-yellow chip on the silver body — bright accent against
-              the brushed surface. */}
-          <div style={{
-            width: 38, height: 38, borderRadius: 11,
-            background: 'var(--theme, #f3b21a)', color: C.ink,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
-            boxShadow: '0 1px 0 rgba(255,255,255,.45) inset, 0 4px 10px -2px rgba(0,0,0,.30)',
-            border: '1px solid rgba(21,18,14,.18)',
-          }}>
+          <Label onInk>Legacy Vault</Label>
+          <div style={{ width: 38, height: 38, borderRadius: 11, background: 'var(--theme, #f3b21a)', color: C.ink,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           </div>
         </div>
 
         <h3 style={{ fontFamily: DISP, fontWeight: 700, fontSize: 22, letterSpacing: '-.02em', lineHeight: 1.1,
-          color: C.ink, margin: '0 0 6px', position: 'relative' }}>
-          Sealed messages &amp; <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: C.ink2 }}>the will.</em>
+          color: C.cream, margin: '0 0 6px', position: 'relative' }}>
+          Sealed messages &amp; <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'var(--theme, #f3b21a)' }}>the will.</em>
         </h3>
-        <p style={{ color: 'rgba(21,18,14,.62)', fontSize: 13.5, lineHeight: 1.55,
+        <p style={{ color: 'rgba(241,236,225,.6)', fontSize: 13.5, lineHeight: 1.55,
           marginBottom: 14, maxWidth: '42ch', position: 'relative' }}>
           Biometrically secured letters and final instructions. Open the vault to read or contribute.
         </p>
@@ -839,28 +822,23 @@ function LegacyVaultCard({ memorialId, letterCount, sealedCount, hasWill }) {
             { value: hasWill ? '✓' : '—', label: hasWill ? 'Will sealed' : 'No will yet', gold: hasWill },
           ].map(({ value, label, gold }) => (
             <div key={label} style={{ flex: 1, padding: 12, borderRadius: 14,
-              background: 'rgba(255,255,255,.45)', border: '1px solid rgba(21,18,14,.10)',
+              background: 'rgba(241,236,225,.05)', border: '1px solid rgba(241,236,225,.10)',
               display: 'flex', flexDirection: 'column', gap: 6 }}>
               <strong style={{ fontFamily: DISP, fontWeight: 700, fontSize: 22, letterSpacing: '-.02em', lineHeight: 1,
-                color: gold ? 'var(--theme, #f3b21a)' : C.ink }}>{value}</strong>
+                color: gold ? 'var(--theme, #f3b21a)' : C.cream }}>{value}</strong>
               <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.18em', textTransform: 'uppercase',
-                color: 'rgba(21,18,14,.55)' }}>{label}</span>
+                color: 'rgba(241,236,225,.5)' }}>{label}</span>
             </div>
           ))}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14, paddingTop: 14,
-          borderTop: '1px solid rgba(21,18,14,.18)',
+          borderTop: '1px solid rgba(241,236,225,.08)',
           fontFamily: MONO, fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase',
-          color: C.ink, position: 'relative', fontWeight: 700 }}>
+          color: 'var(--theme, #f3b21a)', position: 'relative' }}>
           <span>Open vault</span>
-          {/* Theme-yellow arrow disc on silver — bright accent that pulls
-              the eye to the call-to-action. */}
           <div style={{ marginLeft: 'auto', width: 30, height: 30, borderRadius: '50%',
-            background: 'var(--theme, #f3b21a)', color: C.ink,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13,
-            boxShadow: '0 1px 0 rgba(255,255,255,.45) inset, 0 3px 8px -2px rgba(0,0,0,.30)',
-            border: '1px solid rgba(21,18,14,.18)' }}>
+            background: 'var(--theme, #f3b21a)', color: C.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
           </div>
         </div>
@@ -1072,15 +1050,17 @@ function VoiceSection({ memorial, onOpenTalk }) {
               background: 'radial-gradient(circle, var(--theme-md, rgba(243,178,26,.30)) 0%, var(--theme-lt, rgba(243,178,26,.08)) 45%, transparent 70%)',
               pointerEvents: 'none',
             }} />
-            {/* White play triangle — pure CSS borders, no SVG */}
-            <span aria-hidden="true" style={{
-              width: 0, height: 0,
-              borderLeft:   '28px solid #ffffff',
-              borderTop:    '18px solid transparent',
-              borderBottom: '18px solid transparent',
-              marginLeft: 9,
-              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.18)) drop-shadow(0 0 16px rgba(255,255,255,.30))',
-            }} />
+            {/* Microphone icon — the orb opens the "Speak to" voice chat,
+                so a mic reads more honestly than a play triangle. White
+                stroke + drop shadow for clean read against the theme face. */}
+            <svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2"
+              strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+              style={{ width: 44, height: 44, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,.30))' }}>
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" fill="#ffffff"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
           </motion.button>
           <span style={{
             fontFamily: MONO, fontSize: 9.5, letterSpacing: '.24em',
