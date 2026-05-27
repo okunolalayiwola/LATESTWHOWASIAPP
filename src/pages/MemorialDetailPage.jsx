@@ -88,10 +88,12 @@ function StyledName({ name = '' }) {
   return (
     <>
       {lower.slice(0, idx)}
-      <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'var(--theme, #f3b21a)' }}>
+      {/* Per v3: h1 .serif uses saffron-2 (#ffce5a), brighter golden-yellow */}
+      <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: C.saffron2 }}>
         {lower[idx]}
       </em>
       {lower.slice(idx + 1)}
+      {/* Period uses saffron (slightly deeper than the accent vowel) */}
       <span style={{ color: 'var(--theme, #f3b21a)' }}>.</span>
     </>
   )
@@ -809,7 +811,7 @@ function LegacyVaultCard({ memorialId, letterCount, sealedCount, hasWill }) {
 
         <h3 style={{ fontFamily: DISP, fontWeight: 700, fontSize: 22, letterSpacing: '-.02em', lineHeight: 1.1,
           color: C.cream, margin: '0 0 6px', position: 'relative' }}>
-          Sealed messages &amp; <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'var(--theme, #f3b21a)' }}>the will.</em>
+          Sealed messages &amp; <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: C.saffron2 }}>the will.</em>
         </h3>
         <p style={{ color: 'rgba(241,236,225,.6)', fontSize: 13.5, lineHeight: 1.55,
           marginBottom: 14, maxWidth: '42ch', position: 'relative' }}>
@@ -934,7 +936,7 @@ function VoiceSection({ memorial, onOpenTalk }) {
           </div>
           <h3 style={{ fontFamily: DISP, fontWeight: 700, fontSize: 26, letterSpacing: '-.02em', lineHeight: 1.1, margin: 0, color: C.cream }}>
             Hear {firstName} speak —{' '}
-            <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'var(--theme, #f3b21a)' }}>
+            <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: C.saffron2 }}>
               {alive ? 'as they still do.' : 'as they were.'}
             </em>
           </h3>
@@ -1148,7 +1150,7 @@ function ReelViewport({ memorial, photos, tributes, onExpand }) {
           lineHeight: 1.15, margin: 0, color: C.cream,
         }}>
           A cinematic story —{' '}
-          <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: 'var(--theme, #f3b21a)' }}>
+          <em style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300, color: C.saffron2 }}>
             in moments.
           </em>
         </h3>
@@ -1505,8 +1507,8 @@ function TributesSection({ tributes, onLike, onDelete, isOwner, currentUserId, m
   if (tributes.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '48px 0' }}>
-        <div style={{ fontSize: 36, marginBottom: 16, color: 'rgba(21,18,14,.14)' }}>♡</div>
-        <p style={{ fontFamily: DISP, color: C.muted, fontSize: 14 }}>No tributes yet. Be the first.</p>
+        <div style={{ fontSize: 36, marginBottom: 16, color: 'rgba(241,236,225,.18)' }}>♡</div>
+        <p style={{ fontFamily: DISP, color: 'rgba(241,236,225,.5)', fontSize: 14 }}>No tributes yet. Be the first.</p>
       </div>
     )
   }
@@ -1604,17 +1606,17 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
   const overflow = photos.length - shown.length
 
   // ── Borderless header used by every state ────────────────────────────
-  // Gallery sits directly on the cream page background (v3) — uses the
-  // default (non-ink) Label variant and ink-palette text tones.
+  // Gallery sits directly on the dark page canvas — uses the onInk Label
+  // variant (cream text) and cream-transparent photo count.
   const Header = () => (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       gap: 12, flexWrap: 'wrap',
       padding: '0 4px 14px',
     }}>
-      <Label>Gallery</Label>
+      <Label onInk>Gallery</Label>
       <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.22em', textTransform: 'uppercase',
-        color: C.muted }}>
+        color: 'rgba(241,236,225,.5)' }}>
         {photos.length} photo{photos.length !== 1 ? 's' : ''}
       </span>
     </div>
@@ -1626,8 +1628,8 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
       <section style={{ padding: '12px 2px 4px' }}>
         <Header />
         <div style={{ padding: '32px 0', textAlign: 'center' }}>
-          <div style={{ fontSize: 28, marginBottom: 10, color: 'rgba(21,18,14,.14)' }}>✿</div>
-          <p style={{ fontFamily: DISP, color: C.muted, fontSize: 13, margin: 0 }}>
+          <div style={{ fontSize: 28, marginBottom: 10, color: 'rgba(241,236,225,.18)' }}>✿</div>
+          <p style={{ fontFamily: DISP, color: 'rgba(241,236,225,.5)', fontSize: 13, margin: 0 }}>
             No photos in the gallery yet.
           </p>
         </div>
@@ -1652,7 +1654,7 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
             textTransform: 'uppercase', color: 'var(--theme, #f3b21a)', fontWeight: 700 }}>
             {uploading ? `Uploading ${pct}%` : 'Add photos to the gallery'}
           </span>
-          <span style={{ fontSize: 11, color: C.muted, textAlign: 'center', padding: '0 20px' }}>
+          <span style={{ fontSize: 11, color: 'rgba(241,236,225,.5)', textAlign: 'center', padding: '0 20px' }}>
             Add more memories any time. These appear here and don't change the reel.
           </span>
         </div>
@@ -2572,7 +2574,7 @@ function PersonaProfileCallout({ memorial, memorialId }) {
             color: 'var(--theme, #f3b21a)', margin: 0 }}>
             Memory profile · {chapters}/{total} chapters
           </p>
-          <h3 style={{ fontFamily: DISP, fontWeight: 700, fontSize: 18, color: C.ink,
+          <h3 style={{ fontFamily: DISP, fontWeight: 700, fontSize: 18, color: C.cream,
             margin: '4px 0 4px', letterSpacing: '-.01em' }}>
             {chapters === 0
               ? (isSelf ? 'Build the memory that will speak as you' : `Build the memory that speaks as ${firstName}`)
@@ -2580,7 +2582,7 @@ function PersonaProfileCallout({ memorial, memorialId }) {
                 ? `${firstName}'s memory is ready`
                 : `${pct}% — keep going`}
           </h3>
-          <p style={{ margin: 0, fontSize: 13, color: C.inkSoft, lineHeight: 1.5 }}>
+          <p style={{ margin: 0, fontSize: 13, color: 'rgba(241,236,225,.55)', lineHeight: 1.5 }}>
             {chapters === 0
               ? `Answer a guided interview about ${isSelf ? 'yourself' : firstName} — life chapters, personality, stories, beliefs. Everything you write shapes "Hear ${isSelf ? 'you' : 'them'} speak".`
               : `Add more detail or revisit any chapter — every paragraph makes the conversation richer.`}
@@ -2898,22 +2900,22 @@ function MemorialDetailPageInner() {
 
   return (
     <div style={{
-      // Warm cream canvas per v3 design — matches the --paper token so
-      // paper-variant rail cards feel flush with the page while ink cards
-      // (portrait, reel, voice) read as dark floating panels.
-      background:          C.paper,
-      // Ambient radial hints: faint saffron top-left + faint rust bottom-
-      // right, fixed to the viewport (backgroundAttachment: fixed) so they
-      // stay put as the content scrolls — mirrors v3 body::before.
+      // Deep warm-black canvas — cream paper cards float as "printed pages",
+      // ink cards dissolve seamlessly, and every saffron/yellow accent pops
+      // with full contrast. The yellow portions of the design only read at
+      // full vibrancy against this dark ground.
+      background:          '#0a0805',
+      // Ambient radial warmth — very faint so they tint the canvas without
+      // competing with the card surfaces or the saffron pops.
       backgroundImage:     `
-        radial-gradient(circle at 18% 15%, rgba(243,178,26,.06), transparent 55%),
-        radial-gradient(circle at 85% 85%, rgba(200,83,31,.05), transparent 60%)
+        radial-gradient(circle at 18% 15%, rgba(243,178,26,.04), transparent 55%),
+        radial-gradient(circle at 85% 85%, rgba(200,83,31,.03), transparent 60%)
       `,
       backgroundAttachment: 'fixed',
       minHeight:    '100vh',
       paddingTop:   'max(56px, calc(env(safe-area-inset-top) + 12px))',
       paddingBottom:'max(96px, calc(env(safe-area-inset-bottom) + 80px))',
-      color:        C.ink,
+      color:        C.cream,
       // Hardware-accelerated rendering hint so the long right column
       // doesn't repaint half the page on every scroll tick.
       transform: 'translateZ(0)',
