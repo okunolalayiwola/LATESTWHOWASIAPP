@@ -1122,16 +1122,15 @@ function ReelViewport({ memorial, photos, tributes, onExpand }) {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Label onInk>Life Reel of {firstName}</Label>
-          {/* Cream pill — matches the design screenshot the user shared.
-              Solid cream face, dark ink text + ◆, soft drop shadow. */}
+          {/* Per the design handoff (memorial.css):
+              .cinematic-pill { color: var(--ink); background: var(--saffron); }
+              Filled theme-yellow chip with ink text + ◆. */}
           <span style={{
-            fontFamily: MONO, fontSize: 9.5, fontWeight: 700,
-            letterSpacing: '.20em', textTransform: 'uppercase',
+            fontFamily: MONO, fontSize: 10, fontWeight: 600,
+            letterSpacing: '.18em', textTransform: 'uppercase',
             color: C.ink,
-            background: '#e6e1d6',
-            border: '1px solid rgba(21,18,14,.18)',
-            padding: '4px 11px', borderRadius: 999,
-            boxShadow: '0 1px 0 rgba(255,255,255,.5) inset, 0 2px 6px -2px rgba(0,0,0,.35)',
+            background: 'var(--theme, #f3b21a)',
+            padding: '4px 9px', borderRadius: 999,
           }}>
             ◆ Cinematic
           </span>
