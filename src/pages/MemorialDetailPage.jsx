@@ -811,11 +811,14 @@ function LegacyVaultCard({ memorialId, letterCount, sealedCount, hasWill }) {
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, position: 'relative' }}>
           <Label>Legacy Vault</Label>
+          {/* Theme-yellow chip on the silver body — bright accent against
+              the brushed surface. */}
           <div style={{
             width: 38, height: 38, borderRadius: 11,
-            background: C.ink, color: '#e6e1d6',
+            background: 'var(--theme, #f3b21a)', color: C.ink,
             display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
-            boxShadow: '0 1px 0 rgba(255,255,255,.10) inset, 0 4px 10px -2px rgba(0,0,0,.35)',
+            boxShadow: '0 1px 0 rgba(255,255,255,.45) inset, 0 4px 10px -2px rgba(0,0,0,.30)',
+            border: '1px solid rgba(21,18,14,.18)',
           }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           </div>
@@ -839,7 +842,7 @@ function LegacyVaultCard({ memorialId, letterCount, sealedCount, hasWill }) {
               background: 'rgba(255,255,255,.45)', border: '1px solid rgba(21,18,14,.10)',
               display: 'flex', flexDirection: 'column', gap: 6 }}>
               <strong style={{ fontFamily: DISP, fontWeight: 700, fontSize: 22, letterSpacing: '-.02em', lineHeight: 1,
-                color: gold ? C.ink : C.ink }}>{value}</strong>
+                color: gold ? 'var(--theme, #f3b21a)' : C.ink }}>{value}</strong>
               <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.18em', textTransform: 'uppercase',
                 color: 'rgba(21,18,14,.55)' }}>{label}</span>
             </div>
@@ -851,10 +854,13 @@ function LegacyVaultCard({ memorialId, letterCount, sealedCount, hasWill }) {
           fontFamily: MONO, fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase',
           color: C.ink, position: 'relative', fontWeight: 700 }}>
           <span>Open vault</span>
+          {/* Theme-yellow arrow disc on silver — bright accent that pulls
+              the eye to the call-to-action. */}
           <div style={{ marginLeft: 'auto', width: 30, height: 30, borderRadius: '50%',
-            background: C.ink, color: '#e6e1d6',
+            background: 'var(--theme, #f3b21a)', color: C.ink,
             display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13,
-            boxShadow: '0 1px 0 rgba(255,255,255,.10) inset, 0 3px 8px -2px rgba(0,0,0,.35)' }}>
+            boxShadow: '0 1px 0 rgba(255,255,255,.45) inset, 0 3px 8px -2px rgba(0,0,0,.30)',
+            border: '1px solid rgba(21,18,14,.18)' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
           </div>
         </div>
@@ -1131,22 +1137,22 @@ function ReelViewport({ memorial, photos, tributes, onExpand }) {
           </span>
         </div>
 
-        {/* Open theater — neutral outline pill */}
+        {/* Open theater — theme-coloured outline pill */}
         <button
           onClick={onExpand}
           style={{
             display: 'flex', alignItems: 'center', gap: 7,
             background: 'transparent',
-            color: 'rgba(241,236,225,.85)',
-            border: '1px solid rgba(241,236,225,.25)',
+            color: 'var(--theme, #f3b21a)',
+            border: '1px solid var(--theme, #f3b21a)',
             borderRadius: 999,
             padding: '8px 16px',
             cursor: 'pointer',
             fontFamily: MONO, fontSize: 10.5, letterSpacing: '.20em', textTransform: 'uppercase',
             fontWeight: 700,
-            transition: 'background .15s',
+            transition: 'background .15s, transform .15s',
           }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(241,236,225,.06)' }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'var(--theme-lt, rgba(243,178,26,.13))' }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
         >
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
