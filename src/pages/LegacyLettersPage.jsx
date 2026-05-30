@@ -111,6 +111,19 @@ function WillBuilder({ memorial, existingWill, onSave, onBack }) {
 
   const set = k => v => setWill(w => ({ ...w, [k]: v }))
 
+  // Persist via the parent. On success the parent navigates home (this view
+  // unmounts); on failure we re-enable the buttons and surface nothing fatal.
+  async function handleSave(override) {
+    if (saving) return
+    setSaving(true)
+    try {
+      await onSave(override ? { ...will, ...override } : will)
+    } catch (e) {
+      console.error('[will save]', e)
+      setSaving(false)
+    }
+  }
+
   const STEPS = ['Identity', 'Properties', 'Assets', 'Beneficiaries', 'Executor & Wishes', 'Review & Seal']
 
   function addProperty() {
@@ -359,12 +372,12 @@ function WillBuilder({ memorial, existingWill, onSave, onBack }) {
                 </label>
               </div>
 
-              <button onClick={() => onSave(will)} disabled={saving || !agreed}
+              <button onClick={() => handleSave()} disabled={saving || !agreed}
                 title={!agreed ? 'Please confirm the acknowledgement above' : undefined}
                 className="w-full py-4 rounded-2xl text-sm font-bold metal-btn text-black disabled:opacity-40 disabled:cursor-not-allowed mb-3">
                 {saving ? 'Sealing…' : '🔒 Seal will in vault'}
               </button>
-              <button onClick={() => onSave({ ...will, status:'draft' })} disabled={saving}
+              <button onClick={() => handleSave({ status:'draft' })} disabled={saving}
                 className="w-full py-3 rounded-xl text-xs rubber-btn text-white/45 disabled:opacity-50">
                 Save as draft
               </button>
@@ -732,7 +745,6 @@ function VaultContent({ memorial, memorialId, userId, onLock, letters, wills, do
   const [view, setView]         = useState('home')   // 'home' | 'will' | 'letters' | 'docs' | 'newLetter' | 'willBuilder'
   // Minutes until inactivity auto-lock — surfaced as a quiet security cue.
   const lockMins = Math.max(0, Math.ceil(sessionLeft / 60000))
-  const [saving, setSaving]     = useState(false)
   const [showShare, setShowShare] = useState(false)
 
   // Approved family connections for this memorial — used in the share-PIN flow
@@ -742,16 +754,13 @@ function VaultContent({ memorial, memorialId, userId, onLock, letters, wills, do
   const familyConnections = connData?.familyConnections || []
 
   async function saveWill(willData) {
-    setSaving(true)
-    try {
-      const existing = wills[0]
-      const willId   = existing?.id || id()
-      await db.transact([
-        db.tx.wills[willId].update({ ...willData, updatedAt: Date.now(), createdAt: existing?.createdAt || Date.now() })
-          .link({ memorial: memorialId }),
-      ])
-      setView('home')
-    } finally { setSaving(false) }
+    const existing = wills[0]
+    const willId   = existing?.id || id()
+    await db.transact([
+      db.tx.wills[willId].update({ ...willData, updatedAt: Date.now(), createdAt: existing?.createdAt || Date.now() })
+        .link({ memorial: memorialId }),
+    ])
+    setView('home')
   }
 
   async function deleteLetter(letterId) {
@@ -759,7 +768,6 @@ function VaultContent({ memorial, memorialId, userId, onLock, letters, wills, do
   }
 
   const existingWill = wills?.[0]
-  const isOwner      = true  // already verified by vault auth
 
   // Vault contents are only queried once unlocked — show a brief decrypting state
   // instead of flashing empty "No letters / No documents" placeholders.
@@ -1149,6 +1157,9 @@ export default function LegacyLettersPage() {
       activity.forEach(e => window.removeEventListener(e, bump))
       document.removeEventListener('visibilitychange', onVisible)
     }
+    // `lock` is intentionally omitted — re-subscribing on every render would
+    // needlessly tear down the activity listeners; it only needs the ids below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authState, memorialId, uid])
 
   // ── Auth actions ──────────────────────────────────────────────────────────
@@ -1180,7 +1191,8 @@ export default function LegacyLettersPage() {
       await setPIN(memorialId, uid, pin)
       // Try to register biometrics too
       if (bioAvailable) {
-        try { await registerBiometrics(memorialId, uid, user?.email) } catch {}
+        try { await registerBiometrics(memorialId, uid, user?.email) }
+        catch { /* biometric registration is best-effort — PIN still works */ }
       }
       unlockVault(); return
     }
@@ -1236,7 +1248,7 @@ export default function LegacyLettersPage() {
       if (!resp.ok) throw new Error('Failed to send email')
 
       setResetStage('enterCode')
-    } catch (err) {
+    } catch {
       setResetError('Could not send reset email. Please try again.')
       setResetStage(null)
     }
