@@ -1112,9 +1112,19 @@ function VoiceSection({ memorial, onOpenTalk }) {
               position: 'relative', width: 118, height: 134, borderRadius: 36, border: 'none',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: hasClip ? 'pointer' : 'not-allowed',
-              // Theme-derived orb material — re-tints per memorial accent.
+              // Theme-derived "aurō" ember — dimensional warm orb that keeps the
+              // bright design-template glow while its hue follows the chosen theme.
               background: hasClip
-                ? `linear-gradient(165deg, var(--theme-2, #ffce4d) 0%, var(--theme, #f3b21a) 52%, var(--theme-3, #ff9e00) 100%)`
+                ? [
+                    'radial-gradient(120% 75% at 80% 18%, rgba(255,255,255,.5) 0%, transparent 46%)',
+                    'radial-gradient(140% 95% at 26% 6%, rgba(22,13,9,.9) 0%, rgba(22,13,9,0) 54%)',
+                    'linear-gradient(178deg,'
+                      + ' color-mix(in srgb, var(--theme, #f3b21a) 50%, #170d07) 0%,'
+                      + ' color-mix(in srgb, var(--theme, #f3b21a) 72%, #3a1d0f) 24%,'
+                      + ' var(--theme, #f3b21a) 50%,'
+                      + ' var(--theme-2, #ffce4d) 70%,'
+                      + ' color-mix(in srgb, var(--theme-2, #ffce4d) 55%, #ffffff) 100%)',
+                  ].join(', ')
                 : 'linear-gradient(165deg, #3a3a3e 0%, #2b2b2f 60%, #242427 100%)',
               boxShadow: hasClip
                 ? '0 0 0 1px rgba(0,0,0,.18), 0 20px 50px -10px color-mix(in srgb, var(--theme, #f3b21a) 55%, transparent), 0 8px 22px -8px rgba(0,0,0,.6)'
