@@ -727,17 +727,15 @@ function ActionsCard({ onTribute, onSpeak, onRecord, isOwner, onShare, onQR }) {
   // Color-coded actions — each icon tile reads at a glance. Tribute is the
   // filled rust "lead"; the rest carry tinted-glass icon chips (green/blue/
   // violet) so they're distinguishable without labels.
-  // The second tile is context-aware: the account creator gets a "Record"
-  // control that overwrites the memorial's playable voice clip, while visitors
-  // keep the "Speak" entry point into the AI talk screen.
+  // The "Record" tile lets the account creator overwrite the memorial's
+  // playable voice clip. It's always present for context, but disabled
+  // (grayed out) for visitors who don't own the memorial.
   const tiles = [
     { key: 'tribute', label: 'Tribute', fn: onTribute,
       icBg: '#ff6b4d', icColor: '#1a0a06', icShadow: '0 6px 16px rgba(255,90,60,.4)', hover: 'rgba(255,90,60,.3)' },
-    isOwner
-      ? { key: 'record', label: 'Record', fn: onRecord,
-          icBg: 'rgba(255,90,60,.18)',   icColor: '#ff7a5c', hover: 'rgba(255,90,60,.3)' }
-      : { key: 'speak',  label: 'Speak',  fn: onSpeak,
-          icBg: 'rgba(94,160,110,.18)',  icColor: '#5fb87a', hover: 'rgba(94,160,110,.3)' },
+    { key: 'record', label: 'Record', fn: onRecord, disabled: !isOwner,
+      title: isOwner ? 'Record or replace the voice clip' : 'Only the memorial owner can record',
+      icBg: 'rgba(255,90,60,.18)',   icColor: '#ff7a5c', hover: 'rgba(255,90,60,.3)' },
     { key: 'share',   label: 'Share',   fn: onShare,
       icBg: 'rgba(90,140,235,.18)',  icColor: '#6b9cff', hover: 'rgba(90,140,235,.3)' },
     { key: 'qr',      label: 'QR',      fn: onQR,
@@ -745,20 +743,24 @@ function ActionsCard({ onTribute, onSpeak, onRecord, isOwner, onShare, onQR }) {
   ]
   return (
     <nav className="action-tiles" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
-      {tiles.map(({ key, label, fn, icBg, icColor, icShadow, hover }) => (
+      {tiles.map(({ key, label, fn, icBg, icColor, icShadow, hover, disabled, title }) => (
         <button key={key} type="button"
-          onClick={e => { e.preventDefault(); e.stopPropagation(); fn?.() }}
+          disabled={disabled}
+          title={title}
+          aria-disabled={disabled || undefined}
+          onClick={disabled ? undefined : (e => { e.preventDefault(); e.stopPropagation(); fn?.() })}
           className="action-tile"
           style={{
             background: C.surface2, border: `1px solid ${C.line2}`, borderRadius: 18,
-            padding: '20px 16px', cursor: 'pointer', color: C.text,
+            padding: '20px 16px', cursor: disabled ? 'not-allowed' : 'pointer', color: C.text,
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
             fontFamily: DISP, fontWeight: 600, fontSize: 15, letterSpacing: '-.01em',
             boxShadow: '0 12px 26px rgba(0,0,0,.4), 0 1px 0 rgba(255,255,255,.04) inset',
             transition: 'transform .15s, border-color .15s, background .15s, box-shadow .15s',
+            opacity: disabled ? 0.4 : 1,
           }}
-          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.background = C.surface3; e.currentTarget.style.borderColor = hover; e.currentTarget.style.boxShadow = '0 18px 34px rgba(0,0,0,.5)' }}
-          onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.background = C.surface2; e.currentTarget.style.borderColor = C.line2; e.currentTarget.style.boxShadow = '0 12px 26px rgba(0,0,0,.4), 0 1px 0 rgba(255,255,255,.04) inset' }}>
+          onMouseEnter={disabled ? undefined : (e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.background = C.surface3; e.currentTarget.style.borderColor = hover; e.currentTarget.style.boxShadow = '0 18px 34px rgba(0,0,0,.5)' })}
+          onMouseLeave={disabled ? undefined : (e => { e.currentTarget.style.transform = ''; e.currentTarget.style.background = C.surface2; e.currentTarget.style.borderColor = C.line2; e.currentTarget.style.boxShadow = '0 12px 26px rgba(0,0,0,.4), 0 1px 0 rgba(255,255,255,.04) inset' })}>
           <span style={{
             width: 46, height: 46, borderRadius: 14, flexShrink: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1033,10 +1035,10 @@ function VoiceSection({ memorial, onOpenTalk }) {
 
   return (
     <Card variant="ink" style={{ padding: 0, position: 'relative', overflow: 'hidden' }}>
-      {/* Ambient saffron glow — exact v3 value .32 */}
+      {/* Ambient theme glow — re-tints per memorial (was hard-coded saffron) */}
       <div style={{ position: 'absolute', top: '-30%', right: '30%', left: 'auto',
         width: 360, height: 360, borderRadius: '50%',
-        background: `radial-gradient(circle at 35% 35%, rgba(243,178,26,.32), transparent 60%)`,
+        background: `radial-gradient(circle at 35% 35%, color-mix(in srgb, var(--theme, #f3b21a) 32%, transparent), transparent 60%)`,
         filter: 'blur(8px)', pointerEvents: 'none' }} />
       {/* Stripe — exact v3 opacity .06 */}
       <div style={{ position: 'absolute', inset: 'auto 0 0 0', height: '60%',
@@ -1093,42 +1095,51 @@ function VoiceSection({ memorial, onOpenTalk }) {
 
           <p style={{ color: 'rgba(241,236,225,.55)', fontSize: 12.5, lineHeight: 1.5, margin: 0 }}>
             {hasClip
-              ? `${firstName}'s recorded voice — or tap the orb to talk with their living memory.`
-              : `Tap the orb to talk with ${firstName}'s living memory, drawn from their life and tributes.`}
+              ? `${firstName}'s recorded voice — tap to play. Use "Talk to" above for their living memory.`
+              : `No recording yet. Use "Talk to" above for ${firstName}'s living memory, drawn from their life and tributes.`}
           </p>
         </div>
 
-        {/* ── Right — aurō orb: opens the AI talk screen ("talk with") ── */}
+        {/* ── Right — theme orb: plays / pauses the recorded voice clip ── */}
         <div className="voice-cr" style={{ display: 'flex', justifyContent: 'flex-end', position: 'relative', zIndex: 1 }}>
           <motion.button
-            whileHover={{ y: -2, scale: 1.02 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={() => onOpenTalk?.()}
-            aria-label={`Talk to ${firstName}`}
+            whileHover={hasClip ? { y: -2, scale: 1.02 } : undefined}
+            whileTap={hasClip ? { scale: 0.97 } : undefined}
+            onClick={hasClip ? toggleRecording : undefined}
+            disabled={!hasClip}
+            aria-label={hasClip ? (recordingPlaying ? `Pause ${firstName}'s recording` : `Play ${firstName}'s recording`) : 'No recording yet'}
             style={{
               position: 'relative', width: 118, height: 134, borderRadius: 36, border: 'none',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-              // "aurō" fixed brand material — cool top-right kiss → warm core → cream base
-              background: [
-                'radial-gradient(120% 75% at 80% 20%, rgba(150,185,205,.55) 0%, transparent 44%)',
-                'radial-gradient(135% 90% at 28% 8%, #241712 0%, rgba(36,23,18,0) 52%)',
-                'linear-gradient(178deg, #1b120e 0%, #3c1e12 22%, #b5512b 47%, #e89a52 63%, #f7daa8 81%, #fdf4e6 100%)',
-              ].join(', '),
-              boxShadow: '0 0 0 1px rgba(0,0,0,.18), 0 20px 50px -10px rgba(232,154,82,.55), 0 8px 22px -8px rgba(0,0,0,.6)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: hasClip ? 'pointer' : 'not-allowed',
+              // Theme-derived orb material — re-tints per memorial accent.
+              background: hasClip
+                ? `linear-gradient(165deg, var(--theme-2, #ffce4d) 0%, var(--theme, #f3b21a) 52%, var(--theme-3, #ff9e00) 100%)`
+                : 'linear-gradient(165deg, #3a3a3e 0%, #2b2b2f 60%, #242427 100%)',
+              boxShadow: hasClip
+                ? '0 0 0 1px rgba(0,0,0,.18), 0 20px 50px -10px color-mix(in srgb, var(--theme, #f3b21a) 55%, transparent), 0 8px 22px -8px rgba(0,0,0,.6)'
+                : '0 0 0 1px rgba(0,0,0,.18), 0 8px 22px -8px rgba(0,0,0,.6)',
+              opacity: hasClip ? 1 : 0.55,
+              transition: 'opacity .2s',
             }}>
             {/* inner depth — top vignette + rim light */}
             <span aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', pointerEvents: 'none',
-              boxShadow: '0 -12px 30px -8px rgba(20,12,9,.55) inset, 0 1px 0 rgba(255,255,255,.25) inset' }} />
-            {/* soft cream glow pooling beneath */}
-            <span aria-hidden style={{ position: 'absolute', left: '50%', bottom: '-26%', transform: 'translateX(-50%)',
-              width: '130%', height: '80%', borderRadius: '50%', zIndex: -1, pointerEvents: 'none',
-              background: 'radial-gradient(circle, rgba(253,244,230,.5), transparent 62%)', filter: 'blur(9px)' }} />
-            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"
-              strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
-              style={{ width: 54, height: 54, position: 'relative', zIndex: 1, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,.45))' }}>
-              <rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-              <line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/>
-            </svg>
+              boxShadow: '0 -12px 30px -8px rgba(20,12,9,.45) inset, 0 1px 0 rgba(255,255,255,.25) inset' }} />
+            {/* soft theme glow pooling beneath */}
+            {hasClip && (
+              <span aria-hidden style={{ position: 'absolute', left: '50%', bottom: '-26%', transform: 'translateX(-50%)',
+                width: '130%', height: '80%', borderRadius: '50%', zIndex: -1, pointerEvents: 'none',
+                background: 'radial-gradient(circle, color-mix(in srgb, var(--theme, #f3b21a) 45%, transparent), transparent 62%)', filter: 'blur(9px)' }} />
+            )}
+            {recordingPlaying
+              ? <svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"
+                  style={{ width: 46, height: 46, position: 'relative', zIndex: 1, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,.45))' }}>
+                  <rect x="6" y="5" width="4" height="14" rx="1.4"/><rect x="14" y="5" width="4" height="14" rx="1.4"/>
+                </svg>
+              : <svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"
+                  style={{ width: 50, height: 50, position: 'relative', zIndex: 1, marginLeft: 6, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,.45))' }}>
+                  <path d="M8 5v14l11-7z"/>
+                </svg>}
           </motion.button>
         </div>
       </div>
