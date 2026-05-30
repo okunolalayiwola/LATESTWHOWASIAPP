@@ -1901,7 +1901,7 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
 }
 
 // ─── Tribute form modal ───────────────────────────────────────────────────────
-function TributeFormModal({ onClose, onSubmit, submitting }) {
+function TributeFormModal({ onClose, onSubmit, submitting, theme = '#f3b21a' }) {
   const [text,       setText]       = useState('')
   const [photoFile,  setPhotoFile]  = useState(null)
   const [photoPreview, setPhotoPreview] = useState(null)
@@ -1910,7 +1910,9 @@ function TributeFormModal({ onClose, onSubmit, submitting }) {
   const textRef  = useRef(null)
   const photoRef = useRef(null)
 
-  useEffect(() => { setTimeout(() => textRef.current?.focus(), 80) }, [])
+  // preventScroll so focusing the textarea never yanks the page (the sheet is
+  // already pinned to the viewport via the body portal below).
+  useEffect(() => { setTimeout(() => textRef.current?.focus({ preventScroll: true }), 80) }, [])
 
   async function handlePhotoSelect(e) {
     const file = e.target.files[0]
@@ -1946,17 +1948,22 @@ function TributeFormModal({ onClose, onSubmit, submitting }) {
     onSubmit(text, 'tribute', photoUrl)
   }
 
-  return (
+  return createPortal(
     <AnimatePresence>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         onClick={onClose}
-        style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(21,18,14,.6)',
-          display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+        style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(21,18,14,.6)',
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+          // re-supply the theme var — the body portal sits outside the page root
+          '--theme': theme }}>
         <motion.div initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
           onClick={e => e.stopPropagation()}
           style={{ width: '100%', maxWidth: 520, background: C.paper, borderRadius: '26px 26px 0 0',
-            padding: '24px 24px 36px', border: '1px solid rgba(21,18,14,.10)' }}>
+            padding: '24px 24px 36px', border: '1px solid rgba(21,18,14,.10)',
+            // keep the sheet clear of the fixed bottom nav / safe-area
+            marginBottom: 'max(0px, env(safe-area-inset-bottom))',
+            maxHeight: '90vh', overflowY: 'auto' }}>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
             <div>
@@ -2017,7 +2024,8 @@ function TributeFormModal({ onClose, onSubmit, submitting }) {
           </button>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }
 
@@ -3647,6 +3655,7 @@ function MemorialDetailPageInner() {
           onClose={() => setShowTributeForm(false)}
           onSubmit={handleSubmitTribute}
           submitting={submitting}
+          theme={themeHex}
         />
       )}
 
