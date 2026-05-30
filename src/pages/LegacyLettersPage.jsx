@@ -100,6 +100,7 @@ function VaultDial({ spinning, unlocking }) {
 function WillBuilder({ memorial, existingWill, onSave, onBack }) {
   const [step, setStep]   = useState(0)
   const [saving, setSaving] = useState(false)
+  const [agreed, setAgreed] = useState(false)   // UK legal acknowledgement before sealing
   const [will, setWill]   = useState(existingWill || {
     testatorName:   memorial?.name || '',
     dateOfBirth:    '',
@@ -333,21 +334,47 @@ function WillBuilder({ memorial, existingWill, onSave, onBack }) {
                 ))}
               </div>
 
+              {/* UK legal acknowledgement — must be accepted before sealing */}
               <div className="metal-card rounded-2xl p-5 border-gold/20 mb-4">
-                <div className="flex gap-3">
-                  <span className="text-gold text-sm mt-0.5 flex-shrink-0">⚠</span>
-                  <p className="text-xs text-white/50 leading-relaxed">
-                    This is a digital record stored securely in your vault. For legal validity, consult a qualified solicitor who can witness and formalise your will. WHO WAS I preserves your wishes — a solicitor makes them legally binding.
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-gold text-sm flex-shrink-0">⚠</span>
+                  <p className="text-[0.7rem] font-bold tracking-[0.14em] uppercase text-gold/80">Important — please read</p>
+                </div>
+                <div className="space-y-2.5 text-xs text-white/55 leading-relaxed">
+                  <p>
+                    This Will &amp; Estate record is a <b className="font-semibold text-white/80">digital expression of your wishes, not a legally valid will</b>.
+                    In England &amp; Wales, a will is only valid under the <b className="font-semibold text-white/80">Wills Act 1837</b> if it is in writing
+                    and signed by you in the presence of <b className="font-semibold text-white/80">two independent witnesses</b> — who must not be
+                    beneficiaries — each of whom signs in your presence.
+                  </p>
+                  <p>
+                    WHO WAS I is a secure storage platform, <b className="font-semibold text-white/80">not a solicitor or legal adviser</b>, and does not
+                    provide legal advice. To make your wishes legally binding, have your will professionally drafted and
+                    properly witnessed, then upload the signed copy to your Documents vault.
+                  </p>
+                  <p className="text-white/35">
+                    Your data is processed under UK GDPR and the Data Protection Act 2018. See the{' '}
+                    <Link to="/terms" className="text-gold/70 underline hover:text-gold">Terms of Service</Link> and{' '}
+                    <Link to="/privacy" className="text-gold/70 underline hover:text-gold">Privacy Policy</Link>.
                   </p>
                 </div>
+                <label className="flex items-start gap-3 mt-4 pt-4 border-t border-white/[0.07] cursor-pointer select-none">
+                  <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 flex-shrink-0 accent-gold cursor-pointer" />
+                  <span className="text-xs text-white/70 leading-relaxed">
+                    I understand this is a record of my wishes, not a legally executed will, and that I should obtain
+                    independent legal advice to make it binding.
+                  </span>
+                </label>
               </div>
 
-              <button onClick={() => onSave(will)} disabled={saving}
-                className="w-full py-4 rounded-2xl text-sm font-bold metal-btn text-black disabled:opacity-50 mb-3">
+              <button onClick={() => onSave(will)} disabled={saving || !agreed}
+                title={!agreed ? 'Please confirm the acknowledgement above' : undefined}
+                className="w-full py-4 rounded-2xl text-sm font-bold metal-btn text-black disabled:opacity-40 disabled:cursor-not-allowed mb-3">
                 {saving ? 'Sealing…' : '🔒 Seal will in vault'}
               </button>
-              <button onClick={() => onSave({ ...will, status:'draft' })}
-                className="w-full py-3 rounded-xl text-xs rubber-btn text-white/45">
+              <button onClick={() => onSave({ ...will, status:'draft' })} disabled={saving}
+                className="w-full py-3 rounded-xl text-xs rubber-btn text-white/45 disabled:opacity-50">
                 Save as draft
               </button>
             </motion.div>
@@ -710,6 +737,7 @@ function VaultShareModal({ memorialId, memorialName, userId, familyConnections, 
 // ─── Vault content (open state) ────────────────────────────────────────────────
 
 function VaultContent({ memorial, memorialId, userId, onLock, letters, wills, documents }) {
+  const navigate                = useNavigate()
   const [view, setView]         = useState('home')   // 'home' | 'will' | 'letters' | 'docs' | 'newLetter' | 'willBuilder'
   const [selectedWill, setSelectedWill] = useState(null)
   const [saving, setSaving]     = useState(false)
@@ -759,22 +787,30 @@ function VaultContent({ memorial, memorialId, userId, onLock, letters, wills, do
       <div className="min-h-screen pb-24">
         {/* Vault open header */}
         <div className="metal-surface px-5 py-4 flex items-center justify-between sticky top-0 z-10">
-          <div className="flex items-center gap-3">
-            <div className="w-2 h-2 rounded-full bg-mint animate-pulse" style={{ boxShadow:'0 0 8px #34D399' }} />
-            <div>
+          <div className="flex items-center gap-2.5 min-w-0">
+            {/* Back to the memorial — exits the vault without locking it */}
+            <button onClick={() => navigate(`/memorial/${memorialId}`)}
+              title="Back to memorial"
+              className="w-9 h-9 rubber-btn rounded-full flex items-center justify-center text-white/55 hover:text-white transition-colors flex-shrink-0">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <div className="w-2 h-2 rounded-full bg-mint animate-pulse flex-shrink-0" style={{ boxShadow:'0 0 8px #34D399' }} />
+            <div className="min-w-0">
               <p className="text-[0.55rem] font-bold tracking-[0.22em] uppercase text-mint/70">Vault open</p>
-              <p className="font-display text-base font-bold text-white">{memorial?.name}</p>
+              <p className="font-display text-base font-bold text-white truncate">{memorial?.name}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <button onClick={() => setShowShare(true)}
               className="rubber-btn text-[0.65rem] font-bold tracking-wide uppercase text-gold/70 px-4 py-2 rounded-full flex items-center gap-1.5"
               title="Share vault code with family">
-              📤 Share code
+              📤 <span className="hidden sm:inline">Share code</span>
             </button>
             <button onClick={onLock}
               className="rubber-btn text-[0.65rem] font-bold tracking-wide uppercase text-white/50 px-4 py-2 rounded-full flex items-center gap-1.5">
-              🔒 Lock
+              🔒 <span className="hidden sm:inline">Lock</span>
             </button>
           </div>
         </div>

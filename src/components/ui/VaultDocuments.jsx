@@ -7,6 +7,7 @@
 // Used inside LegacyLettersPage VaultContent (view === 'documents').
 
 import { useState, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { id } from '@instantdb/react'
 import { db } from '../../lib/instant'
@@ -44,8 +45,13 @@ function extBadge(ext) {
 function DocCard({ doc, onDelete }) {  // onDelete=null means view-only (family member)
   const [confirm, setConfirm] = useState(false)
   const [open,    setOpen]    = useState(false)
-  const cat     = catOf(doc.category)
-  const preview = documentPreviewUrl(doc.fileUrl, doc.ext)
+  // Schema stores the category in `type`; older records may have `category`.
+  const cat     = catOf(doc.type || doc.category)
+  // `ext` isn't a schema field — derive it from the file name (fall back to any
+  // legacy `ext` value) so the preview/badge keep working.
+  const ext     = (doc.ext || doc.fileName?.split('.').pop() || '').toLowerCase()
+  const note    = doc.description || doc.note
+  const preview = documentPreviewUrl(doc.fileUrl, ext)
 
   return (
     <motion.div layout initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, scale:0.97 }}
@@ -61,7 +67,7 @@ function DocCard({ doc, onDelete }) {  // onDelete=null means view-only (family 
             <span className="text-4xl">{cat.icon}</span>
             <span className="text-[0.6rem] font-bold tracking-widest px-2 py-1 rounded"
               style={{ background:`${cat.accent}18`, color:cat.accent, border:`1px solid ${cat.accent}30` }}>
-              {extBadge(doc.ext) || 'FILE'}
+              {extBadge(ext) || 'FILE'}
             </span>
           </div>
         )}
@@ -78,7 +84,7 @@ function DocCard({ doc, onDelete }) {  // onDelete=null means view-only (family 
           <div className="min-w-0">
             <p className="text-sm font-semibold text-white truncate">{doc.title || doc.fileName}</p>
             <p className="text-[0.62rem] text-white/35 mt-0.5">
-              {extBadge(doc.ext)} · {fmtSize(doc.fileSize)} · {new Date(doc.createdAt).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
+              {extBadge(ext)} · {fmtSize(doc.fileSize)} · {new Date(doc.createdAt).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
             </p>
           </div>
           {onDelete && (
@@ -90,7 +96,7 @@ function DocCard({ doc, onDelete }) {  // onDelete=null means view-only (family 
           )}
         </div>
 
-        {doc.note && <p className="text-xs text-white/45 leading-relaxed mt-2">{doc.note}</p>}
+        {note && <p className="text-xs text-white/45 leading-relaxed mt-2">{note}</p>}
 
         <div className="flex gap-2 mt-3">
           <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer"
@@ -155,16 +161,22 @@ function UploadForm({ memorialId, onDone, onCancel }) {
     try {
       const up = await uploadDocument(file, setProgress, 'whowasi/vault-documents')
       await db.transact([
+        // Field names match the live `documents` schema: the chosen category is
+        // stored in `type`, the note in `description`, and `unlockType` is set
+        // to 'immediate' (vault documents aren't time-locked). Writing fields
+        // outside the schema (or omitting required ones) makes InstantDB reject
+        // the whole transaction — which is what blocked uploads before.
         db.tx.documents[id()].update({
-          title:     title.trim(),
-          category,
-          note:      note.trim(),
-          fileUrl:   up.url,
-          fileName:  up.fileName,
-          fileType:  up.fileType,
-          fileSize:  up.fileSize,
-          ext:       up.ext,
-          createdAt: Date.now(),
+          title:      title.trim(),
+          type:       category,
+          description: note.trim(),
+          unlockType: 'immediate',
+          isLocked:   false,
+          fileUrl:    up.url,
+          fileName:   up.fileName,
+          fileType:   up.fileType,
+          fileSize:   up.fileSize,
+          createdAt:  Date.now(),
         }).link({ memorial: memorialId }),
       ])
       onDone()
@@ -319,6 +331,14 @@ export default function VaultDocuments({ memorialId, documents = [], onBack, isO
             You can view and download these documents. Only the account owner can add or remove files.
           </p>
         )}
+
+        {/* Legal storage disclaimer — congruent with UK law for wills/documents */}
+        <p className="text-center text-[0.62rem] text-white/25 leading-relaxed px-4 pt-3 max-w-md mx-auto">
+          The Vault is a secure storage facility, not a solicitor or legal service. Stored files —
+          including wills — are only legally effective if executed in accordance with UK law
+          (e.g. the Wills Act 1837). Please obtain independent legal advice.{' '}
+          <Link to="/terms" className="text-white/40 underline hover:text-white/70">Terms apply</Link>.
+        </p>
       </div>
     </div>
   )
