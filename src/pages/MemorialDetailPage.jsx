@@ -3,6 +3,7 @@
 // Layout: Hero (full-bleed) → 2-col sticky-rail grid → footer
 
 import { useState, useRef, useMemo, useEffect, Suspense, Component } from 'react'
+import { createPortal } from 'react-dom'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { id } from '@instantdb/react'
@@ -841,8 +842,6 @@ function LifeRecordCard({ memorial }) {
 
 // ─── Legacy vault card — Apple-Wallet-style mesh card ──────────────────────────
 function LegacyVaultCard({ memorialId, memorialName, letterCount, sealedCount, hasWill }) {
-  const big   = sealedCount > 0 ? sealedCount : letterCount
-  const bigLb = sealedCount > 0 ? 'sealed' : (letterCount > 0 ? 'letters' : 'vault')
   // The vault belongs to the person being memorialised — which may differ from
   // the account holder when the memorial was created on someone else's behalf.
   // Surface their name directly on the card so it's never ambiguous whose
@@ -949,11 +948,16 @@ function LegacyVaultCard({ memorialId, memorialName, letterCount, sealedCount, h
         </div>
         <div style={{ position: 'absolute', left: 16, right: 16, bottom: 14, zIndex: 1,
           display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 }}>
-          <div style={{ fontFamily: DISP, fontWeight: 600, fontSize: 34, lineHeight: .9, letterSpacing: '-.03em',
-            color: '#fff', textShadow: '0 1px 8px rgba(0,0,0,.35)' }}>
-            {String(big || 0).padStart(2, '0')}
-            <small style={{ fontFamily: MONO, fontWeight: 500, fontSize: 11, letterSpacing: '.08em',
-              color: 'rgba(255,255,255,.7)', textTransform: 'uppercase' }}>&nbsp;{bigLb}</small>
+          {/* Engraved silver-white wordmark — carved-metal "VAULT" */}
+          <div style={{
+            fontFamily: DISP, fontWeight: 800, fontSize: 56, lineHeight: .9,
+            letterSpacing: '.05em', textTransform: 'uppercase',
+            backgroundImage: 'linear-gradient(180deg, #ffffff 0%, #f1f3f6 30%, #c7cdd6 64%, #a7aeb9 100%)',
+            WebkitBackgroundClip: 'text', backgroundClip: 'text',
+            WebkitTextFillColor: 'transparent', color: 'transparent',
+            filter: 'drop-shadow(0 1px 0 rgba(255,255,255,.4)) drop-shadow(0 -1px 1px rgba(0,0,0,.55))',
+          }}>
+            Vault
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: MONO, fontSize: 10,
             letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600, color: '#fff',
@@ -1578,6 +1582,19 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
     }
   }, [showAll])
 
+  // Lock body scroll + Escape-to-close while the lightbox is open
+  useEffect(() => {
+    if (!selected) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = e => { if (e.key === 'Escape') setSelected(null) }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = prev
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [selected])
+
   // Photos added here (after the memorial exists) are NOT used to shape the
   // AI persona. The flag is silent to the user — they're just told to upload.
   async function handleUpload(e) {
@@ -1853,23 +1870,32 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
         )}
       </AnimatePresence>
 
-      {/* Lightbox */}
-      <AnimatePresence>
-        {selected && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            onClick={() => setSelected(null)}
-            style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(21,18,14,.95)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-            <motion.img initial={{ scale: .9 }} animate={{ scale: 1 }} exit={{ scale: .9 }}
-              src={selected.url} alt="" onClick={e => e.stopPropagation()}
-              style={{ maxWidth: '100%', maxHeight: '80vh', borderRadius: 20, objectFit: 'contain' }} />
-            <button onClick={() => setSelected(null)}
-              style={{ position: 'absolute', top: 24, right: 24, width: 40, height: 40, borderRadius: '50%',
-                background: 'rgba(241,236,225,.1)', border: '1px solid rgba(241,236,225,.15)',
-                color: C.cream, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>✕</button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Lightbox — portaled to <body> so no ancestor transform/filter (the
+          GSAP reel, Framer tiles, etc.) can trap its fixed positioning and make
+          it render behind the gallery. z-index sits above the view-all overlay. */}
+      {createPortal(
+        <AnimatePresence>
+          {selected && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              onClick={() => setSelected(null)}
+              style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(21,18,14,.95)',
+                backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+              <motion.img initial={{ scale: .92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: .92, opacity: 0 }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                src={selected.url} alt="" onClick={e => e.stopPropagation()}
+                style={{ maxWidth: '100%', maxHeight: '80vh', borderRadius: 20, objectFit: 'contain',
+                  boxShadow: '0 30px 90px rgba(0,0,0,.6)' }} />
+              <button onClick={() => setSelected(null)} aria-label="Close"
+                style={{ position: 'absolute', top: 24, right: 24, width: 40, height: 40, borderRadius: '50%',
+                  background: 'rgba(241,236,225,.1)', border: '1px solid rgba(241,236,225,.15)',
+                  color: C.cream, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>✕</button>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </section>
   )
 }
