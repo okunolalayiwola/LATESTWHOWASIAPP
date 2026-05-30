@@ -1,21 +1,28 @@
-// src/components/ui/LifeReel.jsx — v4  "Cinematic Engine"
+// src/components/ui/LifeReel.jsx — v5  "Cinematic Engine"
 //
 // REQUIRES: npm install gsap
 //
-// What's new vs v3:
-//   ✦ Auto-generated opening TITLE card  — name + DOB–DOD + "In loving memory"
-//   ✦ Auto-generated closing MEMORIAL card — "Forever remembered" with full dates
-//   ✦ Chapter year markers — interleaved between photo runs (e.g. "1972")
-//   ✦ Per-photo year/date overlays as cinematic glass pills
-//   ✦ Caption typography reveals — character by character on title, fade on subtitle
-//   ✦ 12 GSAP Ken Burns recipes — push-ins, pull-outs, pans, diagonals, dolly zooms
-//   ✦ Blur-dissolve crossfade + radial vignette + film grain at 24fps
+// What's new vs v4:
+//   ✦ THEME-AWARE — the whole reel re-tints from memorial.themeHex (per-memorial
+//     accent) instead of a hardcoded gold. Falls back to saffron #f3b21a. The
+//     warm "film" light (grain, light-leak, bloom) stays physical/neutral on
+//     purpose; only the UI accent follows the theme.
+//   ✦ Smooth per-slide progress — the active scrubber segment fills in real time
+//     over the slide's duration and pauses with the reel (true player feel).
+//   ✦ Keyboard control — ◂ ▸ to step slides, Space/K to pause, F for theater,
+//     scoped to the focused reel so it never hijacks the page.
+//   ✦ Respects prefers-reduced-motion — grain off, Ken Burns held static.
+//
+// Carried over from v4:
+//   ✦ Auto-generated opening TITLE + closing MEMORIAL cards
+//   ✦ Chapter year markers · per-photo year/date overlays
+//   ✦ Character-stagger caption reveals
+//   ✦ 12 GSAP Ken Burns recipes · blur-dissolve crossfade · film grain
 //   ✦ Two play modes: viewport (compact inline) and theater (fullscreen)
-//   ✦ Smart progress: clickable chapter markers, year scale at edges
 //
 // Props:
 //   photos        — array { url, takenAt, date, caption, createdAt }
-//   memorial      — object { name, years, subtitle, bio, alive, born, died, dob, dod, birthYear, deathYear }
+//   memorial      — object { name, themeHex, years, subtitle, bio, alive, born, died, dob, dod, birthYear, deathYear }
 //   musicUrl      — optional ambient audio URL
 //   fill          — true = fill parent container (fullscreen overlay mode)
 //   onExpand      — optional callback to open the theater (parent-controlled fullscreen)
@@ -25,7 +32,7 @@
 // Internal slide model:
 //   { kind: 'title' | 'photo' | 'chapter' | 'closing', ...data }
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, createContext, useContext } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import gsap from 'gsap'
 
@@ -47,6 +54,10 @@ const FADE_DURATION    = 600       // shorter crossfade so 3s slides don't feel 
 const GRAIN_FPS     = 24
 const GRAIN_OPACITY = 0.045
 
+// Cool complementary accent — a fixed secondary tone that adds depth alongside
+// the (now theme-driven) warm accent. Deliberately NOT theme-tinted.
+const COOL = '56,189,248'   // sky-400, used at low alpha for bokeh + chapter ticks
+
 // 12 GSAP Ken Burns recipes — varied so every slide feels different
 const KB_MOVES = [
   { xs:'0%',  ys:'0%',  xe:'-3%', ye:'-3%', ss:1.00, se:1.16 }, // push-in upper-left
@@ -62,6 +73,41 @@ const KB_MOVES = [
   { xs:'-2%', ys:'-2%', xe:'-4%', ye:'-1%', ss:1.04, se:1.20 }, // crawl-in
   { xs:'2%',  ys:'1%',  xe:'4%',  ye:'-1%', ss:1.04, se:1.20 }, // crawl-in mirror
 ]
+
+// ─── Theme / accent ─────────────────────────────────────────────────────────────
+// The reel pulls a single accent from memorial.themeHex and derives an alpha
+// scale from it, so eyebrows, year badges, scrubber, controls and glows all
+// re-tint together. hexToRgb tolerates #rgb, #rrggbb and rgb()/rgba() input.
+
+function hexToRgb(input) {
+  if (!input) return null
+  let s = String(input).trim()
+  const fn = s.match(/rgba?\(([^)]+)\)/i)
+  if (fn) {
+    const p = fn[1].split(',').map(n => parseFloat(n))
+    if (p.length >= 3 && p.every(n => !isNaN(n))) return { r: p[0] | 0, g: p[1] | 0, b: p[2] | 0 }
+  }
+  s = s.replace('#', '')
+  if (s.length === 3) s = s.split('').map(c => c + c).join('')
+  if (s.length >= 6) {
+    const n = parseInt(s.slice(0, 6), 16)
+    if (!isNaN(n)) return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }
+  }
+  return null
+}
+
+function makeAccent(hex) {
+  const rgb  = hexToRgb(hex) || { r: 243, g: 178, b: 26 } // saffron fallback
+  const base = `${rgb.r},${rgb.g},${rgb.b}`
+  return {
+    hex: hex || '#f3b21a',
+    rgb: base,
+    a: (alpha) => `rgba(${base},${alpha})`,
+  }
+}
+
+const AccentCtx = createContext(makeAccent('#f3b21a'))
+const useAccent = () => useContext(AccentCtx)
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
@@ -177,6 +223,7 @@ function AnimatedName({ text='', triggerKey, delay=0.5, size }) {
 // ─── Opening TITLE card ───────────────────────────────────────────────────────
 
 function TitleCard({ memorial }) {
+  const A = useAccent()
   const { name = 'In memoriam', subtitle } = memorial || {}
   const { born, died, alive } = extractYears(memorial)
 
@@ -187,7 +234,7 @@ function TitleCard({ memorial }) {
 
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center select-none"
-      style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 45%, rgba(255,215,0,0.10) 0%, rgba(8,8,15,0) 60%), linear-gradient(180deg, #0a0a14 0%, #050509 100%)' }}>
+      style={{ background: `radial-gradient(ellipse 80% 60% at 50% 45%, ${A.a(0.12)} 0%, rgba(8,8,15,0) 60%), linear-gradient(180deg, #0a0a14 0%, #050509 100%)` }}>
 
       {/* Drifting bokeh */}
       {[...Array(12)].map((_, i) => (
@@ -199,7 +246,7 @@ function TitleCard({ memorial }) {
             height: `${10 + (i % 4) * 8}px`,
             left:   `${8  + (i * 13) % 84}%`,
             top:    `${10 + (i * 19) % 80}%`,
-            background: i % 2 === 0 ? 'rgba(255,215,0,0.08)' : 'rgba(56,189,248,0.06)',
+            background: i % 2 === 0 ? A.a(0.10) : `rgba(${COOL},0.06)`,
             filter:  'blur(9px)',
             animation: `lr-pulse ${3 + i * 0.35}s ease-in-out ${i * 0.3}s infinite`,
           }}
@@ -213,7 +260,7 @@ function TitleCard({ memorial }) {
           animate={{ opacity: 1, letterSpacing: '0.34em' }}
           transition={{ delay: 0.15, duration: 0.9 }}
           className="text-[0.62rem] uppercase font-semibold mb-5"
-          style={{ color: 'rgba(255,215,0,0.7)' }}
+          style={{ color: A.a(0.75) }}
         >
           {alive ? '◆ A life in motion' : '✦ In loving memory'}
         </motion.p>
@@ -232,12 +279,12 @@ function TitleCard({ memorial }) {
             transition={{ delay: 1.0 + (name.length * 0.038), duration: 0.7 }}
             className="flex items-center justify-center gap-3 mb-5"
           >
-            <span className="h-px w-12" style={{ background: 'linear-gradient(to right, transparent, rgba(255,215,0,0.5))' }} />
+            <span className="h-px w-12" style={{ background: `linear-gradient(to right, transparent, ${A.a(0.5)})` }} />
             <span className="font-mono text-sm md:text-base tracking-[0.18em] tabular-nums"
-              style={{ color: 'rgba(255,215,0,0.85)' }}>
+              style={{ color: A.a(0.85) }}>
               {dateLine}
             </span>
-            <span className="h-px w-12" style={{ background: 'linear-gradient(to left, transparent, rgba(255,215,0,0.5))' }} />
+            <span className="h-px w-12" style={{ background: `linear-gradient(to left, transparent, ${A.a(0.5)})` }} />
           </motion.div>
         )}
 
@@ -265,12 +312,13 @@ function TitleCard({ memorial }) {
 // ─── Closing MEMORIAL card ────────────────────────────────────────────────────
 
 function ClosingCard({ memorial }) {
+  const A = useAccent()
   const { name = 'In memoriam' } = memorial || {}
   const { born, died, alive } = extractYears(memorial)
 
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center select-none"
-      style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 50%, rgba(252,165,165,0.08) 0%, rgba(8,8,15,0) 65%), linear-gradient(180deg, #08080f 0%, #02020a 100%)' }}>
+      style={{ background: `radial-gradient(ellipse 80% 60% at 50% 50%, ${A.a(0.07)} 0%, rgba(8,8,15,0) 65%), linear-gradient(180deg, #08080f 0%, #02020a 100%)` }}>
 
       {/* Slow expanding circle */}
       <motion.div
@@ -281,8 +329,8 @@ function ClosingCard({ memorial }) {
         style={{
           width: '70vmin', height: '70vmin',
           borderRadius: '50%',
-          border: '1px solid rgba(255,215,0,0.18)',
-          background: 'radial-gradient(circle, rgba(255,215,0,0.06) 0%, transparent 70%)',
+          border: `1px solid ${A.a(0.18)}`,
+          background: `radial-gradient(circle, ${A.a(0.06)} 0%, transparent 70%)`,
         }}
       />
 
@@ -294,7 +342,7 @@ function ClosingCard({ memorial }) {
           transition={{ delay: 0.3, duration: 0.8, ease: 'backOut' }}
           className="mb-6 flex justify-center"
         >
-          <svg width="46" height="46" viewBox="0 0 24 24" fill="rgba(255,215,0,0.7)" style={{ filter: 'drop-shadow(0 0 16px rgba(255,215,0,0.4))' }}>
+          <svg width="46" height="46" viewBox="0 0 24 24" fill={A.a(0.72)} style={{ filter: `drop-shadow(0 0 16px ${A.a(0.4)})` }}>
             <path d="M12 21s-7-4.5-9.5-9.5C1 8 3 4 6.5 4c2 0 3.5 1 5.5 3 2-2 3.5-3 5.5-3C21 4 23 8 21.5 11.5 19 16.5 12 21 12 21z"/>
           </svg>
         </motion.div>
@@ -304,7 +352,7 @@ function ClosingCard({ memorial }) {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.9, duration: 0.8 }}
           className="text-[0.65rem] uppercase font-semibold tracking-[0.34em] mb-4"
-          style={{ color: 'rgba(255,215,0,0.7)' }}
+          style={{ color: A.a(0.75) }}
         >
           {alive ? '◆ A continuing story' : '✦ Forever remembered'}
         </motion.p>
@@ -320,7 +368,7 @@ function ClosingCard({ memorial }) {
             animate={{ opacity: 1 }}
             transition={{ delay: 2.0, duration: 0.8 }}
             className="font-mono text-base md:text-lg tracking-[0.18em] tabular-nums mb-6"
-            style={{ color: 'rgba(255,215,0,0.85)' }}
+            style={{ color: A.a(0.85) }}
           >
             {born && died ? `${born} — ${died}` : born ? `b. ${born}` : `d. ${died}`}
           </motion.p>
@@ -345,6 +393,7 @@ function ClosingCard({ memorial }) {
 // ─── Chapter year marker ──────────────────────────────────────────────────────
 
 function ChapterCard({ year, label }) {
+  const A = useAccent()
   return (
     <div className="absolute inset-0 flex items-center justify-center select-none"
       style={{ background: 'linear-gradient(135deg, #0a0a14 0%, #1a1424 50%, #050509 100%)' }}>
@@ -360,7 +409,7 @@ function ChapterCard({ year, label }) {
           style={{
             width: `${30 + i * 20}vmin`,
             height: `${30 + i * 20}vmin`,
-            border: '1px solid rgba(255,215,0,0.25)',
+            border: `1px solid ${A.a(0.25)}`,
           }}
         />
       ))}
@@ -371,7 +420,7 @@ function ChapterCard({ year, label }) {
           animate={{ opacity: 1, letterSpacing: '0.32em' }}
           transition={{ delay: 0.2, duration: 0.8 }}
           className="text-[0.6rem] uppercase font-semibold mb-3"
-          style={{ color: 'rgba(255,215,0,0.6)' }}
+          style={{ color: A.a(0.6) }}
         >
           Chapter
         </motion.p>
@@ -384,7 +433,7 @@ function ChapterCard({ year, label }) {
             fontSize: 'clamp(4rem, 14vw, 9rem)',
             letterSpacing: '-0.04em',
             lineHeight: 0.85,
-            textShadow: '0 0 40px rgba(255,215,0,0.25)',
+            textShadow: `0 0 40px ${A.a(0.25)}`,
           }}
         >
           {year}
@@ -407,7 +456,8 @@ function ChapterCard({ year, label }) {
 
 // ─── Photo slide with Ken Burns ───────────────────────────────────────────────
 
-function PhotoSlide({ media, moveIdx, memorial, dateRaw, caption, tribute, showText, showOpeningTitle }) {
+function PhotoSlide({ media, moveIdx, memorial, dateRaw, caption, tribute, showText, showOpeningTitle, reduce }) {
+  const A = useAccent()
   const imgRef  = useRef(null)
   const gsapRef = useRef(null)
   const move    = KB_MOVES[(moveIdx || 0) % KB_MOVES.length]
@@ -424,6 +474,12 @@ function PhotoSlide({ media, moveIdx, memorial, dateRaw, caption, tribute, showT
   useEffect(() => {
     const el = imgRef.current
     if (!el || isVideo(media)) return
+    // Reduced motion → hold a gentle static frame (no pan/zoom).
+    if (reduce) {
+      gsap.killTweensOf(el)
+      gsap.set(el, { scale: 1.04, x: '0%', y: '0%', force3D: true })
+      return () => { gsap.killTweensOf(el) }
+    }
     gsap.killTweensOf(el)
     gsap.set(el, { scale: move.ss, x: move.xs, y: move.ys, force3D: true })
     gsapRef.current = gsap.to(el, {
@@ -436,7 +492,7 @@ function PhotoSlide({ media, moveIdx, memorial, dateRaw, caption, tribute, showT
       gsapRef.current?.kill()
       gsap.killTweensOf(el)
     }
-  }, [])
+  }, [reduce])
 
   return (
     <div className="absolute inset-0 overflow-hidden">
@@ -465,7 +521,9 @@ function PhotoSlide({ media, moveIdx, memorial, dateRaw, caption, tribute, showT
           Stacked, all pointer-events:none, all behind the text overlays.
           Combined they give the slide the feel of a film projection —
           breathing vignette, soft warm light leak that drifts across, a
-          subtle bloom, plus the original edge gradients for legibility. */}
+          subtle bloom, plus the original edge gradients for legibility.
+          NB: these warm-light layers are PHYSICAL film light, not UI accent,
+          so they stay warm regardless of the per-memorial theme. */}
 
       {/* Base vignette */}
       <div style={{ position:'absolute',inset:0,background:'radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.5) 100%)',pointerEvents:'none' }} />
@@ -508,12 +566,12 @@ function PhotoSlide({ media, moveIdx, memorial, dateRaw, caption, tribute, showT
       <div style={{ position:'absolute',insetBlock:0,left:0,width:'80px',background:'linear-gradient(to right, rgba(0,0,0,0.40), transparent)',pointerEvents:'none' }} />
       <div style={{ position:'absolute',insetBlock:0,right:0,width:'80px',background:'linear-gradient(to left, rgba(0,0,0,0.40), transparent)',pointerEvents:'none' }} />
 
-      {/* Subtle bloom at the corners — gives the photo "weight" sitting in a
-          dark cabinet. */}
+      {/* Subtle bloom at the corners — pulls the theme accent into the frame
+          so the photo feels lit by the same light as the rest of the page. */}
       <div style={{
         position:'absolute', inset:0, pointerEvents:'none',
         background:
-          'radial-gradient(circle at 0% 100%, rgba(243,178,26,.08), transparent 35%),' +
+          `radial-gradient(circle at 0% 100%, ${A.a(0.08)}, transparent 35%),` +
           'radial-gradient(circle at 100% 0%, rgba(255,180,90,.06), transparent 30%)',
         mixBlendMode: 'screen',
       }} />
@@ -551,7 +609,7 @@ function PhotoSlide({ media, moveIdx, memorial, dateRaw, caption, tribute, showT
               display: 'block',
               width: 36,
               height: 1,
-              background: 'linear-gradient(to right, transparent, rgba(255,215,0,0.8), transparent)',
+              background: `linear-gradient(to right, transparent, ${A.a(0.8)}, transparent)`,
               margin: '0 auto 18px',
               transformOrigin: 'center',
             }}
@@ -588,7 +646,7 @@ function PhotoSlide({ media, moveIdx, memorial, dateRaw, caption, tribute, showT
                 fontSize: '0.7rem',
                 letterSpacing: '0.22em',
                 textTransform: 'uppercase',
-                color: 'rgba(255,215,0,0.78)',
+                color: A.a(0.8),
                 textShadow: '0 1px 8px rgba(0,0,0,0.85)',
                 margin: '14px 0 0',
                 fontWeight: 600,
@@ -611,10 +669,10 @@ function PhotoSlide({ media, moveIdx, memorial, dateRaw, caption, tribute, showT
           <div className="font-display font-bold tabular-nums leading-none"
             style={{
               fontSize: 'clamp(2rem, 5vw, 3.6rem)',
-              color: 'rgba(255,215,0,0.85)',
+              color: A.a(0.85),
               letterSpacing: '-0.04em',
-              textShadow: '0 2px 24px rgba(0,0,0,0.7), 0 0 60px rgba(255,215,0,0.2)',
-              WebkitTextStroke: '0.5px rgba(255,215,0,0.3)',
+              textShadow: `0 2px 24px rgba(0,0,0,0.7), 0 0 60px ${A.a(0.2)}`,
+              WebkitTextStroke: `0.5px ${A.a(0.3)}`,
             }}>
             {yearOnly}
           </div>
@@ -632,11 +690,11 @@ function PhotoSlide({ media, moveIdx, memorial, dateRaw, caption, tribute, showT
           <div className="flex items-center gap-2 rounded-full px-3 py-1.5"
             style={{
               background: 'rgba(8,8,15,0.65)',
-              border: '1px solid rgba(255,215,0,0.25)',
+              border: `1px solid ${A.a(0.25)}`,
               backdropFilter: 'blur(10px)',
               WebkitBackdropFilter: 'blur(10px)',
             }}>
-            <svg className="w-3 h-3" style={{ color: 'rgba(255,215,0,0.75)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="w-3 h-3" style={{ color: A.a(0.75) }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" />
             </svg>
             <span className="text-[0.6rem] font-medium tracking-wide" style={{ color: 'rgba(255,255,255,0.85)' }}>
@@ -688,7 +746,7 @@ function PhotoSlide({ media, moveIdx, memorial, dateRaw, caption, tribute, showT
               animate={{ opacity: 1, letterSpacing: '0.34em' }}
               transition={{ delay: 0.3, duration: 0.9 }}
               className="text-[0.62rem] uppercase font-semibold mb-3"
-              style={{ color: 'rgba(255,215,0,0.85)' }}>
+              style={{ color: A.a(0.85) }}>
               {yrs.alive ? '◆ A life in motion' : '✦ In loving memory'}
             </motion.p>
 
@@ -705,9 +763,9 @@ function PhotoSlide({ media, moveIdx, memorial, dateRaw, caption, tribute, showT
                 transition={{ delay: 0.9 + (name.length * 0.038), duration: 0.6 }}
                 className="flex items-center gap-3 mb-3"
               >
-                <span className="h-px w-10" style={{ background: 'linear-gradient(to right, transparent, rgba(255,215,0,0.65))' }} />
+                <span className="h-px w-10" style={{ background: `linear-gradient(to right, transparent, ${A.a(0.65)})` }} />
                 <span className="font-mono text-sm md:text-base tracking-[0.18em] tabular-nums"
-                  style={{ color: 'rgba(255,215,0,0.92)', textShadow: '0 2px 12px rgba(0,0,0,0.7)' }}>
+                  style={{ color: A.a(0.92), textShadow: '0 2px 12px rgba(0,0,0,0.7)' }}>
                   {dateLine}
                 </span>
               </motion.div>
@@ -736,7 +794,7 @@ function PhotoSlide({ media, moveIdx, memorial, dateRaw, caption, tribute, showT
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4, duration: 0.5 }}
             className="text-[0.55rem] uppercase font-semibold tracking-[0.3em] mb-1"
-            style={{ color: 'rgba(255,215,0,0.7)' }}>
+            style={{ color: A.a(0.7) }}>
             ◆ Life reel
           </motion.p>
           <h3 className="font-display font-bold text-white"
@@ -751,7 +809,7 @@ function PhotoSlide({ media, moveIdx, memorial, dateRaw, caption, tribute, showT
 
 // ─── Render a slide of any kind ───────────────────────────────────────────────
 
-function RenderSlide({ slide, idx, memorial, showText }) {
+function RenderSlide({ slide, idx, memorial, showText, reduce }) {
   if (slide.kind === 'title-only') return <TitleCard memorial={memorial} />
   if (slide.kind === 'closing')    return <ClosingCard memorial={memorial} />
   if (slide.kind === 'chapter')    return <ChapterCard year={slide.year} label={slide.label} />
@@ -765,13 +823,18 @@ function RenderSlide({ slide, idx, memorial, showText }) {
       tribute={slide.tribute}
       showText={showText}
       showOpeningTitle={slide.showTitle === true}
+      reduce={reduce}
     />
   )
 }
 
 // ─── Timeline scrubber ────────────────────────────────────────────────────────
+// Position indicator + chapter map. The active segment fills smoothly over the
+// current slide's duration (and pauses with the reel) so the bar behaves like a
+// real scrub-head rather than a static dot.
 
-function Scrubber({ slides, current, onGoTo, compact }) {
+function Scrubber({ slides, current, onGoTo, compact, paused, duration }) {
+  const A = useAccent()
   if (slides.length < 2) return null
   const photoYears = slides.filter(s => s.kind === 'photo').map(s => pickYear(s.date)).filter(Boolean)
   const minY = photoYears.length ? Math.min(...photoYears) : null
@@ -785,22 +848,37 @@ function Scrubber({ slides, current, onGoTo, compact }) {
       )}
       <div className="flex-1 flex items-center gap-[3px]">
         {slides.map((s, i) => {
-          const color = i === current
-            ? (s.kind === 'chapter' ? 'linear-gradient(to right, #FFD700, #38BDF8)' : 'linear-gradient(to right, #FFD700, #FB923C)')
-            : i < current
-              ? 'rgba(255,215,0,0.35)'
-              : 'rgba(255,255,255,0.12)'
+          const isActive = i === current
+          const isPast   = i < current
+          const baseBg   = isPast ? A.a(0.4) : 'rgba(255,255,255,0.12)'
+          const fillBg   = s.kind === 'chapter'
+            ? `linear-gradient(to right, ${A.hex}, rgba(${COOL},1))`
+            : `linear-gradient(to right, ${A.hex}, #FB923C)`
           return (
             <button
               key={i}
               onClick={() => onGoTo(i)}
-              className="flex-1 rounded-full transition-all duration-300"
+              className="relative flex-1 rounded-full overflow-hidden transition-all duration-300"
               style={{
-                background: color,
-                height: i === current ? 3 : 2,
+                background: baseBg,
+                height: isActive ? 3 : 2,
                 maxWidth: 48,
               }}
-            />
+            >
+              {isActive && (
+                <span
+                  key={`fill-${current}`}
+                  style={{
+                    position: 'absolute', inset: 0,
+                    transformOrigin: 'left center',
+                    background: fillBg,
+                    boxShadow: `0 0 8px ${A.a(0.55)}`,
+                    animation: `reel-fill ${duration}ms linear forwards`,
+                    animationPlayState: paused ? 'paused' : 'running',
+                  }}
+                />
+              )}
+            </button>
           )
         })}
       </div>
@@ -936,9 +1014,23 @@ export default function LifeReel({
   const [isExiting,  setIsExiting]  = useState(false)
   const [letterbox,  setLetterbox]  = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
+  const [reduce,     setReduce]     = useState(false)
   const [showGrain,  setShowGrain]  = useState(true)
   const [paused,     setPaused]     = useState(false)
   const timerRef = useRef(null)
+
+  // Per-memorial accent — the whole reel re-tints from this.
+  const accent = useMemo(() => makeAccent(memorial?.themeHex || '#f3b21a'), [memorial?.themeHex])
+
+  // Honour the OS reduced-motion preference: hold frames static, kill grain.
+  useLayoutEffect(() => {
+    const mq = window.matchMedia?.('(prefers-reduced-motion: reduce)')
+    if (!mq) return
+    const apply = () => { setReduce(mq.matches); if (mq.matches) setShowGrain(false) }
+    apply()
+    mq.addEventListener?.('change', apply)
+    return () => mq.removeEventListener?.('change', apply)
+  }, [])
 
   const { playing: musicPlaying, toggle: toggleMusic } = useMusicPlayer(musicUrl)
 
@@ -985,6 +1077,12 @@ export default function LifeReel({
     }, FADE_DURATION)
   }
 
+  function step(dir) {
+    if (slides.length < 2) return
+    const n = (current + dir + slides.length) % slides.length
+    goTo(n)
+  }
+
   function restart() { goTo(0) }
 
   function toggleFullscreen() {
@@ -1002,15 +1100,36 @@ export default function LifeReel({
     return () => document.removeEventListener('fullscreenchange', handler)
   }, [])
 
+  // Keyboard control — scoped to the focused reel so it never steals the
+  // page's own ◂ ▸ / Space. Tab to the reel (or click it) to drive it.
+  function onKeyDown(e) {
+    switch (e.key) {
+      case 'ArrowRight': e.preventDefault(); step(1); break
+      case 'ArrowLeft':  e.preventDefault(); step(-1); break
+      case ' ':
+      case 'k':
+      case 'K':          e.preventDefault(); setPaused(p => !p); break
+      case 'f':
+      case 'F':          e.preventDefault(); toggleFullscreen(); break
+      default: break
+    }
+  }
+
   const currentSlide = slides[current]
   const prevSlide    = prev !== null ? slides[prev] : null
   const hasContent   = slides.length > 0
+  const slideDur     = currentSlide?.duration || PHOTO_DURATION
 
   return (
+    <AccentCtx.Provider value={accent}>
     <div
       ref={containerRef}
+      tabIndex={0}
+      onKeyDown={onKeyDown}
       onClick={() => setPaused(p => !p)}
-      className={fill ? 'select-none' : 'relative w-full overflow-hidden rounded-2xl select-none cursor-pointer'}
+      className={fill
+        ? 'select-none outline-none'
+        : `relative w-full overflow-hidden select-none cursor-pointer outline-none${compact ? '' : ' rounded-2xl'}`}
       style={fill ? {
         position:   'absolute',
         inset:      0,
@@ -1021,8 +1140,8 @@ export default function LifeReel({
         minHeight:   220,
         maxHeight:   fullscreen ? '100vh' : (compact ? 360 : 560),
         background:  '#050509',
-        boxShadow:   compact ? '0 6px 30px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.04) inset' : '0 12px 60px rgba(0,0,0,0.6)',
-        border:      compact ? '1px solid rgba(255,255,255,0.10)' : '1px solid rgba(255,215,0,0.08)',
+        boxShadow:   compact ? 'none' : '0 12px 60px rgba(0,0,0,0.6)',
+        border:      compact ? 'none' : `1px solid ${accent.a(0.10)}`,
       }}
     >
       {!hasContent ? (
@@ -1043,7 +1162,7 @@ export default function LifeReel({
                 className="absolute inset-0 z-[1]"
                 style={{ willChange: 'opacity', transform: 'translate3d(0,0,0)' }}
               >
-                <RenderSlide slide={prevSlide} idx={prev} memorial={memorial} showText={false} />
+                <RenderSlide slide={prevSlide} idx={prev} memorial={memorial} showText={false} reduce={reduce} />
               </motion.div>
             )}
           </AnimatePresence>
@@ -1060,7 +1179,7 @@ export default function LifeReel({
             className="absolute inset-0 z-[2]"
             style={{ willChange: 'opacity', transform: 'translate3d(0,0,0)' }}
           >
-            <RenderSlide slide={currentSlide} idx={current} memorial={memorial} showText={true} />
+            <RenderSlide slide={currentSlide} idx={current} memorial={memorial} showText={true} reduce={reduce} />
           </motion.div>
 
           {/* Film grain */}
@@ -1102,10 +1221,10 @@ export default function LifeReel({
                 <div className="rounded-full p-5"
                   style={{
                     background: 'rgba(8,8,15,0.7)',
-                    border: '1px solid rgba(255,215,0,0.35)',
+                    border: `1px solid ${accent.a(0.35)}`,
                     backdropFilter: 'blur(20px)',
                   }}>
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="rgba(255,215,0,0.9)">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill={accent.a(0.9)}>
                     <rect x="6" y="5" width="4" height="14" rx="1" />
                     <rect x="14" y="5" width="4" height="14" rx="1" />
                   </svg>
@@ -1143,8 +1262,8 @@ export default function LifeReel({
                   className="w-8 h-8 rounded-full flex items-center justify-center transition-all text-[9px] font-bold"
                   style={{
                     background: 'rgba(8,8,15,0.65)',
-                    border: `1px solid ${letterbox ? 'rgba(255,215,0,0.4)' : 'rgba(255,255,255,0.15)'}`,
-                    color: letterbox ? 'rgba(255,215,0,0.9)' : 'rgba(255,255,255,0.6)',
+                    border: `1px solid ${letterbox ? accent.a(0.4) : 'rgba(255,255,255,0.15)'}`,
+                    color: letterbox ? accent.a(0.9) : 'rgba(255,255,255,0.6)',
                     backdropFilter: 'blur(10px)',
                   }}
                   title="Letterbox"
@@ -1157,8 +1276,8 @@ export default function LifeReel({
                   className="w-8 h-8 rounded-full flex items-center justify-center transition-all text-[8px] font-bold"
                   style={{
                     background: 'rgba(8,8,15,0.65)',
-                    border: `1px solid ${showGrain ? 'rgba(255,215,0,0.4)' : 'rgba(255,255,255,0.15)'}`,
-                    color: showGrain ? 'rgba(255,215,0,0.9)' : 'rgba(255,255,255,0.6)',
+                    border: `1px solid ${showGrain ? accent.a(0.4) : 'rgba(255,255,255,0.15)'}`,
+                    color: showGrain ? accent.a(0.9) : 'rgba(255,255,255,0.6)',
                     backdropFilter: 'blur(10px)',
                   }}
                   title="Film grain"
@@ -1172,8 +1291,8 @@ export default function LifeReel({
                     className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
                     style={{
                       background: 'rgba(8,8,15,0.65)',
-                      border: `1px solid ${musicPlaying ? 'rgba(255,215,0,0.4)' : 'rgba(255,255,255,0.15)'}`,
-                      color: musicPlaying ? 'rgba(255,215,0,0.9)' : 'rgba(255,255,255,0.6)',
+                      border: `1px solid ${musicPlaying ? accent.a(0.4) : 'rgba(255,255,255,0.15)'}`,
+                      color: musicPlaying ? accent.a(0.9) : 'rgba(255,255,255,0.6)',
                       backdropFilter: 'blur(10px)',
                     }}
                   >
@@ -1216,11 +1335,15 @@ export default function LifeReel({
           </div>
 
           {/* Scrubber */}
-          <Scrubber slides={slides} current={current} onGoTo={goTo} compact={compact} />
+          <Scrubber slides={slides} current={current} onGoTo={goTo} compact={compact} paused={paused} duration={slideDur} />
         </>
       )}
 
-      <style>{`@keyframes lr-pulse { 0%,100% { opacity:.4; transform:scale(1) } 50% { opacity:.85; transform:scale(1.15) } }`}</style>
+      <style>{`
+        @keyframes lr-pulse { 0%,100% { opacity:.4; transform:scale(1) } 50% { opacity:.85; transform:scale(1.15) } }
+        @keyframes reel-fill { from { transform: scaleX(0) } to { transform: scaleX(1) } }
+      `}</style>
     </div>
+    </AccentCtx.Provider>
   )
 }
