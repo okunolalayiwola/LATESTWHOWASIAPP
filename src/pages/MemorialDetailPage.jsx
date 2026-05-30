@@ -1052,24 +1052,6 @@ function VoiceSection({ memorial, onOpenTalk }) {
         {/* ── Left — "Listen": green waveform mini-player for the recorded clip ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0, position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-            {hasClip && (
-              <button
-                onClick={toggleRecording}
-                aria-label={recordingPlaying ? 'Pause recording' : 'Play original recording'}
-                style={{
-                  width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
-                  background: recordingPlaying ? VOICE_GREEN : 'transparent',
-                  border: `1.5px solid ${VOICE_GREEN}`,
-                  color: recordingPlaying ? '#0a140d' : VOICE_GREEN,
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: recordingPlaying ? `0 8px 18px -6px ${VOICE_GREEN}88` : 'none',
-                  transition: 'background .15s, color .15s, box-shadow .15s',
-                }}>
-                {recordingPlaying
-                  ? <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
-                  : <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft: 2 }}><path d="M8 5v14l11-7z"/></svg>}
-              </button>
-            )}
             <Label onInk>{recordingPlaying ? 'Playing' : 'Listen'}</Label>
             {memorial.elevenLabsVoiceId && (
               <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase',
@@ -1100,7 +1082,7 @@ function VoiceSection({ memorial, onOpenTalk }) {
           </p>
         </div>
 
-        {/* ── Right — theme orb: plays / pauses the recorded voice clip ── */}
+        {/* ── Right — aurō orb (fixed brand gradient): plays / pauses the clip ── */}
         <div className="voice-cr" style={{ display: 'flex', justifyContent: 'flex-end', position: 'relative', zIndex: 1 }}>
           <motion.button
             whileHover={hasClip ? { y: -2, scale: 1.02 } : undefined}
@@ -1112,35 +1094,24 @@ function VoiceSection({ memorial, onOpenTalk }) {
               position: 'relative', width: 118, height: 134, borderRadius: 36, border: 'none',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: hasClip ? 'pointer' : 'not-allowed',
-              // Theme-derived "aurō" ember — dimensional warm orb that keeps the
-              // bright design-template glow while its hue follows the chosen theme.
-              background: hasClip
-                ? [
-                    'radial-gradient(120% 75% at 80% 18%, rgba(255,255,255,.5) 0%, transparent 46%)',
-                    'radial-gradient(140% 95% at 26% 6%, rgba(22,13,9,.9) 0%, rgba(22,13,9,0) 54%)',
-                    'linear-gradient(178deg,'
-                      + ' color-mix(in srgb, var(--theme, #f3b21a) 50%, #170d07) 0%,'
-                      + ' color-mix(in srgb, var(--theme, #f3b21a) 72%, #3a1d0f) 24%,'
-                      + ' var(--theme, #f3b21a) 50%,'
-                      + ' var(--theme-2, #ffce4d) 70%,'
-                      + ' color-mix(in srgb, var(--theme-2, #ffce4d) 55%, #ffffff) 100%)',
-                  ].join(', ')
-                : 'linear-gradient(165deg, #3a3a3e 0%, #2b2b2f 60%, #242427 100%)',
-              boxShadow: hasClip
-                ? '0 0 0 1px rgba(0,0,0,.18), 0 20px 50px -10px color-mix(in srgb, var(--theme, #f3b21a) 55%, transparent), 0 8px 22px -8px rgba(0,0,0,.6)'
-                : '0 0 0 1px rgba(0,0,0,.18), 0 8px 22px -8px rgba(0,0,0,.6)',
-              opacity: hasClip ? 1 : 0.55,
+              // Fixed "aurō" brand material — cool top-right kiss → warm ember core
+              // → cream base. Intentionally theme-INDEPENDENT (always this gradient).
+              background: [
+                'radial-gradient(120% 75% at 80% 20%, rgba(150,185,205,.55) 0%, transparent 44%)',
+                'radial-gradient(135% 90% at 28% 8%, #241712 0%, rgba(36,23,18,0) 52%)',
+                'linear-gradient(178deg, #1b120e 0%, #3c1e12 22%, #b5512b 47%, #e89a52 63%, #f7daa8 81%, #fdf4e6 100%)',
+              ].join(', '),
+              boxShadow: '0 0 0 1px rgba(0,0,0,.18), 0 20px 50px -10px rgba(232,154,82,.55), 0 8px 22px -8px rgba(0,0,0,.6)',
+              opacity: hasClip ? 1 : 0.5,
               transition: 'opacity .2s',
             }}>
             {/* inner depth — top vignette + rim light */}
             <span aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', pointerEvents: 'none',
               boxShadow: '0 -12px 30px -8px rgba(20,12,9,.45) inset, 0 1px 0 rgba(255,255,255,.25) inset' }} />
-            {/* soft theme glow pooling beneath */}
-            {hasClip && (
-              <span aria-hidden style={{ position: 'absolute', left: '50%', bottom: '-26%', transform: 'translateX(-50%)',
-                width: '130%', height: '80%', borderRadius: '50%', zIndex: -1, pointerEvents: 'none',
-                background: 'radial-gradient(circle, color-mix(in srgb, var(--theme, #f3b21a) 45%, transparent), transparent 62%)', filter: 'blur(9px)' }} />
-            )}
+            {/* soft cream glow pooling beneath — part of the fixed aurō material */}
+            <span aria-hidden style={{ position: 'absolute', left: '50%', bottom: '-26%', transform: 'translateX(-50%)',
+              width: '130%', height: '80%', borderRadius: '50%', zIndex: -1, pointerEvents: 'none',
+              background: 'radial-gradient(circle, rgba(253,244,230,.5), transparent 62%)', filter: 'blur(9px)' }} />
             {recordingPlaying
               ? <svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"
                   style={{ width: 46, height: 46, position: 'relative', zIndex: 1, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,.45))' }}>
