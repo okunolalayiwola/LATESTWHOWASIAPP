@@ -30,6 +30,14 @@ const _schema = i.schema({
       createdAt:          i.number(),
       createdBy:          i.string(),
       creatorId:          i.string().optional(),
+      // ─── Legacy Vault — shared PIN (verified server-side via /api/vault-pin) ──
+      // Hash is peppered with a server-only secret, so exposing it to clients is
+      // safe. The PIN is the single shared secret: anyone with it can open the
+      // vault on any device, regardless of relationship.
+      vaultPinHash:        i.string().optional(),  // SHA-256(pin + memorialId + server pepper)
+      vaultPinUpdatedAt:   i.number().optional(),  // ms epoch the PIN was last set
+      vaultFailedAttempts: i.number().optional(),  // consecutive wrong attempts (rate limiting)
+      vaultLockUntil:      i.number().optional(),  // ms epoch — verification locked out until
       photo:              i.string().optional(),
       coverPhoto:         i.string().optional(),
       born:               i.string().optional(),

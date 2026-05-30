@@ -10,11 +10,12 @@
 // same code. Biometrics, session, and reset codes remain per-device/per-user.
 
 // ─── Storage keys ─────────────────────────────────────────────────────────────
+// The PIN itself now lives server-side (on the memorial, verified via
+// /api/vault-pin) so it is a true shared secret across people and devices.
+// Only per-device conveniences (biometric credential, session) stay local.
 
-const pinKey   = (mid)      => `wwi_vault_${mid}_shared_pin`    // shared — any visitor with correct PIN
-const setupKey = (mid)      => `wwi_vault_${mid}_shared_setup`  // shared — marks vault as initialised
 const credKey  = (mid, uid) => `wwi_vault_${mid}_${uid}_cred`   // per-device biometrics
-const idKey    = (mid, uid) => `wwi_vault_${mid}_${uid}_id`
+const setupKey = (mid)      => `wwi_vault_${mid}_shared_setup`  // legacy marker (biometric reg)
 
 // ─── Generate a unique vault ID (displayed on the lock screen) ────────────────
 
@@ -35,7 +36,7 @@ export function getVaultId(memorialId) {
   return id.slice(0, 4) + '-' + id.slice(4)
 }
 
-// ─── SHA-256 hash ─────────────────────────────────────────────────────────────
+// ─── SHA-256 hash (used by the email-based reset code, still device-local) ─────
 
 async function sha256(text) {
   const data   = new TextEncoder().encode(text)
@@ -44,28 +45,49 @@ async function sha256(text) {
 }
 
 // ─── Setup state ──────────────────────────────────────────────────────────────
+// Whether a vault has a PIN is now a property of the memorial record, so it is
+// the same for every visitor on every device. Callers pass the memorial object.
 
-export function isVaultSetup(memorialId, _userId) {
-  return !!localStorage.getItem(setupKey(memorialId))
+export function isVaultSetupFor(memorial) {
+  return !!memorial?.vaultPinHash
 }
 
-// ─── PIN management ───────────────────────────────────────────────────────────
+// ─── PIN management (server-verified shared secret) ─────────────────────────────
 
-export async function setPIN(memorialId, _userId, pin) {
-  const hash = await sha256(pin + memorialId)  // salted with memorialId
-  localStorage.setItem(pinKey(memorialId), hash)
-  localStorage.setItem(setupKey(memorialId), '1')
+const VAULT_PIN_API = '/api/vault-pin'
+
+// Create or change the shared PIN. `currentPin` is required to change an existing
+// PIN unless the caller is the memorial creator (enforced server-side). Throws on
+// failure with a human-readable message.
+export async function setPIN(memorialId, userId, pin, currentPin) {
+  const r = await fetch(VAULT_PIN_API, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ action: 'set', memorialId, userId, pin, currentPin }),
+  })
+  const json = await r.json().catch(() => ({}))
+  if (!r.ok || !json.ok) throw new Error(json.error || 'Could not set the vault PIN.')
+  return true
 }
 
+// Verify a PIN server-side. Returns { ok, lockedUntil, attemptsLeft, error }.
 export async function verifyPIN(memorialId, _userId, pin) {
-  const stored = localStorage.getItem(pinKey(memorialId))
-  if (!stored) return false
-  const hash = await sha256(pin + memorialId)
-  return hash === stored
-}
-
-export function hasPIN(memorialId, _userId) {
-  return !!localStorage.getItem(pinKey(memorialId))
+  try {
+    const r = await fetch(VAULT_PIN_API, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ action: 'verify', memorialId, pin }),
+    })
+    const json = await r.json().catch(() => ({}))
+    return {
+      ok:           !!json.ok,
+      lockedUntil:  json.lockedUntil || null,
+      attemptsLeft: json.attemptsLeft,
+      error:        json.ok ? null : (json.error || null),
+    }
+  } catch {
+    return { ok: false, lockedUntil: null, error: 'Network error — please try again.' }
+  }
 }
 
 // ─── PIN reset via email ──────────────────────────────────────────────────────

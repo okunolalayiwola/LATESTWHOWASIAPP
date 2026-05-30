@@ -13,7 +13,7 @@ import { db } from '../lib/instant'
 import VaultDocuments from '../components/ui/VaultDocuments'
 import PINInput from '../components/ui/PINInput'
 import {
-  getVaultId, isVaultSetup, setPIN, verifyPIN,
+  getVaultId, setPIN, verifyPIN,
   isBiometricsAvailable, isBiometricsConditionalAvailable,
   registerBiometrics, authenticateWithBiometrics, hasBiometrics,
   openSession, closeSession, isSessionValid, refreshSession, getSessionTimeLeft,
@@ -508,9 +508,11 @@ function VaultShareModal({ memorialId, memorialName, userId, familyConnections, 
     if (pin.length !== 6) { setPinError('Please enter all 6 digits.'); return }
     setVerifying(true); setPinError('')
     try {
-      const ok = await verifyPIN(memorialId, userId, pin)
-      if (!ok) { setPinError('Incorrect PIN. Please try again.'); setPin('') }
-      else { setStep('pick') }
+      const result = await verifyPIN(memorialId, userId, pin)
+      if (!result.ok) {
+        setPinError(result.lockedUntil ? 'Too many attempts. Try again later.' : (result.error || 'Incorrect PIN. Please try again.'))
+        setPin('')
+      } else { setStep('pick') }
     } catch { setPinError('Could not verify PIN. Please try again.') }
     finally { setVerifying(false) }
   }
@@ -537,10 +539,11 @@ function VaultShareModal({ memorialId, memorialName, userId, familyConnections, 
     }
 
     try {
-      const resp = await fetch('/api/vault-share-pin', {
+      const resp = await fetch('/api/email', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
+          action:       'vault-share-pin',
           senderName:   '',        // could pass from profile if available
           memorialName: memorialName || '',
           pin,
@@ -1097,26 +1100,30 @@ export default function LegacyLettersPage() {
     lockMemorial &&
     (!lockMemorial.creatorId || lockMemorial.creatorId === user.id)
   )
+  // Whether the vault has a PIN is a property of the memorial record — the same
+  // for every visitor on every device (the PIN is verified server-side).
+  const vaultIsSetUp = !!lockMemorial?.vaultPinHash
 
-  // ── Check auth state on mount ─────────────────────────────────────────────
+  // ── Drive the auth state from session + memorial data ──────────────────────
+  // Decides the initial locked/setup state once the memorial loads, and advances
+  // a waiting visitor from "not set up yet" → lock screen the moment the owner
+  // sets the PIN. (setState lives in an async helper to avoid cascading renders.)
   useEffect(() => {
-    async function check() {
-      // If session still valid, skip auth
-      if (isSessionValid(memorialId, uid)) {
-        setAuthState('open'); return
-      }
-      // Check if biometrics available
+    if (!memorialId || !uid) return
+    const decideInitial = authState === 'checking'
+    const advanceVisitor = authState === 'setup' && vaultIsSetUp
+    if (!decideInitial && !advanceVisitor) return
+
+    async function sync() {
+      if (advanceVisitor) { setAuthState('locked'); return }
+      if (isSessionValid(memorialId, uid)) { setAuthState('open'); return }
+      if (lockMemorial === undefined) return        // still loading — stay 'checking'
       const bioAvail = await isBiometricsConditionalAvailable()
       setBioAvail(bioAvail && isBiometricsAvailable())
-
-      if (!isVaultSetup(memorialId, uid)) {
-        setAuthState('setup')
-      } else {
-        setAuthState('locked')
-      }
+      setAuthState(vaultIsSetUp ? 'locked' : 'setup')
     }
-    if (memorialId && uid) check()
-  }, [memorialId, uid])
+    sync()
+  }, [memorialId, uid, authState, lockMemorial, vaultIsSetUp])
 
   // ── Auto-lock on inactivity ─────────────────────────────────────────────────
   // The vault auto-locks after SESSION_TIMEOUT of *inactivity*. We only extend
@@ -1187,9 +1194,17 @@ export default function LegacyLettersPage() {
         setPinError(true); setPinStep('enter'); setPinFirst('')
         setTimeout(() => setPinError(false), 600); return
       }
-      // Confirmed — save PIN and optionally register biometrics
-      await setPIN(memorialId, uid, pin)
-      // Try to register biometrics too
+      // Confirmed — persist the shared PIN server-side, then optionally register
+      // this device's biometrics.
+      try {
+        await setPIN(memorialId, uid, pin)
+      } catch (e) {
+        setBioError(e.message || 'Could not set the vault PIN. Please try again.')
+        setPinError(true); setPinStep('enter'); setPinFirst('')
+        setTimeout(() => setPinError(false), 600)
+        setAuthState('setup'); setSetupStep('pin')
+        return
+      }
       if (bioAvailable) {
         try { await registerBiometrics(memorialId, uid, user?.email) }
         catch { /* biometric registration is best-effort — PIN still works */ }
@@ -1197,9 +1212,19 @@ export default function LegacyLettersPage() {
       unlockVault(); return
     }
 
-    // Verifying existing PIN
-    const ok = await verifyPIN(memorialId, uid, pin)
-    if (!ok) { setPinError(true); setTimeout(() => setPinError(false), 600); return }
+    // Verifying an existing PIN (server-side, rate-limited)
+    const result = await verifyPIN(memorialId, uid, pin)
+    if (!result.ok) {
+      setPinError(true)
+      setBioError(
+        result.lockedUntil ? 'Too many attempts. Try again in a few minutes.'
+        : result.error      ? result.error
+        : 'Incorrect PIN. Please try again.'
+      )
+      setTimeout(() => setPinError(false), 600)
+      return
+    }
+    setBioError('')
     unlockVault()
   }
 
@@ -1238,11 +1263,11 @@ export default function LegacyLettersPage() {
       // Generate a reset code locally (hash stored, plain code returned)
       const code = await requestPINReset(memorialId, uid)
 
-      // Send the code via the API endpoint
-      const resp = await fetch('/api/vault-reset', {
+      // Email the code via the consolidated /api/email handler
+      const resp = await fetch('/api/email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code, memorialName: memorial?.name || '' }),
+        body: JSON.stringify({ action: 'vault-reset', email, code, memorialName: lockMemorial?.name || '' }),
       })
 
       if (!resp.ok) throw new Error('Failed to send email')
@@ -1265,8 +1290,14 @@ export default function LegacyLettersPage() {
   }
 
   async function setNewPinAfterReset(pin) {
-    // Clear old PIN and set the new one
-    await setPIN(memorialId, uid, pin)
+    // The reset is authorised by the emailed code; the account owner (creator)
+    // is allowed to set a new PIN server-side without the old one.
+    try {
+      await setPIN(memorialId, uid, pin)
+    } catch (e) {
+      setResetError(e.message || 'Could not set the new PIN. Please try again.')
+      return
+    }
     clearResetCode(memorialId, uid)
     setResetStage(null)
     setResetError('')
@@ -1452,7 +1483,7 @@ export default function LegacyLettersPage() {
 
               {/* PIN option */}
               <button
-                onClick={() => setAuthState('pinEntry')}
+                onClick={() => { setBioError(''); setAuthState('pinEntry') }}
                 className={`w-full py-4 rounded-2xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
                   hasBiometrics(memorialId, uid) ? 'rubber-btn text-white/55' : 'metal-btn text-black'
                 }`}>
@@ -1477,7 +1508,8 @@ export default function LegacyLettersPage() {
             <motion.div key="pin" initial={{ opacity:0,y:16 }} animate={{ opacity:1,y:0 }} exit={{ opacity:0 }}
               className="mt-6 w-full max-w-xs">
               <PINInput label="Enter your vault PIN" onComplete={tryPIN} error={pinError} />
-              <button onClick={() => setAuthState('locked')} className="text-xs text-white/25 hover:text-white/45 transition-colors mt-6 w-full">
+              {bioError && <p className="text-xs text-rose/80 text-center mt-4">{bioError}</p>}
+              <button onClick={() => { setBioError(''); setAuthState('locked') }} className="text-xs text-white/25 hover:text-white/45 transition-colors mt-6 w-full">
                 ← Back
               </button>
               <button onClick={startPINReset}
