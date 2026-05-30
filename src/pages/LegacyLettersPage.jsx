@@ -5,16 +5,15 @@
 // Auth:   Face ID / Touch ID (WebAuthn) + 6-digit PIN fallback
 // Inside: Will & Estate builder + Legacy Letters & Documents
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { id } from '@instantdb/react'
 import { db } from '../lib/instant'
-import { uploadImage } from '../lib/storage'
 import VaultDocuments from '../components/ui/VaultDocuments'
 import PINInput from '../components/ui/PINInput'
 import {
-  getVaultId, isVaultSetup, setPIN, verifyPIN, hasPIN,
+  getVaultId, isVaultSetup, setPIN, verifyPIN,
   isBiometricsAvailable, isBiometricsConditionalAvailable,
   registerBiometrics, authenticateWithBiometrics, hasBiometrics,
   openSession, closeSession, isSessionValid, refreshSession, getSessionTimeLeft,
@@ -35,14 +34,6 @@ const UNLOCK_EVENTS = [
 
 const PROPERTY_TYPES = ['House', 'Apartment', 'Land', 'Commercial', 'Vehicle', 'Boat', 'Other']
 const ASSET_TYPES    = ['Bank Account', 'Savings', 'Shares/Stocks', 'Pension', 'Crypto', 'Business', 'Other']
-const DOC_TYPES      = [
-  { value:'will', label:'Will Document', icon:'📜' },
-  { value:'deed', label:'Property Deed', icon:'🏠' },
-  { value:'insurance', label:'Insurance', icon:'🔒' },
-  { value:'financial', label:'Financial', icon:'💰' },
-  { value:'medical', label:'Medical Directive', icon:'🏥' },
-  { value:'other', label:'Other', icon:'📎' },
-]
 
 // ─── Vault lock dial (decorative SVG) ─────────────────────────────────────────
 
@@ -736,10 +727,11 @@ function VaultShareModal({ memorialId, memorialName, userId, familyConnections, 
 
 // ─── Vault content (open state) ────────────────────────────────────────────────
 
-function VaultContent({ memorial, memorialId, userId, onLock, letters, wills, documents }) {
+function VaultContent({ memorial, memorialId, userId, onLock, letters, wills, documents, loading = false, sessionLeft = 0 }) {
   const navigate                = useNavigate()
   const [view, setView]         = useState('home')   // 'home' | 'will' | 'letters' | 'docs' | 'newLetter' | 'willBuilder'
-  const [selectedWill, setSelectedWill] = useState(null)
+  // Minutes until inactivity auto-lock — surfaced as a quiet security cue.
+  const lockMins = Math.max(0, Math.ceil(sessionLeft / 60000))
   const [saving, setSaving]     = useState(false)
   const [showShare, setShowShare] = useState(false)
 
@@ -768,6 +760,28 @@ function VaultContent({ memorial, memorialId, userId, onLock, letters, wills, do
 
   const existingWill = wills?.[0]
   const isOwner      = true  // already verified by vault auth
+
+  // Vault contents are only queried once unlocked — show a brief decrypting state
+  // instead of flashing empty "No letters / No documents" placeholders.
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <div className="metal-surface px-5 py-4 flex items-center gap-2.5 sticky top-0 z-10">
+          <button onClick={() => navigate(`/memorial/${memorialId}`)} title="Back to memorial"
+            className="w-9 h-9 rubber-btn rounded-full flex items-center justify-center text-white/55 hover:text-white transition-colors flex-shrink-0">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <p className="text-sm font-semibold text-white truncate">{memorial?.name || 'Legacy Vault'}</p>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 py-24">
+          <div className="w-9 h-9 border-2 border-gold/25 border-t-gold rounded-full animate-spin" />
+          <p className="text-xs text-white/30 tracking-wide">Decrypting vault contents…</p>
+        </div>
+      </div>
+    )
+  }
 
   if (view === 'willBuilder') {
     return <WillBuilder memorial={memorial} existingWill={existingWill} onSave={saveWill} onBack={() => setView('home')} />
@@ -803,13 +817,16 @@ function VaultContent({ memorial, memorialId, userId, onLock, letters, wills, do
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <button onClick={() => setShowShare(true)}
-              className="rubber-btn text-[0.65rem] font-bold tracking-wide uppercase text-gold/70 px-4 py-2 rounded-full flex items-center gap-1.5"
-              title="Share vault code with family">
-              📤 <span className="hidden sm:inline">Share code</span>
-            </button>
+            {/* Quiet auto-lock countdown — reassures that the vault re-secures itself */}
+            {lockMins > 0 && (
+              <span className="hidden sm:flex items-center gap-1.5 text-[0.6rem] font-mono tracking-wide text-white/30 px-2.5 py-2 rounded-full"
+                title="The vault locks automatically after inactivity">
+                <span className="w-1.5 h-1.5 rounded-full bg-mint/60" /> Auto-locks · {lockMins}m
+              </span>
+            )}
             <button onClick={onLock}
-              className="rubber-btn text-[0.65rem] font-bold tracking-wide uppercase text-white/50 px-4 py-2 rounded-full flex items-center gap-1.5">
+              className="rubber-btn text-[0.65rem] font-bold tracking-wide uppercase text-white/55 px-4 py-2 rounded-full flex items-center gap-1.5"
+              title="Lock the vault now">
               🔒 <span className="hidden sm:inline">Lock</span>
             </button>
           </div>
@@ -1024,7 +1041,6 @@ export default function LegacyLettersPage() {
 
   // Auth state: 'checking' | 'setup' | 'locked' | 'authenticating' | 'pinEntry' | 'creatingPin' | 'open'
   const [authState,   setAuthState]   = useState('checking')
-  const [pinInput,    setPinInput]    = useState('')
   const [pinError,    setPinError]    = useState(false)
   const [pinStep,     setPinStep]     = useState('enter') // 'enter' | 'confirm'
   const [pinFirst,    setPinFirst]    = useState('')
@@ -1036,7 +1052,6 @@ export default function LegacyLettersPage() {
   const [resetError,  setResetError]  = useState('')
   const [accountEmail, setAccountEmail] = useState('')
   const [setupStep,   setSetupStep]   = useState('understand') // 'understand' | 'pin'
-  const idleTimer = useRef(null)
 
   const vaultId = getVaultId(memorialId || '')
   const uid     = user?.id || 'anon'
@@ -1095,18 +1110,45 @@ export default function LegacyLettersPage() {
     if (memorialId && uid) check()
   }, [memorialId, uid])
 
-  // ── Auto-lock timer ───────────────────────────────────────────────────────
+  // ── Auto-lock on inactivity ─────────────────────────────────────────────────
+  // The vault auto-locks after SESSION_TIMEOUT of *inactivity*. We only extend
+  // the session on genuine user activity (pointer/key/touch/scroll) — never on a
+  // blind interval — otherwise the timer would keep the vault open forever. The
+  // interval just enforces the timeout and keeps the countdown fresh; returning
+  // to a stale tab locks immediately.
   useEffect(() => {
     if (authState !== 'open') return
-    const tick = setInterval(() => {
-      if (!isSessionValid(memorialId, uid)) {
-        lock()
-      } else {
-        refreshSession(memorialId, uid)
-        setSessionLeft(getSessionTimeLeft(memorialId, uid))
-      }
-    }, 30000)
-    return () => clearInterval(tick)
+
+    // Throttle so rapid events (scroll) don't spam localStorage — the timeout is
+    // minutes long, so extending at most once every 10s is more than enough.
+    let lastBump = 0
+    const bump = () => {
+      const now = Date.now()
+      if (now - lastBump < 10000) return
+      lastBump = now
+      refreshSession(memorialId, uid)
+    }
+    const activity = ['pointerdown', 'keydown', 'touchstart', 'scroll']
+    activity.forEach(e => window.addEventListener(e, bump, { passive: true }))
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && !isSessionValid(memorialId, uid)) lock()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+
+    const update = () => {
+      if (!isSessionValid(memorialId, uid)) lock()
+      else setSessionLeft(getSessionTimeLeft(memorialId, uid))
+    }
+    const tick    = setInterval(update, 5000)
+    const initial = setTimeout(update, 0)   // first read deferred out of the effect body
+
+    return () => {
+      clearInterval(tick)
+      clearTimeout(initial)
+      activity.forEach(e => window.removeEventListener(e, bump))
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [authState, memorialId, uid])
 
   // ── Auth actions ──────────────────────────────────────────────────────────
@@ -1233,6 +1275,8 @@ export default function LegacyLettersPage() {
           letters={letters}
           wills={wills}
           documents={documents}
+          loading={!data}
+          sessionLeft={sessionLeft}
         />
       </div>
     )
