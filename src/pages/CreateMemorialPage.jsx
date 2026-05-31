@@ -233,6 +233,7 @@ const VOICE_MAX_SECONDS = 120                 // 2 min recording auto-stop
 const VOICE_MAX_BYTES   = 15 * 1024 * 1024    // 15 MB upload ceiling
 
 function VoiceRecorder({ form, setForm }) {
+  const { can, requireFeature } = usePaywall()
   const [recording, setRecording] = useState(false)
   const [recorded, setRecorded] = useState(!!form.voiceUrl)
   const [uploading, setUploading] = useState(false)
@@ -359,6 +360,32 @@ function VoiceRecorder({ form, setForm }) {
     setForm(f => ({ ...f, voiceUrl: null, voiceDuration: null }))
     setRecorded(false)
     setDuration(0)
+  }
+
+  // Voice memory capture is a Premium feature. Free accounts see an upgrade
+  // prompt here instead of the recorder (existing recordings still show).
+  if (!can('voiceCapture') && !form.voiceUrl) {
+    return (
+      <div>
+        <label className="block text-[0.65rem] font-bold tracking-[0.2em] uppercase text-cream-dim mb-2">
+          Voice recording
+        </label>
+        <button type="button" onClick={() => requireFeature('voiceCapture')}
+          className="w-full text-left glass rounded-2xl p-4 border border-gold/25 hover:border-gold/40 transition-colors"
+          style={{ background: 'linear-gradient(135deg, rgba(243,178,26,.08), rgba(255,107,77,.04))' }}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gold/30 to-coral/30 flex items-center justify-center flex-shrink-0">
+              <span className="text-lg">✦</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm text-white font-medium">Preserve their voice — Premium</div>
+              <div className="text-xs text-white/40">Capture and keep a voice recording. Tap to upgrade.</div>
+            </div>
+            <span className="text-gold flex-shrink-0">→</span>
+          </div>
+        </button>
+      </div>
+    )
   }
 
   return (
@@ -1406,18 +1433,18 @@ export default function CreateMemorialPage() {
 
   // Plan gate — free accounts may create one memorial. If they're already at the
   // limit, bounce them to the dashboard and pop the upgrade cutoff.
-  const { plan, limit: planLimit, openUpgrade } = usePaywall()
+  const { plan, ready: planReady, limit: planLimit, openUpgrade } = usePaywall()
   const { data: myMemorialsData } = db.useQuery(
     user ? { memorials: { $: { where: { creatorId: user.id } } } } : null
   )
   const myMemorialCount = myMemorialsData?.memorials?.length
   useEffect(() => {
-    if (myMemorialCount == null) return                 // still loading
+    if (!planReady || myMemorialCount == null) return   // wait for plan + count
     if (plan === 'free' && myMemorialCount >= planLimit('memorials')) {
       openUpgrade('unlimitedMemorials')
       navigate('/dashboard', { replace: true })
     }
-  }, [plan, myMemorialCount, planLimit, openUpgrade, navigate])
+  }, [planReady, plan, myMemorialCount, planLimit, openUpgrade, navigate])
 
   // Guest users (signed in with signInAsGuest — no email) must create a real
   // account before they can publish a memorial.

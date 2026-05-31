@@ -16,6 +16,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { db } from '../lib/instant'
 import { generateSpeech } from '../lib/elevenlabs'
 import { useToast } from '../contexts/ToastContext'
+import { usePaywall } from '../contexts/PaywallContext'
 import { SkeletonProfile, SkeletonListItem } from '../components/ui/Skeleton'
 
 // ─── System prompt builder ────────────────────────────────────────────────────
@@ -238,6 +239,16 @@ export default function ConversationPage() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const { user } = db.useAuth()
+  const { ready: planReady, requireFeature } = usePaywall()
+
+  // Living voice conversation is a Premium feature — gate the full-page route too
+  // (the in-page "Talk to" button is already gated). Wait for the plan to load so
+  // paying users are never bounced.
+  useEffect(() => {
+    if (planReady && !requireFeature('voiceConversation')) {
+      navigate(`/memorial/${memorialId}`, { replace: true })
+    }
+  }, [planReady, memorialId, requireFeature, navigate])
 
   const [messages,   setMessages]   = useState([])
   const [input,      setInput]      = useState('')

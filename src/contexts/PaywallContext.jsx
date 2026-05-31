@@ -17,6 +17,7 @@ const PaywallCtx = createContext(null)
 
 const FALLBACK = {
   plan: 'free',
+  ready: true,
   can: () => true,
   limit: () => Infinity,
   requireFeature: () => true,
@@ -24,11 +25,14 @@ const FALLBACK = {
 }
 
 export function PaywallProvider({ children }) {
-  const { user } = db.useAuth()
-  const { data } = db.useQuery(
+  const { user, isLoading: authLoading } = db.useAuth()
+  const { data, isLoading } = db.useQuery(
     user ? { profiles: { $: { where: { userId: user.id } } } } : null,
   )
   const plan = normalizePlan(data?.profiles?.[0]?.plan)
+  // `ready` is true once the real plan is known — guards on-mount gates from
+  // false-firing on paying users during the brief load window (plan starts 'free').
+  const ready = !authLoading && (!user || !isLoading)
   const [gate, setGate] = useState(null) // { feature } while the modal is open
 
   const can            = useCallback((feature) => hasFeature(plan, feature), [plan])
@@ -41,8 +45,8 @@ export function PaywallProvider({ children }) {
   }, [plan])
 
   const value = useMemo(
-    () => ({ plan, can, limit, requireFeature, openUpgrade }),
-    [plan, can, limit, requireFeature, openUpgrade],
+    () => ({ plan, ready, can, limit, requireFeature, openUpgrade }),
+    [plan, ready, can, limit, requireFeature, openUpgrade],
   )
 
   return (
