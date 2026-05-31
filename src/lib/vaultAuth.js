@@ -11,7 +11,7 @@
 
 // ─── Storage keys ─────────────────────────────────────────────────────────────
 // The PIN itself now lives server-side (on the memorial, verified via
-// /api/vault-pin) so it is a true shared secret across people and devices.
+// /api/email action 'vault-pin') so it is a true shared secret across devices.
 // Only per-device conveniences (biometric credential, session) stay local.
 
 const credKey  = (mid, uid) => `wwi_vault_${mid}_${uid}_cred`   // per-device biometrics
@@ -54,7 +54,9 @@ export function isVaultSetupFor(memorial) {
 
 // ─── PIN management (server-verified shared secret) ─────────────────────────────
 
-const VAULT_PIN_API = '/api/vault-pin'
+// PIN set/verify run server-side; folded into /api/email (action 'vault-pin')
+// to stay under the Vercel Hobby-plan function limit.
+const VAULT_PIN_API = '/api/email'
 
 // Create or change the shared PIN. `currentPin` is required to change an existing
 // PIN unless the caller is the memorial creator (enforced server-side). Throws on
@@ -63,7 +65,7 @@ export async function setPIN(memorialId, userId, pin, currentPin) {
   const r = await fetch(VAULT_PIN_API, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ action: 'set', memorialId, userId, pin, currentPin }),
+    body:    JSON.stringify({ action: 'vault-pin', sub: 'set', memorialId, userId, pin, currentPin }),
   })
   const json = await r.json().catch(() => ({}))
   if (!r.ok || !json.ok) throw new Error(json.error || 'Could not set the vault PIN.')
@@ -76,7 +78,7 @@ export async function verifyPIN(memorialId, _userId, pin) {
     const r = await fetch(VAULT_PIN_API, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ action: 'verify', memorialId, pin }),
+      body:    JSON.stringify({ action: 'vault-pin', sub: 'verify', memorialId, pin }),
     })
     const json = await r.json().catch(() => ({}))
     return {

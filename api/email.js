@@ -586,6 +586,79 @@ const actions = {
 
     return { json: { sent: sent.length, errors: errors.length, details: sent } }
   },
+
+  // ── Legacy Vault shared PIN (set / verify), server-side ───────────────────
+  // Folded in here (rather than a standalone /api/vault-pin function) to stay
+  // under the Hobby-plan 12-function limit. Body: { sub:'set'|'verify',
+  // memorialId, pin, userId?, currentPin? }.
+  async 'vault-pin'(body) {
+    const { createHash } = await import('node:crypto')
+    const PEPPER = process.env.VAULT_PIN_PEPPER || process.env.INSTANTDB_ADMIN_TOKEN || 'wwi-vault-pepper'
+    const hashPin = (pin, mid) => createHash('sha256').update(`${pin}:${mid}:${PEPPER}`).digest('hex')
+    const MAX_ATTEMPTS = 5, LOCK_MS = 5 * 60 * 1000
+
+    const { sub, memorialId, pin, userId, currentPin } = body
+    if (!memorialId)                        return { status: 400, json: { error: 'Missing memorialId' } }
+    if (!/^\d{6}$/.test(String(pin || ''))) return { status: 400, json: { error: 'PIN must be 6 digits' } }
+
+    const data = await instantQuery({ memorials: { $: { where: { id: memorialId } } } })
+    const memorial = data?.memorials?.[0]
+    if (!memorial) return { status: 404, json: { error: 'Memorial not found' } }
+
+    const { init } = await import('@instantdb/admin')
+    const adminDb  = init({ appId: process.env.VITE_INSTANT_APP_ID, adminToken: process.env.INSTANTDB_ADMIN_TOKEN })
+
+    if (sub === 'set') {
+      const isCreator = !memorial.creatorId || memorial.creatorId === userId
+      if (memorial.vaultPinHash) {
+        const knowsCurrent = hashPin(String(currentPin || ''), memorialId) === memorial.vaultPinHash
+        if (!knowsCurrent && !isCreator) return { status: 403, json: { error: 'Enter the current PIN to change it.' } }
+      } else if (!isCreator) {
+        return { status: 403, json: { error: 'Only the memorial owner can set up the vault.' } }
+      }
+      await adminDb.transact([ adminDb.tx.memorials[memorialId].update({
+        vaultPinHash: hashPin(String(pin), memorialId), vaultPinUpdatedAt: Date.now(),
+        vaultFailedAttempts: 0, vaultLockUntil: 0,
+      }) ])
+      return { json: { ok: true } }
+    }
+
+    if (sub === 'verify') {
+      if (!memorial.vaultPinHash) return { status: 409, json: { error: 'This vault has not been set up yet.' } }
+      const now = Date.now()
+      if (memorial.vaultLockUntil && now < memorial.vaultLockUntil) {
+        return { status: 429, json: { ok: false, lockedUntil: memorial.vaultLockUntil } }
+      }
+      if (hashPin(String(pin), memorialId) === memorial.vaultPinHash) {
+        if (memorial.vaultFailedAttempts || memorial.vaultLockUntil) {
+          await adminDb.transact([ adminDb.tx.memorials[memorialId].update({ vaultFailedAttempts: 0, vaultLockUntil: 0 }) ])
+        }
+        return { json: { ok: true } }
+      }
+      const attempts  = (memorial.vaultFailedAttempts || 0) + 1
+      const lockUntil = attempts >= MAX_ATTEMPTS ? now + LOCK_MS : 0
+      await adminDb.transact([ adminDb.tx.memorials[memorialId].update({
+        vaultFailedAttempts: lockUntil ? 0 : attempts, vaultLockUntil: lockUntil,
+      }) ])
+      return { json: { ok: false, lockedUntil: lockUntil || undefined, attemptsLeft: lockUntil ? 0 : Math.max(0, MAX_ATTEMPTS - attempts) } }
+    }
+
+    return { status: 400, json: { error: 'Unknown vault-pin sub-action' } }
+  },
+
+  // ── Increment a memorial's view counter (owner-only writes via admin) ─────
+  async 'memorial-view'(body) {
+    const { memorialId } = body
+    if (!memorialId) return { status: 400, json: { error: 'Missing memorialId' } }
+    const data = await instantQuery({ memorials: { $: { where: { id: memorialId } } } })
+    const m = data?.memorials?.[0]
+    if (!m) return { status: 404, json: { error: 'Memorial not found' } }
+    const { init } = await import('@instantdb/admin')
+    const adminDb  = init({ appId: process.env.VITE_INSTANT_APP_ID, adminToken: process.env.INSTANTDB_ADMIN_TOKEN })
+    const next = (m.viewCount || 0) + 1
+    await adminDb.transact([ adminDb.tx.memorials[memorialId].update({ viewCount: next }) ])
+    return { json: { ok: true, viewCount: next } }
+  },
 }
 
 // ── Main handler ─────────────────────────────────────────────────────────────
@@ -598,8 +671,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: `Unknown action: ${action}. Valid: ${Object.keys(actions).join(', ')}` })
   }
 
+  // Actions that don't send email (admin-DB only) must run even if Resend is unset.
+  const NO_EMAIL = ['send-anniversary', 'vault-pin', 'memorial-view']
   const RESEND_KEY = process.env.RESEND_API_KEY
-  if (!RESEND_KEY && action !== 'send-anniversary') {
+  if (!RESEND_KEY && !NO_EMAIL.includes(action)) {
     console.warn(`[email/${action}] RESEND_API_KEY not set — email not sent`)
     return res.status(200).json({ ok: true, note: 'Email service not configured' })
   }

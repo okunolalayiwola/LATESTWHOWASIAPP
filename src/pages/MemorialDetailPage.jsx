@@ -3293,7 +3293,7 @@ function MemorialDetailPageInner() {
   // Count a view — once per browser session, non-owners only. viewCount is shown
   // on the dashboard, profile and the life gauge; nothing ever wrote it, so every
   // "Views" read 0. Memorial updates are owner-only under the DB perms, so the
-  // increment runs server-side via /api/memorial-view (admin token).
+  // increment runs server-side via /api/email action 'memorial-view' (admin token).
   useEffect(() => {
     if (!memorial || !memorialId) return
     if (user && memorial.creatorId === user.id) return        // don't count the owner
@@ -3302,10 +3302,10 @@ function MemorialDetailPageInner() {
       if (sessionStorage.getItem(key)) return
       sessionStorage.setItem(key, '1')
     } catch { return }
-    fetch('/api/memorial-view', {
+    fetch('/api/email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ memorialId }),
+      body: JSON.stringify({ action: 'memorial-view', memorialId }),
     }).catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [memorial?.id, user?.id])
