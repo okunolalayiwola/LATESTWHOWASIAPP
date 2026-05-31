@@ -96,6 +96,17 @@ const _schema = i.schema({
       createdAt:   i.number(),
     }),
 
+    // ─── Photo Comments (family-only threads under gallery photos) ───────────
+    photoComments: i.entity({
+      photoId:     i.string().indexed(),
+      memorialId:  i.string().indexed(),
+      authorId:    i.string(),
+      authorName:  i.string(),
+      authorPhoto: i.string().optional(),
+      content:     i.string(),
+      createdAt:   i.number(),
+    }),
+
     // ─── Profiles ────────────────────────────────────────────────────────────
     profiles: i.entity({
       userId:              i.string(),
@@ -126,6 +137,7 @@ const _schema = i.schema({
     photos: i.entity({
       url:         i.string(),
       caption:     i.string().optional(),
+      likes:       i.number().optional(),      // open reactions (mirrors tributes.likes)
       createdAt:   i.number().optional(),
       takenAt:     i.number().optional(),      // original Unix timestamp (EXIF/social)
       displayDate: i.string().optional(),      // "15 June 2019"

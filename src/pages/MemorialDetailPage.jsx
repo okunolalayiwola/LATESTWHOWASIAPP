@@ -1561,7 +1561,170 @@ function TributesSection({ tributes, onLike, onDelete, isOwner, currentUserId, m
 }
 
 // ─── Gallery section ──────────────────────────────────────────────────────────
-function GallerySection({ photos, memorialId, isOwner, preview = false }) {
+// Tiny local boundary — keeps a comments failure (e.g. the photoComments entity
+// not yet present in the live schema) from ever taking down the gallery.
+class SafeBoundary extends Component {
+  constructor(p) { super(p); this.state = { failed: false } }
+  static getDerivedStateFromError() { return { failed: true } }
+  componentDidCatch(e) { console.warn('[gallery comments]', e?.message) }
+  render() { return this.state.failed ? (this.props.fallback ?? null) : this.props.children }
+}
+
+// ─── Photo comments (family members only — mirrors TributeComments) ───────────
+function PhotoComments({ photoId, memorialId, user, userProfile, isFamilyMember }) {
+  const [text,    setText]    = useState('')
+  const [sending, setSending] = useState(false)
+
+  const { data } = db.useQuery({
+    photoComments: { $: { where: { photoId }, order: { serverCreatedAt: 'asc' } } },
+  })
+  const comments = data?.photoComments || []
+
+  async function handleComment() {
+    if (!text.trim() || sending || !user) return
+    setSending(true)
+    try {
+      const displayName = userProfile?.displayName || user.email?.split('@')[0] || 'Family member'
+      await db.transact([
+        db.tx.photoComments[id()].update({
+          photoId, memorialId,
+          authorId:    user.id,
+          authorName:  displayName,
+          authorPhoto: userProfile?.photoUrl || null,
+          content:     text.trim(),
+          createdAt:   Date.now(),
+        }),
+      ])
+      setText('')
+    } finally { setSending(false) }
+  }
+
+  const avatar = (name, photo) => (
+    <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
+      background: 'linear-gradient(135deg, color-mix(in srgb, var(--theme,#f3b21a) 35%, transparent), rgba(56,189,248,.15))',
+      border: '1px solid rgba(241,236,225,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.cream }}>
+      {photo ? <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+             : (name?.[0] || '?').toUpperCase()}
+    </div>
+  )
+
+  return (
+    <div style={{ marginTop: 6 }}>
+      <p style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.16em', textTransform: 'uppercase',
+        color: 'rgba(241,236,225,.4)', margin: '0 0 12px' }}>
+        {comments.length > 0 ? `${comments.length} comment${comments.length !== 1 ? 's' : ''}` : 'Comments'}
+      </p>
+
+      {comments.map(c => (
+        <div key={c.id} style={{ display: 'flex', gap: 9, marginBottom: 12, alignItems: 'flex-start' }}>
+          {avatar(c.authorName, c.authorPhoto)}
+          <div style={{ flex: 1, background: 'rgba(241,236,225,.05)', borderRadius: '12px 12px 12px 4px',
+            padding: '8px 12px', border: '1px solid rgba(241,236,225,.07)' }}>
+            <span style={{ fontFamily: DISP, fontSize: 12.5, fontWeight: 600, color: C.cream }}>{c.authorName} </span>
+            <span style={{ fontFamily: DISP, fontSize: 12.5, color: 'rgba(241,236,225,.75)', lineHeight: 1.5 }}>{c.content}</span>
+            <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '.1em', color: 'rgba(241,236,225,.3)', marginTop: 3 }}>
+              {timeAgo(c.createdAt)}
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {comments.length === 0 && (
+        <p style={{ fontSize: 12, color: 'rgba(241,236,225,.35)', margin: '0 0 12px' }}>
+          {isFamilyMember ? 'Be the first to leave a comment.' : 'No comments yet.'}
+        </p>
+      )}
+
+      {user && isFamilyMember ? (
+        <div style={{ display: 'flex', gap: 9, marginTop: 4, alignItems: 'center' }}>
+          {avatar(userProfile?.displayName || user.email, userProfile?.photoUrl)}
+          <input value={text} onChange={e => setText(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleComment() }}
+            placeholder="Write a comment…"
+            style={{ flex: 1, background: 'rgba(241,236,225,.06)', border: '1px solid rgba(241,236,225,.12)',
+              borderRadius: 999, padding: '8px 14px', fontFamily: DISP, fontSize: 12.5, color: C.cream, outline: 'none' }} />
+          <button onClick={handleComment} disabled={!text.trim() || sending}
+            style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', flexShrink: 0,
+              background: text.trim() ? 'var(--theme, #f3b21a)' : 'rgba(241,236,225,.1)',
+              cursor: text.trim() ? 'pointer' : 'default',
+              display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={text.trim() ? C.ink : C.cream} strokeWidth="2.5" strokeLinecap="round">
+              <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
+        </div>
+      ) : (
+        <p style={{ fontSize: 11, color: 'rgba(241,236,225,.3)', fontStyle: 'italic', margin: 0 }}>
+          Only family members can comment.
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ─── Photo lightbox card — image + like + comments (dark) ─────────────────────
+function PhotoLightboxCard({ photo, onClose, onLike, memorialId, user, userProfile, isFamilyMember }) {
+  const [liked, setLiked] = useState(false)
+  const likes = (photo.likes || 0) + (liked ? 1 : 0)
+
+  return (
+    <motion.div
+      initial={{ scale: .94, opacity: 0, y: 12 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: .94, opacity: 0 }}
+      transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+      onClick={e => e.stopPropagation()}
+      style={{ width: '100%', maxWidth: 560, margin: 'auto', background: C.surface || '#15120e',
+        borderRadius: 22, overflow: 'hidden', border: '1px solid rgba(241,236,225,.1)',
+        boxShadow: '0 30px 90px rgba(0,0,0,.6)' }}>
+
+      <div style={{ position: 'relative', background: '#000' }}>
+        <img src={photo.url} alt={photo.caption || ''}
+          style={{ width: '100%', maxHeight: '58vh', objectFit: 'contain', display: 'block' }} />
+        <button onClick={onClose} aria-label="Close"
+          style={{ position: 'absolute', top: 12, right: 12, width: 36, height: 36, borderRadius: '50%',
+            background: 'rgba(8,8,12,.55)', border: '1px solid rgba(241,236,225,.18)', backdropFilter: 'blur(6px)',
+            color: C.cream, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>✕</button>
+      </div>
+
+      <div style={{ padding: '16px 18px 20px' }}>
+        {/* Like + meta row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
+          <button onClick={() => { if (liked) return; setLiked(true); onLike(photo.id, photo.likes || 0) }}
+            aria-label={liked ? 'Liked' : 'Like photo'}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'none', border: 'none',
+              cursor: liked ? 'default' : 'pointer', padding: 0,
+              color: liked ? '#ff6b6b' : 'rgba(241,236,225,.7)', fontFamily: MONO, fontSize: 12.5, fontWeight: 600 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill={liked ? '#ff6b6b' : 'none'}
+              stroke={liked ? '#ff6b6b' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+            {likes > 0 ? likes : 'Like'}
+          </button>
+          {photo.caption && (
+            <span style={{ fontFamily: DISP, fontSize: 13, color: 'rgba(241,236,225,.6)', minWidth: 0,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{photo.caption}</span>
+          )}
+          {photo.createdAt && (
+            <span style={{ marginLeft: 'auto', fontFamily: MONO, fontSize: 10, color: 'rgba(241,236,225,.3)', flexShrink: 0 }}>
+              {timeAgo(photo.createdAt)}
+            </span>
+          )}
+        </div>
+
+        <div style={{ borderTop: '1px solid rgba(241,236,225,.08)', paddingTop: 14 }}>
+          <SafeBoundary fallback={
+            <p style={{ fontSize: 12, color: 'rgba(241,236,225,.35)', margin: 0 }}>Comments aren’t available yet.</p>
+          }>
+            <PhotoComments photoId={photo.id} memorialId={memorialId}
+              user={user} userProfile={userProfile} isFamilyMember={isFamilyMember} />
+          </SafeBoundary>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
+function GallerySection({ photos, memorialId, isOwner, user, userProfile, isFamilyMember, preview = false }) {
   const [selected,  setSelected]  = useState(null)
   const [showAll,   setShowAll]   = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -1595,6 +1758,13 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
       window.removeEventListener('keydown', onKey)
     }
   }, [selected])
+
+  // Open reaction — increments the photo's like counter (mirrors tributes).
+  async function handleLikePhoto(photoId, currentLikes) {
+    try { await db.transact([db.tx.photos[photoId].update({ likes: (currentLikes || 0) + 1 })]) } catch {
+      /* non-blocking */
+    }
+  }
 
   // Photos added here (after the memorial exists) are NOT used to shape the
   // AI persona. The flag is silent to the user — they're just told to upload.
@@ -1753,6 +1923,14 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
                 {photo.caption}
               </span>
             )}
+            {photo.likes > 0 && (
+              <span style={{ position: 'absolute', right: 8, bottom: 8, display: 'flex', alignItems: 'center', gap: 4,
+                fontFamily: MONO, fontSize: 10, fontWeight: 600, color: '#fff',
+                background: 'rgba(8,8,12,.5)', backdropFilter: 'blur(4px)', padding: '3px 8px', borderRadius: 999 }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="#ff6b6b" stroke="none"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                {photo.likes}
+              </span>
+            )}
           </motion.div>
         ))}
 
@@ -1882,16 +2060,11 @@ function GallerySection({ photos, memorialId, isOwner, preview = false }) {
               onClick={() => setSelected(null)}
               style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(21,18,14,.95)',
                 backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-              <motion.img initial={{ scale: .92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: .92, opacity: 0 }}
-                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                src={selected.url} alt="" onClick={e => e.stopPropagation()}
-                style={{ maxWidth: '100%', maxHeight: '80vh', borderRadius: 20, objectFit: 'contain',
-                  boxShadow: '0 30px 90px rgba(0,0,0,.6)' }} />
-              <button onClick={() => setSelected(null)} aria-label="Close"
-                style={{ position: 'absolute', top: 24, right: 24, width: 40, height: 40, borderRadius: '50%',
-                  background: 'rgba(241,236,225,.1)', border: '1px solid rgba(241,236,225,.15)',
-                  color: C.cream, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>✕</button>
+                display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+                padding: 'clamp(16px, 4vh, 40px) 16px', overflowY: 'auto' }}>
+              <PhotoLightboxCard key={selected.id} photo={selected} onClose={() => setSelected(null)}
+                onLike={handleLikePhoto} memorialId={memorialId}
+                user={user} userProfile={userProfile} isFamilyMember={isFamilyMember} />
             </motion.div>
           )}
         </AnimatePresence>,
@@ -3368,7 +3541,8 @@ function MemorialDetailPageInner() {
             )}
 
             {activeTab === 'Gallery' && (
-              <GallerySection photos={photos} memorialId={memorialId} isOwner={isOwner} />
+              <GallerySection photos={photos} memorialId={memorialId} isOwner={isOwner}
+                user={user} userProfile={userProfile} isFamilyMember={isFamilyMember || isOwner} />
             )}
 
             {/* Family circle + private messages — owner / approved family only */}
