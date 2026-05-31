@@ -13,6 +13,7 @@ import HudPanel            from '../components/orbital/HudPanel'
 import SearchModal      from '../components/members/SearchModal'
 import InviteModal      from '../components/shared/InviteModal'
 import { getRelationLabel } from '../lib/relations'
+import { coordsForCountry } from '../lib/countryCoords'
 
 export default function FamilyTreePage() {
   const { user } = db.useAuth()
@@ -43,6 +44,21 @@ export default function FamilyTreePage() {
   const userName    = profile?.displayName || user?.email?.split('@')[0] || 'Family'
   const userPhoto   = profile?.photoUrl || null
 
+  // Pull each connected member's profile to learn their home country (entered at
+  // signup) — used to anchor them on the geo-map backdrop.
+  const fromUserIds = useMemo(
+    () => [...new Set(connections.map(c => c.fromUserId).filter(Boolean))],
+    [connections],
+  )
+  const { data: memberProfilesData } = db.useQuery(
+    fromUserIds.length ? { profiles: { $: { where: { userId: { $in: fromUserIds } } } } } : null,
+  )
+  const countryByUserId = useMemo(() => {
+    const m = {}
+    ;(memberProfilesData?.profiles || []).forEach(p => { if (p.userId) m[p.userId] = p.countryCode })
+    return m
+  }, [memberProfilesData])
+
   // User-as-centre object (the default centre when nothing is selected)
   const userCenter = useMemo(() => ({
     id:        'me',
@@ -51,7 +67,8 @@ export default function FamilyTreePage() {
     alive:     true,
     isMemorial: false,
     subtitle:   'You',
-  }), [userName, userPhoto])
+    coords:     coordsForCountry(profile?.countryCode),
+  }), [userName, userPhoto, profile?.countryCode])
 
   // Convert approved connections to the FamilyTreeOrb members format
   const members = useMemo(() => connections.map(conn => ({
@@ -64,7 +81,8 @@ export default function FamilyTreePage() {
     generation: 1,
     connId:    conn.id,
     fromUserId: conn.fromUserId,
-  })), [connections])
+    coords:    coordsForCountry(countryByUserId[conn.fromUserId]),
+  })), [connections, countryByUserId])
 
   // Build the orbital list — when someone is "centered on", the previous
   // centre (the user) joins as an honourary ring-1 node.
@@ -78,10 +96,19 @@ export default function FamilyTreePage() {
     if (!centeredId) return members
     // Centre is a connection → push user back into the orbit
     return [
-      { id: 'me', name: userName, photo: userPhoto, relation: 'You', alive: true, ring: 1 },
+      { id: 'me', name: userName, photo: userPhoto, relation: 'You', alive: true, ring: 1,
+        coords: coordsForCountry(profile?.countryCode) },
       ...members.filter(m => m.id !== centeredId),
     ]
-  }, [centeredId, members, userName, userPhoto])
+  }, [centeredId, members, userName, userPhoto, profile?.countryCode])
+
+  // Geo backdrop data: members that have a known home location, plus the focal
+  // person's location (used to centre the map under the orbital web).
+  const geoLocations = useMemo(
+    () => orbiters.filter(m => m.coords).map(m => ({ id: m.id, name: m.name, alive: m.alive, ...m.coords })),
+    [orbiters],
+  )
+  const centerGeo = centered?.coords || null
 
   if (!user) {
     return (
@@ -138,6 +165,8 @@ export default function FamilyTreePage() {
             <FamilyTreeOrb
               center={centered}
               members={orbiters}
+              geoLocations={geoLocations}
+              centerGeo={centerGeo}
               onSelectMember={handleSelect}
               onCenterClick={handleCenterClick}
               panResetSignal={recenterTick}

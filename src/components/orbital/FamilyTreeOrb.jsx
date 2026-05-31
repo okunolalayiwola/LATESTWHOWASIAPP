@@ -104,6 +104,8 @@ function fit(ctx, text, maxW) {
 export default function FamilyTreeOrb({
   center           = null,
   members          = [],
+  geoLocations     = [],     // [{ id, name, lat, lng, alive }] — members with a home
+  centerGeo        = null,   // { lat, lng } of the focal person — anchors the map
   onSelectMember,
   onCenterClick,
   onPanChange,
@@ -114,12 +116,18 @@ export default function FamilyTreeOrb({
   const rafRef    = useRef(null)
   const layoutRef = useRef([])
   const centerRef = useRef(null)
+  const geoRef    = useRef({ center: null, locations: [] })
   const hovRef    = useRef(null)
   const panRef    = useRef({ x: 0, y: 0 })
   const dragRef   = useRef(null)   // { startX, startY, startPanX, startPanY }
   const movedRef  = useRef(false)
 
   const [panBadge, setPanBadge] = useState(false)
+
+  // Keep the geo backdrop data fresh for the render loop
+  useEffect(() => {
+    geoRef.current = { center: centerGeo, locations: geoLocations }
+  }, [centerGeo, geoLocations])
 
   // Update center + layout when props change
   useEffect(() => {
@@ -170,6 +178,68 @@ export default function FamilyTreeOrb({
         ctx.arc(sx, sy, 0.4 + (i % 3) * 0.22, 0, Math.PI * 2)
         ctx.fillStyle = `rgba(255,255,255,${0.004 + (i % 7) * 0.002})`
         ctx.fill()
+      }
+
+      // ── Geo backdrop — a dreamy world map under the web; each member's home
+      //    is a soft glow, tethered to their orbital node. Centred on the focal
+      //    person's location, so panning the web pans the map with it. ────────
+      {
+        const geo = geoRef.current
+        const cLat = geo.center?.lat ?? 25
+        const cLng = geo.center?.lng ?? 10
+        const PXY  = 6.2   // px per degree
+        const projGeo = (lat, lng) => ({ x: CX + (lng - cLng) * PXY, y: CY - (lat - cLat) * PXY })
+
+        // Faint world glow around the map centre
+        const wg = ctx.createRadialGradient(CX, CY, 40, CX, CY, 760)
+        wg.addColorStop(0, 'rgba(70,120,165,0.05)')
+        wg.addColorStop(1, 'rgba(70,120,165,0)')
+        ctx.beginPath(); ctx.arc(CX, CY, 760, 0, Math.PI * 2); ctx.fillStyle = wg; ctx.fill()
+
+        // Graticule — soft lat/lng grid that reads as a map
+        ctx.save()
+        ctx.strokeStyle = 'rgba(120,165,205,0.055)'; ctx.lineWidth = 0.6
+        for (let lat = -60; lat <= 75; lat += 15) {
+          const a = projGeo(lat, -175), b = projGeo(lat, 175)
+          if (a.y < -60 || a.y > H + 60) continue
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke()
+        }
+        for (let lng = -165; lng <= 165; lng += 15) {
+          const a = projGeo(-65, lng), b = projGeo(82, lng)
+          if (a.x < -60 || a.x > W + 60) continue
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke()
+        }
+        ctx.restore()
+
+        // Tethers — node → its home glow (drawn behind rings/nodes)
+        ctx.save()
+        ctx.setLineDash([2, 6]); ctx.lineWidth = 0.6
+        layout.forEach(m => {
+          if (!m.coords) return
+          const np = nodePos(m._ring, m._angle, rot, CX, CY)
+          const g  = projGeo(m.coords.lat, m.coords.lng)
+          ctx.globalAlpha = (hovId === m.id ? 0.5 : 0.16)
+          ctx.strokeStyle = 'rgba(150,190,220,0.8)'
+          ctx.beginPath(); ctx.moveTo(np.x, np.y); ctx.lineTo(g.x, g.y); ctx.stroke()
+        })
+        ctx.setLineDash([]); ctx.restore()
+
+        // Home glows + names
+        geo.locations.forEach(loc => {
+          const g = projGeo(loc.lat, loc.lng)
+          if (g.x < -50 || g.x > W + 50 || g.y < -50 || g.y > H + 50) return
+          const col = loc.alive !== false ? '74,170,74' : '200,160,30'
+          const gg = ctx.createRadialGradient(g.x, g.y, 0, g.x, g.y, 28)
+          gg.addColorStop(0, `rgba(${col},0.26)`); gg.addColorStop(1, `rgba(${col},0)`)
+          ctx.beginPath(); ctx.arc(g.x, g.y, 28, 0, Math.PI * 2); ctx.fillStyle = gg; ctx.fill()
+          ctx.beginPath(); ctx.arc(g.x, g.y, 2.6, 0, Math.PI * 2); ctx.fillStyle = `rgba(${col},0.9)`; ctx.fill()
+          ctx.save()
+          ctx.globalAlpha = 0.5
+          ctx.font = `600 9px 'Inter',-apple-system,sans-serif`
+          ctx.fillStyle = '#bcd9ec'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'
+          ctx.fillText(loc.name?.split(' ')[0] || '', g.x, g.y + 7)
+          ctx.restore()
+        })
       }
 
       // ── Orbital rings — tilted ellipses (the 3D disc) ──────────────────────
