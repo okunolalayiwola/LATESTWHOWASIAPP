@@ -665,7 +665,7 @@ function Hero({ memorial, memorialId, isOwner, navigate }) {
 }
 
 // ─── Life gauge card ──────────────────────────────────────────────────────────
-function LifeGaugeCard({ memorial, tributeCount, candleCount, memoryCount }) {
+function LifeGaugeCard({ memorial, tributeCount, photoCount, viewCount }) {
   const born  = memorial.born || memorial.dob || memorial.birthYear || ''
   const died  = memorial.died || memorial.dod || memorial.deathYear || ''
   const age   = calcAge(born, died, memorial.alive)
@@ -699,8 +699,8 @@ function LifeGaugeCard({ memorial, tributeCount, candleCount, memoryCount }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 16 }}>
         {[
           { label: 'Tributes', value: tributeCount, color: 'var(--theme, #f3b21a)' },
-          { label: 'Candles',  value: candleCount,  color: C.rust },
-          { label: 'Memories', value: memoryCount,  color: C.text },
+          { label: 'Photos',   value: photoCount,   color: '#6b9cff' },
+          { label: 'Views',    value: viewCount,    color: '#b07cff' },
         ].map(({ label, value, color }) => (
           <div key={label} style={{ padding: '11px 6px 9px', borderRadius: 14, textAlign: 'center',
             background: C.surface2, border: `1px solid ${C.line}` }}>
@@ -3290,6 +3290,26 @@ function MemorialDetailPageInner() {
     prevPortraitStatusRef.current = status || 'none'
   }, [memorial?.talkPortraitStatus, user, memorial?.creatorId, toast])
 
+  // Count a view — once per browser session, non-owners only. viewCount is shown
+  // on the dashboard, profile and the life gauge; nothing ever wrote it, so every
+  // "Views" read 0. Memorial updates are owner-only under the DB perms, so the
+  // increment runs server-side via /api/memorial-view (admin token).
+  useEffect(() => {
+    if (!memorial || !memorialId) return
+    if (user && memorial.creatorId === user.id) return        // don't count the owner
+    const key = `wwi_viewed_${memorialId}`
+    try {
+      if (sessionStorage.getItem(key)) return
+      sessionStorage.setItem(key, '1')
+    } catch { return }
+    fetch('/api/memorial-view', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ memorialId }),
+    }).catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [memorial?.id, user?.id])
+
   // SEO — must be before early returns
   useSEO({
     title:       memorial ? `${memorial.name} — WHO WAS I` : 'WHO WAS I — Living Memorials',
@@ -3337,8 +3357,6 @@ function MemorialDetailPageInner() {
   // ── Derived values (after early returns — NO hooks below this line) ────────
   const photos       = memorial.photos || []
   const tributeCount = tributes.length
-  const candleCount  = 0   // removed — kept as 0 for any legacy gauge/stats usage
-  const memoryCount  = 0   // removed — kept as 0 for any legacy gauge/stats usage
   const isOwner      = !!(user && memorial.creatorId === user.id)
   const shareUrl     = `${window.location.origin}/memorial/${memorialId}`
   const letters      = vaultMemorial?.letters || memorial.letters || []
@@ -3449,7 +3467,7 @@ function MemorialDetailPageInner() {
           {/* ── Left rail (sticky · static): age gauge, life record, legacy
                 vault, join family ──────────────────────────────────────── */}
           <aside style={{ position: 'sticky', top: '1rem', display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <LifeGaugeCard memorial={memorial} tributeCount={tributeCount} candleCount={candleCount} memoryCount={memoryCount} />
+            <LifeGaugeCard memorial={memorial} tributeCount={tributeCount} photoCount={photos.length} viewCount={memorial.viewCount || 0} />
             <LifeRecordCard memorial={memorial} />
             <LegacyVaultCard memorialId={memorialId} memorialName={memorial.name} letterCount={letters.length} sealedCount={sealedCount} hasWill={hasWill} />
             {/* Invite code badge — shown to owner so they can share it */}

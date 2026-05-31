@@ -803,7 +803,7 @@ export default function ProfilePage() {
 
         {/* App version */}
         <p className="text-center text-[0.55rem] text-white/15 pb-4">
-          WHO WAS I · v1.0 · whowasi.uk
+          WHO WAS I · v2.0 · whowasi.uk
         </p>
 
       </div>
