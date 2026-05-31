@@ -1,23 +1,26 @@
 // src/components/Navigation.jsx — dark theme restored
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { db } from '../lib/instant'
 import { useNotifications } from '../hooks/useNotifications'
+import { usePaywall } from '../contexts/PaywallContext'
 
+// Premium is no longer a permanent tab — upgrading is surfaced contextually
+// (an "Upgrade" pill for free users, and at the point a gated feature is used).
 const NAV_LINKS = [
   { to:'/explore',     label:'Explore'   },
   { to:'/dashboard',   label:'Dashboard' },
   { to:'/family-tree', label:'Family'    },
   { to:'/chat',        label:'💬 Chat'   },
-  { to:'/premium',     label:'Premium ✦' },
 ]
 
 export default function Navigation() {
   const location  = useLocation()
   const navigate  = useNavigate()
   const { user, isLoading } = db.useAuth()
+  const { plan } = usePaywall()
   const [menuOpen, setMenuOpen] = useState(false)
   const [bellOpen, setBellOpen] = useState(false)
   const { count: unreadCount, notifications, markAllSeen: markAllRead } = useNotifications(user)
@@ -86,6 +89,15 @@ export default function Navigation() {
               </div>
             )}
 
+            {/* Upgrade nudge — only for free users, not a permanent fixture */}
+            {user && plan === 'free' && (
+              <Link to="/premium"
+                className="hidden md:flex items-center gap-1 text-gold/80 hover:text-gold text-xs font-semibold tracking-wide px-3 py-2 rounded-full hover:bg-gold/5 transition-all"
+                title="Upgrade your plan">
+                Upgrade ✦
+              </Link>
+            )}
+
             {user && (
               <Link to="/create"
                 className="hidden md:flex items-center gap-1.5 bg-gradient-to-r from-gold to-coral text-black text-xs font-bold tracking-wide px-4 py-2 rounded-full hover:opacity-90 transition-opacity">
@@ -129,6 +141,13 @@ export default function Navigation() {
               </Link>
             ))}
             <div className="pt-2 border-t border-white/6 mt-2 space-y-1">
+              {user && (
+                <Link to="/premium" onClick={() => setMenuOpen(false)}
+                  className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium text-white/70 hover:bg-white/5 hover:text-white transition-all">
+                  <span>Plans &amp; billing</span>
+                  {plan === 'free' && <span className="text-[0.6rem] font-bold text-gold">Upgrade ✦</span>}
+                </Link>
+              )}
               {user && (
                 <Link to="/profile" onClick={() => setMenuOpen(false)}
                   className="block px-4 py-3 rounded-xl text-sm font-medium text-white/70 hover:bg-white/5 hover:text-white transition-all">

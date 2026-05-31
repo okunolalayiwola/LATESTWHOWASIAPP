@@ -11,6 +11,7 @@ import { db } from '../lib/instant'
 import { uploadImage, uploadAudio } from '../lib/storage'
 import useSEO from '../hooks/useSEO'
 import { useToast } from '../contexts/ToastContext'
+import { usePaywall } from '../contexts/PaywallContext'
 import InviteCodeBadge from '../components/shared/InviteCodeBadge'
 import FamilyMessagesSection from '../components/shared/FamilyMessagesSection'
 
@@ -2956,6 +2957,7 @@ function MemorialDetailPageInner() {
 
   const { user }  = db.useAuth()
   const { toast } = useToast()
+  const { requireFeature } = usePaywall()
 
   const { isLoading, error, data } = db.useQuery(
     memorialId ? { memorials: { $: { where: { id: memorialId } }, tributes: {}, photos: {} } } : null
@@ -3313,19 +3315,19 @@ function MemorialDetailPageInner() {
 
             {/* 1. Amber identity hero — brushed-metal "Talk to {name}" CTA opens the AI talk screen */}
             <ProfilePortrait memorial={memorial} memorialId={memorialId} isOwner={isOwner} navigate={navigate}
-              onTalk={() => setShowTalkScreen(true)} />
+              onTalk={() => { if (requireFeature('voiceConversation')) setShowTalkScreen(true) }} />
 
             {/* 2. Action tiles — tribute / speak / share / QR */}
             <ActionsCard
               isOwner={isOwner}
               onTribute={() => setShowTributeForm(true)}
-              onSpeak={() => setShowTalkScreen(true)}
-              onRecord={() => setShowRecordModal(true)}
+              onSpeak={() => { if (requireFeature('voiceConversation')) setShowTalkScreen(true) }}
+              onRecord={() => { if (requireFeature('voiceCapture')) setShowRecordModal(true) }}
               onShare={handleShare}
               onQR={() => setShowQR(true)} />
 
             {/* 3. Voice + Speak to {name} — combined card */}
-            <VoiceSection memorial={memorial} onOpenTalk={() => setShowTalkScreen(true)} />
+            <VoiceSection memorial={memorial} onOpenTalk={() => { if (requireFeature('voiceConversation')) setShowTalkScreen(true) }} />
             {isOwner && (
               <PersonaProfileCallout memorial={memorial} memorialId={memorialId} />
             )}

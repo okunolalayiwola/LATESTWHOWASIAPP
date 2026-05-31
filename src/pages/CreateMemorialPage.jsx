@@ -23,6 +23,7 @@ import { db } from '../lib/instant'
 import { uploadImage, uploadAudio } from '../lib/storage'
 import { cloneVoice } from '../lib/elevenlabs'
 import { useToast } from '../contexts/ToastContext'
+import { usePaywall } from '../contexts/PaywallContext'
 import RelationPicker from '../components/ui/RelationPicker'
 import { getRelationLabel } from '../lib/relations'
 import { COUNTRIES, countryFlag, findCountry } from '../lib/countries'
@@ -1402,6 +1403,21 @@ export default function CreateMemorialPage() {
   const creatorCountryCode  = profile?.countryCode || ''
   const creatorDisplayName  = profile?.displayName || ''
   const creatorPhoto        = profile?.photoUrl || ''
+
+  // Plan gate — free accounts may create one memorial. If they're already at the
+  // limit, bounce them to the dashboard and pop the upgrade cutoff.
+  const { plan, limit: planLimit, openUpgrade } = usePaywall()
+  const { data: myMemorialsData } = db.useQuery(
+    user ? { memorials: { $: { where: { creatorId: user.id } } } } : null
+  )
+  const myMemorialCount = myMemorialsData?.memorials?.length
+  useEffect(() => {
+    if (myMemorialCount == null) return                 // still loading
+    if (plan === 'free' && myMemorialCount >= planLimit('memorials')) {
+      openUpgrade('unlimitedMemorials')
+      navigate('/dashboard', { replace: true })
+    }
+  }, [plan, myMemorialCount, planLimit, openUpgrade, navigate])
 
   // Guest users (signed in with signInAsGuest — no email) must create a real
   // account before they can publish a memorial.

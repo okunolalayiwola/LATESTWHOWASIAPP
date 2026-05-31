@@ -6,6 +6,7 @@ import { AnimatePresence } from 'framer-motion'
 
 import ErrorBoundary     from './components/ui/ErrorBoundary'
 import { ToastProvider } from './contexts/ToastContext'
+import { PaywallProvider } from './contexts/PaywallContext'
 import BokehBackground   from './components/BokehBackground'
 import Navigation        from './components/Navigation'
 import BottomNav         from './components/BottomNav'
@@ -287,7 +288,9 @@ export default function App() {
   return (
     <ErrorBoundary>
       <ToastProvider>
-        <AppInner />
+        <PaywallProvider>
+          <AppInner />
+        </PaywallProvider>
       </ToastProvider>
     </ErrorBoundary>
   )
