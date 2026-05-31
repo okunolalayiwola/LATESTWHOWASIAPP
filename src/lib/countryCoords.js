@@ -41,6 +41,10 @@ export const COUNTRY_COORDS = {
   UA:[48.4,31.2], AE:[23.4,53.8], GB:[55.4,-3.4], US:[37.1,-95.7], UY:[-32.5,-55.8],
   UZ:[41.4,64.6], VU:[-15.4,166.96], VE:[6.4,-66.6], VN:[14.1,108.3], YE:[15.6,48.5],
   ZM:[-13.1,27.8], ZW:[-19.0,29.2],
+  // Small island / remaining nations — every selectable country has a pin.
+  AG:[17.1,-61.8], SZ:[-26.5,31.5], KI:[1.4,173.0], MH:[7.1,171.2], FM:[6.9,158.2],
+  NR:[-0.5,166.9], PW:[7.5,134.6], VC:[13.0,-61.2], ST:[0.2,6.6], TL:[-8.9,125.7],
+  TO:[-21.2,-175.2], TV:[-7.1,178.7],
 }
 
 export function coordsForCountry(code) {
