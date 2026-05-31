@@ -33,6 +33,11 @@ const RING_BLUR    = [0, 0, 0.7, 2.2]
 const RING_ALPHA   = [0, 1.00, 0.78, 0.50]
 const RING_STROKE  = ['','rgba(74,170,74,.20)','rgba(78,205,196,.14)','rgba(200,160,30,.11)']
 
+// The orbital plane is viewed at an angle → a tilted 3D disc. The y-axis is
+// squashed so the rings read as ellipses receding into depth; nodes at the
+// front (bottom) sit closer (bigger, sharper) than those at the back (top).
+const TILT_Y = 0.66
+
 const imgCache = {}
 const imgLoadCbs = new Set()
 
@@ -74,7 +79,12 @@ function layoutMembers(members, centerId) {
 
 function nodePos(ring, angleDeg, rotTicks, CX, CY) {
   const rad = (angleDeg * Math.PI / 180) + (rotTicks * RING_ROT_SPD[ring] * Math.PI / 180)
-  return { x: CX + RING_R[ring] * Math.cos(rad), y: CY + RING_R[ring] * Math.sin(rad) }
+  const s = Math.sin(rad)
+  return {
+    x: CX + RING_R[ring] * Math.cos(rad),
+    y: CY + RING_R[ring] * s * TILT_Y,
+    depth: s,   // -1 = back (top, farther) … +1 = front (bottom, nearer)
+  }
 }
 
 // Truncate to fit
@@ -151,23 +161,22 @@ export default function FamilyTreeOrb({
       const centerObj = centerRef.current
       const hovId  = hovRef.current
 
-      // ── Stars (fixed in screen space, not panned) ──────────────────────────
+      // ── Stars — parallax depth layer (drifts slower than the web on pan) ────
+      const px = panRef.current.x * 0.12, py = panRef.current.y * 0.12
       for (let i = 0; i < 110; i++) {
+        const sx = ((((Math.sin(i * 137.5 + 1) * 0.5 + 0.5) * W) + px) % W + W) % W
+        const sy = ((((Math.cos(i * 97.3  + 2) * 0.5 + 0.5) * H) + py) % H + H) % H
         ctx.beginPath()
-        ctx.arc(
-          (Math.sin(i * 137.5 + 1) * 0.5 + 0.5) * W,
-          (Math.cos(i * 97.3  + 2) * 0.5 + 0.5) * H,
-          0.4 + (i % 3) * 0.22, 0, Math.PI * 2
-        )
+        ctx.arc(sx, sy, 0.4 + (i % 3) * 0.22, 0, Math.PI * 2)
         ctx.fillStyle = `rgba(255,255,255,${0.004 + (i % 7) * 0.002})`
         ctx.fill()
       }
 
-      // ── Orbital ring circles ───────────────────────────────────────────────
+      // ── Orbital rings — tilted ellipses (the 3D disc) ──────────────────────
       ;[3, 2, 1].forEach(ri => {
         ctx.save()
         ctx.globalAlpha = RING_ALPHA[ri]
-        ctx.beginPath(); ctx.arc(CX, CY, RING_R[ri], 0, Math.PI * 2)
+        ctx.beginPath(); ctx.ellipse(CX, CY, RING_R[ri], RING_R[ri] * TILT_Y, 0, 0, Math.PI * 2)
         ctx.strokeStyle = RING_STROKE[ri]; ctx.lineWidth = 0.7
         ctx.setLineDash([3, 14]); ctx.stroke(); ctx.setLineDash([])
         ctx.restore()
@@ -187,9 +196,13 @@ export default function FamilyTreeOrb({
         const rMembers = layout.filter(m => m._ring === ri)
         if (!rMembers.length) return
 
-        rMembers.forEach(m => {
-          const p   = nodePos(m._ring, m._angle, rot, CX, CY)
-          const R   = NODE_R[m._ring]
+        // Draw back-to-front so nearer (front) nodes overlap farther ones.
+        rMembers
+          .map(m => ({ m, p: nodePos(m._ring, m._angle, rot, CX, CY) }))
+          .sort((a, b) => a.p.depth - b.p.depth)
+          .forEach(({ m, p }) => {
+          const depthN = p.depth * 0.5 + 0.5            // 0 = back … 1 = front
+          const R   = NODE_R[m._ring] * (0.78 + 0.22 * depthN)
           const c   = nc(m.alive)
           const hov = hovId === m.id
 
@@ -204,8 +217,9 @@ export default function FamilyTreeOrb({
           }
 
           ctx.save()
-          ctx.globalAlpha = RING_ALPHA[ri]
-          if (RING_BLUR[ri] > 0) ctx.filter = `blur(${RING_BLUR[ri]}px)`
+          ctx.globalAlpha = RING_ALPHA[ri] * (0.78 + 0.22 * depthN)   // back nodes recede
+          const nodeBlur = RING_BLUR[ri] + (1 - depthN) * 1.1         // + depth-of-field
+          if (nodeBlur > 0.05) ctx.filter = `blur(${nodeBlur}px)`
 
           const img = m.photo ? loadImg(m.photo, m.id) : null
           if (img?.complete && img.naturalWidth > 0) {
@@ -439,9 +453,25 @@ export default function FamilyTreeOrb({
         onTouchEnd={handleTouchEnd}
         style={{
           position:'fixed', top:0, left:0, width:'100%', height:'100%',
-          display:'block', touchAction:'none', cursor: 'grab',
+          display:'block', touchAction:'none', cursor: 'grab', zIndex:1,
         }}
       />
+
+      {/* Dreamy depth-of-field — blur ramps toward the extreme edges and clears
+          in the centre, so panning a member inward brings them into focus.
+          pointer-events:none → never blocks dragging/clicking the canvas. */}
+      <div aria-hidden style={{
+        position:'fixed', inset:0, zIndex:2, pointerEvents:'none',
+        backdropFilter:'blur(9px)', WebkitBackdropFilter:'blur(9px)',
+        maskImage:'radial-gradient(118% 118% at 50% 48%, transparent 36%, rgba(0,0,0,0.55) 68%, #000 100%)',
+        WebkitMaskImage:'radial-gradient(118% 118% at 50% 48%, transparent 36%, rgba(0,0,0,0.55) 68%, #000 100%)',
+      }} />
+
+      {/* Cinematic vignette — deepens the edges so the web feels recessed and 3D. */}
+      <div aria-hidden style={{
+        position:'fixed', inset:0, zIndex:3, pointerEvents:'none',
+        background:'radial-gradient(125% 125% at 50% 44%, transparent 46%, rgba(5,6,14,0.45) 76%, rgba(2,3,9,0.92) 100%)',
+      }} />
 
       {/* Pan-back-to-centre badge */}
       {panBadge && (
