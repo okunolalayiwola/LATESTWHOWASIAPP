@@ -48,9 +48,11 @@ export default function JoinPage() {
   async function handleSubmitClaim() {
     if (!relation) { setError('Please choose how you are related.'); return }
     if (!user) {
-      // Save intent and redirect to auth
+      // Save intent and redirect to auth. The next path must be URL-encoded —
+      // otherwise the nested ?code=… is parsed as a separate /auth param and the
+      // code is lost on the way back, so the claim can never be completed.
       sessionStorage.setItem('wwi_pending_claim', JSON.stringify({ code, relation, claimerName }))
-      navigate('/auth?next=/join?code=' + code)
+      navigate('/auth?next=' + encodeURIComponent('/join?code=' + code))
       return
     }
 

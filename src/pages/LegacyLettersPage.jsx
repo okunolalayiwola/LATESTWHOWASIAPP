@@ -1189,8 +1189,11 @@ export default function LegacyLettersPage() {
     }
   }
 
-  async function tryPIN(pin) {
-    if (authState === 'creatingPin') {
+  async function tryPIN(pin, creating = false) {
+    // `creating` is passed explicitly because setAuthState('creatingPin') is
+    // async — relying on authState here would read the stale value on the first
+    // PIN entry and wrongly fall through to verify (so no PIN ever saved).
+    if (creating || authState === 'creatingPin') {
       if (pinStep === 'enter') {
         setPinFirst(pin); setPinStep('confirm'); return
       }
@@ -1445,7 +1448,7 @@ export default function LegacyLettersPage() {
                   </div>
                   <PINInput
                     label={pinStep === 'confirm' ? 'Confirm your PIN' : 'Choose a 6-digit PIN'}
-                    onComplete={pin => { setAuthState('creatingPin'); tryPIN(pin) }}
+                    onComplete={pin => { setAuthState('creatingPin'); tryPIN(pin, true) }}
                     error={pinError}
                   />
                   <button onClick={() => setSetupStep('understand')}

@@ -8,12 +8,17 @@
 // This prevents returning users from being shown the onboarding questions again.
 
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { db } from '../lib/instant'
 
 export default function AuthPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  // Where to land after auth (e.g. resuming a /join?code=… invite). Only allow
+  // internal paths.
+  const rawNext = searchParams.get('next')
+  const next = rawNext && rawNext.startsWith('/') ? rawNext : null
   const [email,   setEmail]   = useState('')
   const [code,    setCode]    = useState('')
   const [step,    setStep]    = useState('email') // 'email' | 'code'
@@ -37,13 +42,15 @@ export default function AuthPage() {
             await db.transact([db.tx.profiles[profile.id].update({ onboarded: true })])
           } catch {}
         }
-        navigate('/dashboard', { replace: true })
+        navigate(next || '/dashboard', { replace: true })
       } else {
-        navigate('/onboarding', { replace: true })
+        // New user must onboard first — carry `next` through so they resume
+        // (e.g. finish accepting a family invite) once onboarding completes.
+        navigate(next ? `/onboarding?next=${encodeURIComponent(next)}` : '/onboarding', { replace: true })
       }
     } catch {
-      // Fallback: just go to dashboard and let the guard handle it
-      navigate('/dashboard', { replace: true })
+      // Fallback: honour next, else dashboard
+      navigate(next || '/dashboard', { replace: true })
     }
   }
 

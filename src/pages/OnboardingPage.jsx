@@ -13,7 +13,7 @@
 // After step 0 the localStorage flag `wwi_has_visited` is set.
 
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { id } from '@instantdb/react'
 import { db } from '../lib/instant'
@@ -28,6 +28,8 @@ function clearDraft()     { try { localStorage.removeItem(LS_KEY) } catch {} }
 
 export default function OnboardingPage() {
   const navigate = useNavigate()
+  const [obSearchParams] = useSearchParams()
+  const obNext = (() => { const n = obSearchParams.get('next'); return n && n.startsWith('/') ? n : null })()
   const { user } = db.useAuth()
 
   const [step,        setStep]        = useState(null)   // null = determining
@@ -230,7 +232,9 @@ export default function OnboardingPage() {
       clearDraft()
       setSaving(false)
 
-      if (action === 'create' && intent === 'self') navigate('/create?self=1')
+      // Resume a pending destination first (e.g. accepting a family invite).
+      if (obNext) navigate(obNext, { replace: true })
+      else if (action === 'create' && intent === 'self') navigate('/create?self=1')
       else if (action === 'create') navigate('/create')
       else navigate('/explore')
     } catch {
