@@ -23,10 +23,10 @@ export const PLANS = {
     features: [
       'One memorial',
       'Unlimited tributes & condolences',
+      'Family circle, chat & tree',
       'Photo gallery — up to 8 photos',
       'One sealed Legacy Letter',
       'Cinematic Life Reel',
-      'Privacy controls (public · family · private)',
     ],
   },
   premium: {
@@ -59,10 +59,8 @@ export const PLANS = {
     cta: 'Go Family',
     features: [
       'Everything in Premium',
-      'Family Circle — invite & connect relatives',
-      'Shared Vault access for family',
-      'Family tree across generations',
-      'Multiple contributors per memorial',
+      'Shared Vault access for trusted relatives',
+      'Built for families managing a legacy together',
       'Dedicated support',
     ],
   },
@@ -71,15 +69,15 @@ export const PLANS = {
 export const PLAN_LIST = PLAN_IDS.map((id) => PLANS[id])
 
 // ─── Entitlements — which plans unlock each gated capability ────────────────────
-// A feature absent from this map is ungated (available to everyone).
+// A feature absent from this map is ungated (available to everyone). Family
+// participation — the family circle, chat and tree — is intentionally free for
+// everyone; the Family plan's exclusive is sharing the Vault with relatives.
 export const FEATURES = {
   unlimitedMemorials: ['premium', 'family'],
   voiceCapture:       ['premium', 'family'],
   voiceConversation:  ['premium', 'family'],
   unlimitedGallery:   ['premium', 'family'],
   unlimitedLetters:   ['premium', 'family'],
-  familyCircle:       ['family'],
-  familyTree:         ['family'],
   sharedVault:        ['family'],
 }
 
@@ -90,9 +88,7 @@ export const FEATURE_COPY = {
   voiceConversation:  { title: 'Talk with their memory',    body: 'Hold a living voice conversation with their AI memory — a Premium feature.' },
   unlimitedGallery:   { title: 'Add more photos',           body: 'Free galleries hold up to 8 photos. Upgrade for an unlimited gallery.' },
   unlimitedLetters:   { title: 'Write more Legacy Letters', body: 'Free includes one sealed letter. Upgrade for unlimited time-sealed letters.' },
-  familyCircle:       { title: 'Invite your family',        body: 'Connect relatives and share access — part of the Family plan.' },
-  familyTree:         { title: 'Build your family tree',    body: 'Map your family across generations — part of the Family plan.' },
-  sharedVault:        { title: 'Share the Vault',           body: 'Give trusted family members access to the Legacy Vault — part of the Family plan.' },
+  sharedVault:        { title: 'Share the Vault with family', body: 'Give trusted relatives access to the will & documents in the Vault — part of the Family plan.' },
 }
 
 // ─── Numeric limits per plan ────────────────────────────────────────────────────

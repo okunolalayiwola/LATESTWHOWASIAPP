@@ -19,8 +19,8 @@ const COMPARE = [
   { label: 'Voice memory capture',      free: '—',        premium: '✓',         family: '✓' },
   { label: 'Living voice conversation', free: '—',        premium: '✓',         family: '✓' },
   { label: 'Legacy Vault (will & docs)',free: '—',        premium: '✓',         family: '✓' },
-  { label: 'Family Circle & sharing',   free: '—',        premium: '—',         family: '✓' },
-  { label: 'Family tree',               free: '—',        premium: '—',         family: '✓' },
+  { label: 'Family circle, chat & tree',free: '✓',        premium: '✓',         family: '✓' },
+  { label: 'Shared Vault access',       free: '—',        premium: '—',         family: '✓' },
   { label: 'Support',                   free: 'Standard', premium: 'Priority',  family: 'Dedicated' },
 ]
 
@@ -178,7 +178,7 @@ export default function PremiumPage() {
           {[
             { q: 'Can I cancel anytime?', a: 'Yes. You can downgrade or cancel at any time from Settings. Your memorials remain accessible.' },
             { q: 'What happens to voice memories if I downgrade?', a: 'Existing voice memories remain playable, but you cannot capture new voices on the Free plan.' },
-            { q: "What's the difference between Premium and Family?", a: 'Premium gives one person every remembrance feature — unlimited memorials, voice capture, and conversation. Family adds collaboration: invite relatives, share the Vault, and build a family tree together.' },
+            { q: "What's the difference between Premium and Family?", a: 'Premium gives one person every remembrance feature — unlimited memorials, voice capture, and conversation. Inviting relatives, the family circle, chat and tree are free for everyone. Family adds shared Vault access for trusted relatives and is built for households managing a legacy together, with dedicated support.' },
             { q: 'Is my data private?', a: 'Absolutely. Memorials have privacy controls (public, family-only, private). We never share your data.' },
           ].map((faq, i) => (
             <details key={i} className="glass rounded-2xl border border-white/10 group">

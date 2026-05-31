@@ -12,6 +12,7 @@ import { id } from '@instantdb/react'
 import { db } from '../lib/instant'
 import VaultDocuments from '../components/ui/VaultDocuments'
 import PINInput from '../components/ui/PINInput'
+import { usePaywall } from '../contexts/PaywallContext'
 import {
   getVaultId, setPIN, verifyPIN,
   isBiometricsAvailable, isBiometricsConditionalAvailable,
@@ -745,10 +746,13 @@ function VaultShareModal({ memorialId, memorialName, userId, familyConnections, 
 
 function VaultContent({ memorial, memorialId, userId, onLock, letters, wills, documents, loading = false, sessionLeft = 0 }) {
   const navigate                = useNavigate()
+  const { requireFeature }      = usePaywall()
   const [view, setView]         = useState('home')   // 'home' | 'will' | 'letters' | 'docs' | 'newLetter' | 'willBuilder'
   // Minutes until inactivity auto-lock — surfaced as a quiet security cue.
   const lockMins = Math.max(0, Math.ceil(sessionLeft / 60000))
   const [showShare, setShowShare] = useState(false)
+  // Sharing the Vault with relatives is the Family-plan exclusive.
+  const openShare = () => { if (requireFeature('sharedVault')) setShowShare(true) }
 
   // Approved family connections for this memorial — used in the share-PIN flow
   const { data: connData } = db.useQuery({
@@ -926,7 +930,7 @@ function VaultContent({ memorial, memorialId, userId, onLock, letters, wills, do
                 Send the vault PIN securely to selected family members via email.
               </p>
             </div>
-            <button onClick={() => setShowShare(true)}
+            <button onClick={openShare}
               className="flex-shrink-0 metal-btn text-black text-xs font-bold px-4 py-2 rounded-full">
               Share →
             </button>
