@@ -38,6 +38,31 @@ const RING_STROKE  = ['','rgba(74,170,74,.20)','rgba(78,205,196,.14)','rgba(200,
 // front (bottom) sit closer (bigger, sharper) than those at the back (top).
 const TILT_Y = 0.66
 
+// Low-detail continent outlines [lat, lng] for the geo-map backdrop. Rough on
+// purpose — they're drawn soft + blurred so they read as glowing landmasses
+// (a recognisable Earth) without needing a precise dataset.
+const CONTINENTS = [
+  // North America
+  [[71,-156],[69,-141],[60,-141],[55,-131],[48,-124],[40,-124],[33,-117],[23,-110],[18,-95],[18,-88],[21,-87],[26,-80],[30,-81],[35,-76],[41,-70],[47,-60],[52,-56],[60,-64],[66,-62],[68,-78],[69,-95],[71,-125]],
+  // Greenland
+  [[83,-30],[81,-20],[76,-20],[70,-22],[60,-44],[66,-53],[76,-58],[81,-45]],
+  // South America
+  [[12,-72],[11,-62],[5,-52],[-2,-44],[-8,-35],[-13,-38],[-23,-41],[-34,-54],[-41,-63],[-52,-69],[-55,-67],[-50,-74],[-38,-73],[-30,-71],[-18,-70],[-6,-81],[1,-80],[8,-77]],
+  // Africa
+  [[35,-6],[37,10],[33,22],[31,32],[15,40],[11,51],[2,46],[-5,40],[-17,38],[-26,33],[-34,26],[-35,20],[-29,16],[-18,12],[-6,9],[4,6],[5,-4],[10,-15],[15,-17],[21,-17],[30,-10]],
+  // Europe
+  [[71,25],[66,42],[60,30],[56,21],[54,10],[58,5],[63,5]],
+  [[60,-5],[50,-6],[43,-9],[36,-6],[37,3],[44,4],[50,2],[55,8],[60,12]],
+  // Asia (Eurasia main)
+  [[77,68],[75,100],[73,140],[68,178],[60,170],[52,142],[43,132],[38,122],[30,122],[22,110],[10,105],[8,98],[15,95],[20,88],[22,70],[25,62],[30,48],[40,50],[45,55],[55,60],[66,65]],
+  // India peninsula
+  [[28,70],[24,68],[18,73],[8,77],[13,80],[20,87],[26,90],[28,80]],
+  // Australia
+  [[-12,131],[-11,142],[-18,146],[-25,153],[-34,151],[-38,146],[-35,138],[-32,131],[-34,123],[-31,115],[-22,114],[-15,124]],
+  // Indonesia hint
+  [[5,95],[0,100],[-6,106],[-8,114],[-8,120],[-2,118],[2,109],[6,100]],
+]
+
 const imgCache = {}
 const imgLoadCbs = new Set()
 
@@ -187,57 +212,90 @@ export default function FamilyTreeOrb({
         const geo = geoRef.current
         const cLat = geo.center?.lat ?? 25
         const cLng = geo.center?.lng ?? 10
-        const PXY  = 6.2   // px per degree
+        const PXY  = 6.6   // px per degree
         const projGeo = (lat, lng) => ({ x: CX + (lng - cLng) * PXY, y: CY - (lat - cLat) * PXY })
 
-        // Faint world glow around the map centre
-        const wg = ctx.createRadialGradient(CX, CY, 40, CX, CY, 760)
-        wg.addColorStop(0, 'rgba(70,120,165,0.05)')
-        wg.addColorStop(1, 'rgba(70,120,165,0)')
-        ctx.beginPath(); ctx.arc(CX, CY, 760, 0, Math.PI * 2); ctx.fillStyle = wg; ctx.fill()
+        // Bright oceanic world glow — clearly reads as "the world" behind the web
+        const wg = ctx.createRadialGradient(CX, CY, 60, CX, CY, 900)
+        wg.addColorStop(0,   'rgba(52,120,180,0.34)')
+        wg.addColorStop(0.5, 'rgba(44,102,160,0.18)')
+        wg.addColorStop(1,   'rgba(40,95,150,0)')
+        ctx.beginPath(); ctx.arc(CX, CY, 900, 0, Math.PI * 2); ctx.fillStyle = wg; ctx.fill()
 
-        // Graticule — soft lat/lng grid that reads as a map
+        // Continent silhouettes — soft glowing landmasses so it reads as Earth
         ctx.save()
-        ctx.strokeStyle = 'rgba(120,165,205,0.055)'; ctx.lineWidth = 0.6
-        for (let lat = -60; lat <= 75; lat += 15) {
-          const a = projGeo(lat, -175), b = projGeo(lat, 175)
-          if (a.y < -60 || a.y > H + 60) continue
+        ctx.fillStyle = 'rgba(120,180,140,0.16)'
+        ctx.filter = 'blur(6px)'
+        CONTINENTS.forEach(poly => {
+          ctx.beginPath()
+          poly.forEach(([lat, lng], k) => { const p = projGeo(lat, lng); k ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y) })
+          ctx.closePath(); ctx.fill()
+        })
+        ctx.filter = 'none'
+        // crisp soft coastline glow on top
+        ctx.strokeStyle = 'rgba(150,215,180,0.30)'; ctx.lineWidth = 1
+        CONTINENTS.forEach(poly => {
+          ctx.beginPath()
+          poly.forEach(([lat, lng], k) => { const p = projGeo(lat, lng); k ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y) })
+          ctx.closePath(); ctx.stroke()
+        })
+        ctx.restore()
+
+        // Graticule — bold lat/lng grid
+        ctx.save()
+        ctx.strokeStyle = 'rgba(150,195,240,0.22)'; ctx.lineWidth = 1
+        for (let lat = -75; lat <= 75; lat += 15) {
+          const a = projGeo(lat, -178), b = projGeo(lat, 178)
+          if (a.y < -80 || a.y > H + 80) continue
           ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke()
         }
-        for (let lng = -165; lng <= 165; lng += 15) {
-          const a = projGeo(-65, lng), b = projGeo(82, lng)
-          if (a.x < -60 || a.x > W + 60) continue
+        for (let lng = -180; lng <= 180; lng += 15) {
+          const a = projGeo(-80, lng), b = projGeo(85, lng)
+          if (a.x < -80 || a.x > W + 80) continue
           ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke()
         }
+        // Brighter anchor lines — equator + prime meridian + tropics
+        ctx.strokeStyle = 'rgba(170,210,250,0.55)'; ctx.lineWidth = 1.6
+        ;[0, 23.5, -23.5].forEach(lat => {
+          const a = projGeo(lat, -178), b = projGeo(lat, 178)
+          if (a.y < -80 || a.y > H + 80) return
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke()
+        })
+        { const a = projGeo(-80, 0), b = projGeo(85, 0)
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke() }
         ctx.restore()
 
         // Tethers — node → its home glow (drawn behind rings/nodes)
         ctx.save()
-        ctx.setLineDash([2, 6]); ctx.lineWidth = 0.6
+        ctx.setLineDash([2, 5]); ctx.lineWidth = 0.8
         layout.forEach(m => {
           if (!m.coords) return
           const np = nodePos(m._ring, m._angle, rot, CX, CY)
           const g  = projGeo(m.coords.lat, m.coords.lng)
-          ctx.globalAlpha = (hovId === m.id ? 0.5 : 0.16)
-          ctx.strokeStyle = 'rgba(150,190,220,0.8)'
+          ctx.globalAlpha = (hovId === m.id ? 0.65 : 0.32)
+          ctx.strokeStyle = 'rgba(170,210,240,0.9)'
           ctx.beginPath(); ctx.moveTo(np.x, np.y); ctx.lineTo(g.x, g.y); ctx.stroke()
         })
         ctx.setLineDash([]); ctx.restore()
 
-        // Home glows + names
-        geo.locations.forEach(loc => {
+        // Home glows + names — prominent
+        const tNow = Date.now() / 1000
+        geo.locations.forEach((loc, i) => {
           const g = projGeo(loc.lat, loc.lng)
-          if (g.x < -50 || g.x > W + 50 || g.y < -50 || g.y > H + 50) return
-          const col = loc.alive !== false ? '74,170,74' : '200,160,30'
-          const gg = ctx.createRadialGradient(g.x, g.y, 0, g.x, g.y, 28)
-          gg.addColorStop(0, `rgba(${col},0.26)`); gg.addColorStop(1, `rgba(${col},0)`)
-          ctx.beginPath(); ctx.arc(g.x, g.y, 28, 0, Math.PI * 2); ctx.fillStyle = gg; ctx.fill()
-          ctx.beginPath(); ctx.arc(g.x, g.y, 2.6, 0, Math.PI * 2); ctx.fillStyle = `rgba(${col},0.9)`; ctx.fill()
+          if (g.x < -60 || g.x > W + 60 || g.y < -60 || g.y > H + 60) return
+          const col = loc.alive !== false ? '90,200,110' : '220,180,60'
+          const pulse = 0.5 + 0.5 * Math.sin(tNow * 1.1 + i * 0.7)
+          const gg = ctx.createRadialGradient(g.x, g.y, 0, g.x, g.y, 40)
+          gg.addColorStop(0, `rgba(${col},${0.42 + pulse * 0.12})`); gg.addColorStop(1, `rgba(${col},0)`)
+          ctx.beginPath(); ctx.arc(g.x, g.y, 40, 0, Math.PI * 2); ctx.fillStyle = gg; ctx.fill()
+          ctx.beginPath(); ctx.arc(g.x, g.y, 9 + pulse * 2, 0, Math.PI * 2)
+          ctx.strokeStyle = `rgba(${col},0.5)`; ctx.lineWidth = 1; ctx.stroke()
+          ctx.beginPath(); ctx.arc(g.x, g.y, 3.4, 0, Math.PI * 2); ctx.fillStyle = `rgba(${col},1)`; ctx.fill()
           ctx.save()
-          ctx.globalAlpha = 0.5
-          ctx.font = `600 9px 'Inter',-apple-system,sans-serif`
-          ctx.fillStyle = '#bcd9ec'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'
-          ctx.fillText(loc.name?.split(' ')[0] || '', g.x, g.y + 7)
+          ctx.globalAlpha = 0.82
+          ctx.font = `700 10px 'Inter',-apple-system,sans-serif`
+          ctx.fillStyle = '#dff0ff'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'
+          ctx.fillText(loc.name?.split(' ')[0] || '', g.x, g.y + 11)
           ctx.restore()
         })
       }
