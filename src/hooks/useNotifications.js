@@ -1,15 +1,31 @@
 // src/hooks/useNotifications.js
-// Real-time notification system built on top of InstantDB's live query.
-// No extra collection needed — derives "new" tributes by comparing against
-// a locally-stored "last seen" timestamp per user.
+// Notification feed backing the bell. Two sources, merged:
+//   1. Persistent `notifications` rows (likes, comments, family activity) —
+//      created via src/lib/notify.js and addressed to recipientId === user.id.
+//   2. Derived "new tribute" events on memorials the user owns (no row needed;
+//      compared against a per-user localStorage "last seen" timestamp).
 //
-// Usage:
-//   const { count, notifications, markAllSeen } = useNotifications(user)
+// Output items are normalised to { id, text, time, link, createdAt, seen } so
+// the bell can render them uniformly.
 
 import { useState, useEffect } from 'react'
 import { db } from '../lib/instant'
 
 const STORAGE_KEY = uid => `whowasi_notif_seen_${uid}`
+
+// Build a human sentence for a persistent notification row.
+function describe(n) {
+  const who = n.actorName || 'Someone'
+  const on  = n.memorialName ? ` on ${n.memorialName}` : ''
+  switch (n.type) {
+    case 'tribute_like':     return `${who} liked your tribute${on}`
+    case 'tribute_comment':  return `${who} commented on a tribute${on}`
+    case 'photo_comment':    return `${who} commented on a photo${on}`
+    case 'family_request':   return `${who} asked to join${on || ' your family'}`
+    case 'family_approved':  return `Your connection${on} was approved`
+    default:                 return `${who} interacted with your memorial${on}`
+  }
+}
 
 export function useNotifications(user) {
   // Persist "last seen" timestamp in localStorage so it survives page refresh
@@ -25,10 +41,13 @@ export function useNotifications(user) {
     setLastSeen(stored)
   }, [user?.id])
 
-  // Live query: user's memorials + recent tributes on each
+  // Live query: persistent notifications + user's memorials & recent tributes
   const { data } = db.useQuery(
     user
       ? {
+          notifications: {
+            $: { where: { recipientId: user.id }, order: { serverCreatedAt: 'desc' }, limit: 40 },
+          },
           memorials: {
             $: { where: { creatorId: user.id }, limit: 20 },
             tributes: { $: { limit: 30 } },
@@ -37,38 +56,59 @@ export function useNotifications(user) {
       : null
   )
 
+  const rows      = data?.notifications || []
   const memorials = data?.memorials || []
 
-  // Flatten tributes, exclude ones the owner posted themselves
-  const allTributes = memorials.flatMap(m =>
-    (m.tributes || []).map(t => ({
-      ...t,
-      memorialName: m.name,
-      memorialId:   m.id,
-    }))
+  // ── Source 1: persistent rows (likes / comments / family activity) ─────────
+  const rowItems = rows.map(n => ({
+    id:        n.id,
+    text:      describe(n),
+    time:      notifTimeAgo(n.createdAt),
+    link:      n.link || (n.memorialId ? `/memorial/${n.memorialId}` : null),
+    createdAt: n.createdAt || 0,
+    seen:      n.seen === true,
+  }))
+
+  // ── Source 2: derived new tributes on owned memorials ──────────────────────
+  const tributeItems = memorials.flatMap(m =>
+    (m.tributes || [])
+      .filter(t => (t.createdAt || 0) > lastSeen && t.authorId !== user?.id)
+      .map(t => ({
+        id:        t.id,
+        text:      `${t.authorName || 'Someone'} left a tribute on ${m.name}`,
+        time:      notifTimeAgo(t.createdAt),
+        link:      `/memorial/${m.id}`,
+        createdAt: t.createdAt || 0,
+        seen:      false,
+      }))
   )
 
-  // "New" = arrived after last seen + not from the owner themselves
-  const newTributes = allTributes.filter(
-    t => (t.createdAt || 0) > lastSeen && t.authorId !== user?.id
-  )
-
-  // Sort newest first
-  const notifications = [...newTributes].sort(
+  // Merge, newest first
+  const notifications = [...rowItems, ...tributeItems].sort(
     (a, b) => (b.createdAt || 0) - (a.createdAt || 0)
   )
 
-  function markAllSeen() {
+  // Unread = unseen rows + derived tributes after lastSeen
+  const unreadCount = notifications.filter(n => !n.seen).length
+
+  async function markAllSeen() {
     const now = Date.now()
     if (user?.id) localStorage.setItem(STORAGE_KEY(user.id), String(now))
     setLastSeen(now)
+    // Mark persistent rows as seen so the badge clears across devices.
+    const unseen = rows.filter(n => n.seen !== true)
+    if (unseen.length) {
+      try {
+        await db.transact(unseen.map(n => db.tx.notifications[n.id].update({ seen: true })))
+      } catch {}
+    }
   }
 
   return {
-    count:         notifications.length,
-    notifications, // array of tribute objects enriched with memorialName/memorialId
+    count:         unreadCount,
+    notifications, // normalised { id, text, time, link, createdAt, seen }
     markAllSeen,
-    hasNew:        notifications.length > 0,
+    hasNew:        unreadCount > 0,
   }
 }
 

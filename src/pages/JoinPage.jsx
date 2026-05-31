@@ -8,6 +8,7 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { id } from '@instantdb/react'
 import { db } from '../lib/instant'
+import { notify } from '../lib/notify'
 import RelationPicker from '../components/ui/RelationPicker'
 
 export default function JoinPage() {
@@ -77,6 +78,18 @@ export default function JoinPage() {
           requestedAt:  Date.now(),
         }),
       ])
+
+      // In-app bell notification for the family owner (in addition to email).
+      notify({
+        recipientId:  inviteData?.familyOwnerId,
+        type:         'family_request',
+        actorId:      user.id,
+        actorName:    claimerName || user.email?.split('@')[0] || 'A family member',
+        memorialId:   inviteData?.memorialId,
+        memorialName: inviteData?.memorialName,
+        preview:      `wants to connect as ${relation}`,
+        link:         '/dashboard',
+      })
 
       // Notify memorial owner via email — consolidated endpoint
       fetch('/api/email', {

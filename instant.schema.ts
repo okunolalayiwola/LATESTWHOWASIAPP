@@ -107,6 +107,22 @@ const _schema = i.schema({
       createdAt:   i.number(),
     }),
 
+    // ─── Notifications (bell feed: likes, comments, family activity) ─────────
+    notifications: i.entity({
+      recipientId:  i.string().indexed(),   // userId who should see this
+      type:         i.string(),             // tribute_like | tribute_comment | photo_comment | family_request | family_approved
+      actorId:      i.string().optional(),  // who triggered it
+      actorName:    i.string().optional(),
+      actorPhoto:   i.string().optional(),
+      memorialId:   i.string().optional().indexed(),
+      memorialName: i.string().optional(),
+      tributeId:    i.string().optional(),
+      preview:      i.string().optional(),  // comment text / tribute excerpt
+      link:         i.string().optional(),  // in-app path to open
+      seen:         i.boolean().optional(),
+      createdAt:    i.number(),
+    }),
+
     // ─── Profiles ────────────────────────────────────────────────────────────
     profiles: i.entity({
       userId:              i.string(),

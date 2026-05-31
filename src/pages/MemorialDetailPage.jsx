@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { id } from '@instantdb/react'
 import { db } from '../lib/instant'
 import { uploadImage, uploadAudio } from '../lib/storage'
+import { notify } from '../lib/notify'
 import useSEO from '../hooks/useSEO'
 import { useToast } from '../contexts/ToastContext'
 import { usePaywall } from '../contexts/PaywallContext'
@@ -1585,17 +1586,28 @@ function PhotoComments({ photoId, memorialId, user, userProfile, isFamilyMember 
     setSending(true)
     try {
       const displayName = userProfile?.displayName || user.email?.split('@')[0] || 'Family member'
+      const commentText = text.trim()
       await db.transact([
         db.tx.photoComments[id()].update({
           photoId, memorialId,
           authorId:    user.id,
           authorName:  displayName,
           authorPhoto: userProfile?.photoUrl || null,
-          content:     text.trim(),
+          content:     commentText,
           createdAt:   Date.now(),
         }),
       ])
       setText('')
+      // Notify the memorial owner that someone commented on a photo.
+      try {
+        const { data: nd } = await db.queryOnce({ memorials: { $: { where: { id: memorialId } } } })
+        const mem = nd?.memorials?.[0]
+        notify({
+          recipientId: mem?.creatorId, type: 'photo_comment', actorId: user.id, actorName: displayName,
+          actorPhoto: userProfile?.photoUrl, memorialId, memorialName: mem?.name,
+          preview: commentText, link: `/memorial/${memorialId}`,
+        })
+      } catch {}
     } finally { setSending(false) }
   }
 
@@ -2499,6 +2511,7 @@ function TributeComments({ tributeId, memorialId, user, userProfile, isFamilyMem
     setSending(true)
     try {
       const displayName = userProfile?.displayName || user.email?.split('@')[0] || 'Family member'
+      const commentText = text.trim()
       await db.transact([
         db.tx.tributeComments[id()].update({
           tributeId,
@@ -2506,11 +2519,29 @@ function TributeComments({ tributeId, memorialId, user, userProfile, isFamilyMem
           authorId:    user.id,
           authorName:  displayName,
           authorPhoto: userProfile?.photoUrl || null,
-          content:     text.trim(),
+          content:     commentText,
           createdAt:   Date.now(),
         }),
       ])
       setText('')
+      // Notify the tribute author + memorial owner (deduped, never self).
+      try {
+        const { data: nd } = await db.queryOnce({
+          tributes:  { $: { where: { id: tributeId } } },
+          memorials: { $: { where: { id: memorialId } } },
+        })
+        const trib = nd?.tributes?.[0]
+        const mem  = nd?.memorials?.[0]
+        const recipients = new Set()
+        if (trib?.authorId) recipients.add(trib.authorId)
+        if (mem?.creatorId) recipients.add(mem.creatorId)
+        recipients.delete(user.id)
+        recipients.forEach(rid => notify({
+          recipientId: rid, type: 'tribute_comment', actorId: user.id, actorName: displayName,
+          actorPhoto: userProfile?.photoUrl, memorialId, memorialName: mem?.name, tributeId,
+          preview: commentText, link: `/memorial/${memorialId}`,
+        }))
+      } catch {}
     } finally { setSending(false) }
   }
 
@@ -3381,15 +3412,34 @@ function MemorialDetailPageInner() {
       ])
       setShowTributeForm(false)
       setActiveTab('Tributes')
-      fetch('/api/tribute-notification', {
+      // Consolidated endpoint (the standalone /api/tribute-notification was never
+      // deployed — we're at Vercel's 12-function cap, so it lives in /api/email).
+      fetch('/api/email', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ memorialId, tributeText: text.trim(), tributeType: 'tribute', authorName: user?.email?.split('@')[0] || 'Anonymous' }),
+        body: JSON.stringify({ action: 'tribute-notification', memorialId, tributeText: text.trim(), tributeType: 'tribute', authorName: user?.email?.split('@')[0] || 'Anonymous' }),
       }).catch(() => {})
     } finally { setSubmitting(false) }
   }
 
   async function handleLikeTribute(tributeId, currentLikes) {
     try { await db.transact([db.tx.tributes[tributeId].update({ likes: (currentLikes || 0) + 1 })]) } catch {}
+    // Notify the tribute author that their tribute was liked (best-effort).
+    try {
+      const trib = tributes.find(t => t.id === tributeId)
+      const myName = userProfile?.displayName || user?.email?.split('@')[0] || 'Someone'
+      notify({
+        recipientId: trib?.authorId,
+        type: 'tribute_like',
+        actorId: user?.id,
+        actorName: myName,
+        actorPhoto: userProfile?.photoUrl,
+        memorialId,
+        memorialName: memorial.name,
+        tributeId,
+        preview: trib?.content || trib?.text,
+        link: `/memorial/${memorialId}`,
+      })
+    } catch {}
   }
 
   async function handleDeleteTribute(tributeId) {

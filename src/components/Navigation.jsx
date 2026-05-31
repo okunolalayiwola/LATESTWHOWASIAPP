@@ -75,12 +75,18 @@ export default function Navigation() {
                       <div className="max-h-72 overflow-y-auto scrollbar-hide">
                         {notifications.length === 0
                           ? <p className="text-xs text-white/30 text-center py-6">All caught up ✦</p>
-                          : notifications.map((n, i) => (
-                            <div key={i} className="px-4 py-3 hover:bg-white/4 border-b border-white/5 last:border-0">
-                              <p className="text-xs text-white/65 leading-relaxed">{n.text}</p>
-                              <p className="text-[0.55rem] text-white/25 mt-1">{n.time}</p>
-                            </div>
-                          ))
+                          : notifications.map((n, i) => {
+                            const inner = (
+                              <>
+                                <p className="text-xs text-white/65 leading-relaxed">{n.text}</p>
+                                <p className="text-[0.55rem] text-white/25 mt-1">{n.time}</p>
+                              </>
+                            )
+                            const cls = `block px-4 py-3 hover:bg-white/4 border-b border-white/5 last:border-0 ${!n.seen ? 'bg-gold/5' : ''}`
+                            return n.link
+                              ? <Link key={n.id || i} to={n.link} onClick={() => setBellOpen(false)} className={cls}>{inner}</Link>
+                              : <div key={n.id || i} className={cls}>{inner}</div>
+                          })
                         }
                       </div>
                     </motion.div>

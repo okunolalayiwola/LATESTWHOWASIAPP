@@ -21,9 +21,9 @@ export default function ReportModal({ tribute, memorialName, onClose }) {
     if (!reason) return
     setSubmitting(true)
     try {
-      await fetch('/api/report-tribute', {
+      await fetch('/api/email', {
         method:'POST', headers:{ 'Content-Type':'application/json' },
-        body:JSON.stringify({ tributeId:tribute.id, tributeText:tribute.text, authorName:tribute.authorName, memorialName, reason, note })
+        body:JSON.stringify({ action:'report-tribute', tributeId:tribute.id, tributeText:tribute.text, authorName:tribute.authorName, memorialName, reason, note })
       })
       setDone(true)
     } catch {}
