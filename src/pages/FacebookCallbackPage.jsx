@@ -3,8 +3,8 @@
 //
 // Route: /auth/facebook/callback
 // Receives the authorization code from Facebook's OAuth flow,
-// exchanges it for an access token, and redirects back to the
-// SocialImportPage or the memorial detail page.
+// exchanges it for an access token, and redirects back to where the
+// user started (state) or the dashboard.
 
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'

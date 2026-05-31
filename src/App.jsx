@@ -35,7 +35,6 @@ const EditMemorialPage     = lazyWithRetry(() => import('./pages/EditMemorialPag
 
 const ConversationPage     = lazyWithRetry(() => import('./pages/ConversationPage'))
 const LegacyLettersPage    = lazyWithRetry(() => import('./pages/LegacyLettersPage'))
-const SocialImportPage     = lazyWithRetry(() => import('./pages/SocialImportPage'))
 
 const DashboardPage        = lazyWithRetry(() => import('./pages/DashboardPage'))
 const ProfilePage          = lazyWithRetry(() => import('./pages/ProfilePage'))
@@ -252,7 +251,6 @@ function AppInner() {
 
               <Route path="/memorial/:id/conversation" element={<ConversationPage />}    />
               <Route path="/memorial/:id/letters"      element={<LegacyLettersPage />}   />
-              <Route path="/memorial/:id/import"       element={<SocialImportPage />}    />
               <Route path="/memorial/:id/persona"      element={<PersonaProfilePage />}  />
 
               <Route path="/reels"       element={<ReelsPage />}          />
