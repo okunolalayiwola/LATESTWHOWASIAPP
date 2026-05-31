@@ -20,36 +20,30 @@ import ToggleRow from '../components/ui/ToggleRow'
 import { useToast } from '../contexts/ToastContext'
 import ContactSupportModal from '../components/ui/ContactSupportModal'
 import EmailChangeModal    from '../components/ui/EmailChangeModal'
+import { PLANS as PLAN_DEFS, PLAN_IDS, normalizePlan, planRank, planLimit, CURRENCY } from '../lib/plans'
 
 // ─── Plan config ──────────────────────────────────────────────────────────────
+// Tiers, prices and features come from the single source of truth (lib/plans).
+// This map only carries the presentation theming for each tier.
 
-const PLANS = {
-  free: {
-    name:     'Free',
-    gradient: 'from-white/20 to-white/5',
-    badge:    'rgba(255,255,255,0.12)',
-    color:    '#fff',
-    limit:    '1 memorial',
-    features: ['1 living memorial', 'Tributes & candles', 'QR code', 'Family tree (3 members)'],
-  },
-  family: {
-    name:     'Family',
-    gradient: 'from-gold/30 to-sky/20',
-    badge:    'rgba(255,215,0,0.20)',
-    color:    '#FFD700',
-    limit:    '5 memorials',
-    price:    '£9 / month',
-    features: ['5 living memorials', 'Voice preserved', 'Legacy vault', 'Talk-with (20/day)', 'Unlimited family tree'],
-  },
-  legacy: {
-    name:     'Legacy',
-    gradient: 'from-lavender/30 to-coral/20',
-    badge:    'rgba(192,132,252,0.20)',
-    color:    '#C084FC',
-    limit:    'Unlimited memorials',
-    price:    '£24 / month',
-    features: ['Unlimited memorials', 'Unlimited talk-with', 'Will & estate builder', 'Priority support', 'Custom domain'],
-  },
+const PLAN_VISUALS = {
+  free:    { gradient: 'from-white/20 to-white/5',    badge: 'rgba(255,255,255,0.12)', color: '#fff',    emoji: '◎' },
+  premium: { gradient: 'from-gold/30 to-sky/20',      badge: 'rgba(255,215,0,0.20)',   color: '#FFD700', emoji: '✦' },
+  family:  { gradient: 'from-lavender/30 to-coral/20', badge: 'rgba(192,132,252,0.20)', color: '#C084FC', emoji: '♡' },
+}
+
+// Build the display model for a plan id from the central definition + visuals.
+function planDisplay(planId) {
+  const id = normalizePlan(planId)
+  const def = PLAN_DEFS[id]
+  const vis = PLAN_VISUALS[id] || PLAN_VISUALS.free
+  return {
+    ...vis,
+    name:     def.name,
+    price:    def.price ? `${CURRENCY}${def.price}${def.period}` : '',
+    limit:    planLimit(id, 'memorials') === Infinity ? 'Unlimited memorials' : `${planLimit(id, 'memorials')} memorial`,
+    features: def.features,
+  }
 }
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
@@ -280,8 +274,9 @@ export default function ProfilePage() {
   const totalLetters   = letters.length
   const totalViews     = memorials.reduce((s, m) => s + (m.viewCount || 0), 0)
 
-  const plan     = profile?.plan || 'free'
-  const planInfo = PLANS[plan] || PLANS.free
+  const plan     = normalizePlan(profile?.plan)
+  const planInfo = planDisplay(plan)
+  const nextPlanId = PLAN_IDS[planRank(plan) + 1] || null   // null when already on the top tier
 
   const memberSince = profile?.createdAt
     ? new Date(profile.createdAt).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
@@ -537,7 +532,7 @@ export default function ProfilePage() {
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center"
                   style={{ background: `${planInfo.color}18`, border: `1px solid ${planInfo.color}30` }}>
                   <span className="text-lg" style={{ color: planInfo.color }}>
-                    {plan === 'free' ? '◎' : plan === 'family' ? '✿' : '☽'}
+                    {planInfo.emoji}
                   </span>
                 </div>
               </div>
@@ -552,19 +547,17 @@ export default function ProfilePage() {
                 </div>
               ))}
             </div>
-            {/* Upgrade CTA */}
-            {plan !== 'legacy' && (
+            {/* Upgrade CTA — only when there's a higher tier to move to */}
+            {nextPlanId && (
               <div className="px-5 pb-5">
                 <div className="sharp-divider mb-4" />
-                <Link to="/premium"
+                <Link to={`/premium?plan=${nextPlanId}`}
                   className="flex items-center justify-between px-4 py-3 rounded-xl rubber-btn hover:opacity-90 transition-opacity">
                   <div>
                     <p className="text-sm font-semibold text-white">
-                      {plan === 'free' ? 'Upgrade to Family' : 'Upgrade to Legacy'}
+                      Upgrade to {PLAN_DEFS[nextPlanId].name}
                     </p>
-                    <p className="text-xs text-white/35">
-                      {plan === 'free' ? 'Unlock voice preservation, vault & more' : 'Unlimited everything'}
-                    </p>
+                    <p className="text-xs text-white/35">{PLAN_DEFS[nextPlanId].tagline}</p>
                   </div>
                   <svg className="w-5 h-5 text-gold flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
@@ -744,7 +737,7 @@ export default function ProfilePage() {
             <SettingsRow icon="✿" label="Family tree"                  onClick={() => navigate('/family-tree')} />
             <SettingsRow icon="☽" label="Legacy vault"                 onClick={() => navigate('/dashboard')} />
             <SettingsRow icon="◎" label="Explore memorials"            onClick={() => navigate('/explore')} />
-            <SettingsRow icon="♕" label="Premium plans"                onClick={() => navigate('/premium')} badge="Upgrade" />
+            <SettingsRow icon="♕" label="Plans & billing"              onClick={() => navigate('/premium')} badge={nextPlanId ? 'Upgrade' : null} />
           </div>
         </div>
 

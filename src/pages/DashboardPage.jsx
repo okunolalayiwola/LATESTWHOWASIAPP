@@ -16,6 +16,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { db } from '../lib/instant'
 import { useToast } from '../contexts/ToastContext'
+import { usePaywall } from '../contexts/PaywallContext'
 import { usePullToRefresh } from '../hooks'
 import { useActivityFeed } from '../hooks/useActivityFeed'
 import FamilyMessagesSection from '../components/shared/FamilyMessagesSection'
@@ -933,6 +934,7 @@ export default function DashboardPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { user, isLoading: authLoading } = db.useAuth()
+  const { plan, limit: planLimit, requireFeature } = usePaywall()
   // Tab can be opened directly via ?tab=messages (e.g. from the top nav Chat link)
   const [activeTab,       setActiveTab]       = useState(() => searchParams.get('tab') || 'overview')
 
@@ -1137,7 +1139,7 @@ export default function DashboardPage() {
                 <span className="sp">.</span>
               </h1>
               <p className="subtitle">
-                You have <b>{memorials.length}</b> memorial{memorials.length !== 1 ? 'ies' : 'y'}
+                You have <b>{memorials.length}</b> memorial{memorials.length !== 1 ? 's' : ''}
                 {publicCount > 0 && ` (${publicCount} public, ${privateCount} private)`}.
               </p>
             </div>
@@ -1159,7 +1161,14 @@ export default function DashboardPage() {
                   </span>
                 </button>
               )}
-              <Link to="/create" className="btn-new">
+              <Link to="/create" className="btn-new"
+                onClick={e => {
+                  // Free accounts get one memorial — trip the paywall instead of
+                  // loading /create only to be bounced back.
+                  if (memorials.length >= planLimit('memorials') && !requireFeature('unlimitedMemorials')) {
+                    e.preventDefault()
+                  }
+                }}>
                 <span className="disc">+</span>
                 New Memorial
               </Link>
@@ -1304,12 +1313,21 @@ export default function DashboardPage() {
                     <div className="qs">View & edit your profile</div>
                     <span className="arr">→</span>
                   </Link>
-                  <Link to="/premium" className="premium">
-                    <div className="qic lav">✦</div>
-                    <div className="qt">Go Premium</div>
-                    <div className="qs">Unlock voice memory & more</div>
-                    <span className="arr">→</span>
-                  </Link>
+                  {plan === 'free' ? (
+                    <Link to="/premium" className="premium">
+                      <div className="qic lav">✦</div>
+                      <div className="qt">Go Premium</div>
+                      <div className="qs">Unlock voice memory & more</div>
+                      <span className="arr">→</span>
+                    </Link>
+                  ) : (
+                    <Link to="/premium">
+                      <div className="qic lav">✦</div>
+                      <div className="qt">Your plan</div>
+                      <div className="qs">{plan === 'family' ? 'Family' : 'Premium'} · manage</div>
+                      <span className="arr">→</span>
+                    </Link>
+                  )}
                 </div>
 
               </motion.div>
